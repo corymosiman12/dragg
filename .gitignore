@@ -1,0 +1,4 @@
+.python-version
+*.pyc
+.DS_Store
+.idea
