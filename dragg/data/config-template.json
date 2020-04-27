@@ -1,0 +1,20 @@
+{
+  "total_number_homes": 100,
+  "homes_battery": 20,
+  "homes_pv": 20,
+  "homes_pv_battery": 15,
+  "home_hvac_r_dist_low": 6.8,
+  "home_hvac_r_dist_high": 9.2,
+  "home_hvac_c_dist_low": 4.25,
+  "home_hvac_c_dist_high": 5.75,
+  "home_hvac_p_dist_low": 3.5,
+  "home_hvac_p_dist_high": 3.5,
+  "battery_max_rate": 5,
+  "battery_capacity": 13.5,
+  "battery_lower_bound": 0.15,
+  "battery_upper_bound": 0.85,
+  "pv_area": 32,
+  "start_datetime": "2015-01-01 01",
+  "end_datetime": "2015-01-01 23",
+  "prediction_horizons": [4, 8, 12]
+}
