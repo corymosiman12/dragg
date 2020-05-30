@@ -100,7 +100,7 @@ class Aggregator:
         self.epsilon = float(self.config["agg_exploration_rate"])
         self.alpha = float(self.config["agg_learning_rate"])
         self.lam = float(self.config["rl_agg_regularization_factor"])
-        self.theta = -1*np.vstack(np.ones(6))
+        self.theta = np.vstack(np.zeros(6))
         self.beta = float(self.config["rl_agg_discount_factor"])
 
     def _import_config(self):
@@ -526,23 +526,26 @@ class Aggregator:
         return rp
 
     def _calc_state(self):
-        xk = (self.agg_load - self.agg_setpoint)
+        # xk = (self.agg_load - self.agg_setpoint)/self.agg_setpoint
+        xk = (self.agg_load-self.agg_setpoint)/self.agg_setpoint
         return xk
 
-    def _cost(self):
-        # return (self.state-self.agg_setpoint)**2-(self.prev_state-self.agg_setpoint)**2
-        return self.state**2
+    def _cost(self, xk, xk1):
+        sigma = 0.1
+        mu = 0
+        return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
 
     def _q(self, state, action):
         q = np.matmul(self.theta.T, self._phi(state, action))
         return q
 
     def _phi(self, state, action):
-        phi = np.array([1, state, action, state*action, state**2, action**2])
+        # phi = np.array([1, state, action, state*action, state**2, action**2])
+        phi = np.array([1, state, action, 0, 0, 0])
         return phi
 
     def _qvalue(self):
-        q_k = self._cost() + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state))
+        q_k = self._cost(self.state, self.next_state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state))
         return q_k
 
     def _get_greedyaction(self, state_k):
@@ -563,55 +566,57 @@ class Aggregator:
             prob = cp.Problem(obj, cons)
             prob.solve(solver=cp.ECOS, method="dccp", verbose=False)
             uk = u_k.value[0]
-        except: # some errors with the gradient of the Q function. how to resolve?
+        except:
             uk = 0
             self.greedy_failed = True
         return uk
 
-    def _update_qfunctiton(self):
-        self.q_k = np.array(self._qvalue())
-        self.phi_k = self._phi(self.state, self.action)
-        self.phi_k1 = self._phi(self.next_state, self._get_greedyaction(self.next_state))
+    def update_qfunction(self):
+        # self.q_k = np.array(self._qvalue())
+        # self.phi_k = self._phi(self.state, self.action)
+        # self.phi_k1 = self._phi(self.next_state, self._get_greedyaction(self.next_state))
+        #
+        # if self.timestep == 0: # initialize self.phi and self.q
+        #     self.q = self.q_k
+        #     self.phi = self.phi_k
+        # else: # tack on new observed values
+        #     self.q = np.vstack((self.q, self.q_k))
+        #     self.phi = np.vstack((self.phi, self.phi_k))
+        #
+        # if self.timestep > 24: # remove old observation values
+        #     self.q = self.q[1:,]
+        #     self.phi = self.phi[1:,]
+        #
+        # # # Ridge Regression
+        # # phi_sq = np.matmul(np.vstack(self.phi).T, np.vstack(self.phi))
+        # # state_inv = np.asmatrix(phi_sq + self.lam * np.eye(6)).I
+        # # state_inv = np.matmul(state_inv, np.asmatrix(self.phi).T)
+        # # self.theta_k = np.matmul(state_inv, np.asmatrix(self.q))
+        #
+        # # # Lasso Regression
+        # # clf = Lasso()
+        # # clf.fit(self.phi.reshape((-1,6)), self.q.reshape((-1,1)))
+        # # self.theta_k = np.array(clf.coef_)
+        #
+        # # # Elastic Net Regression
+        # # clf = ElasticNet()
+        # # clf.fit(self.phi.reshape((-1,6)), self.q.reshape((-1,1)))
+        # # self.theta_k = np.array(clf.coef_)
+        # #
+        # # self.theta = self.theta_k.flatten()
+        # # # self.theta = (1-self.alpha)*self.theta + self.alpha*(self.theta_k)
+        # # # self.theta = self.theta + self.alpha*(self.theta_k - self.theta)
+        # # self.theta.tolist()
 
-        if self.timestep == 0: # initialize self.phi and self.q
-            self.q = self.q_k
-            self.phi = self.phi_k
-        else: # tack on new observed values
-            self.q = np.vstack((self.q, self.q_k))
-            self.phi = np.vstack((self.phi, self.phi_k))
-
-        if self.timestep > 24: # remove old observation values
-            self.q = self.q[1:,]
-            self.phi = self.phi[1:,]
-
-        # # Ridge Regression
-        # phi_sq = np.matmul(np.vstack(self.phi).T, np.vstack(self.phi))
-        # state_inv = np.asmatrix(phi_sq + self.lam * np.eye(6)).I
-        # state_inv = np.matmul(state_inv, np.asmatrix(self.phi).T)
-        # self.theta_k = np.matmul(state_inv, np.asmatrix(self.q))
-
-        # # Lasso Regression
-        # clf = Lasso()
-        # clf.fit(self.phi.reshape((-1,6)), self.q.reshape((-1,1)))
-        # self.theta_k = np.array(clf.coef_)
-
-        # Elastic Net Regression
-        clf = ElasticNet()
-        clf.fit(self.phi.reshape((-1,6)), self.q.reshape((-1,1)))
-        self.theta_k = np.array(clf.coef_)
-
-        self.theta = self.theta_k.flatten()
-        # self.theta = (1-self.alpha)*self.theta + self.alpha*(self.theta_k)
-        # self.theta = self.theta + self.alpha*(self.theta_k - self.theta)
-        self.theta.tolist()
-
-        # # self.q_k = self._qvalue()
-        # self.theta = self.theta.flatten()
-        # self.phi_k = (self._phi(self.state, self.action))
-        # self.phi_k1 = (self._phi(self.next_state, self._get_greedyaction(self.next_state)))
-        # self.q = self._qvalue()
-        # self.theta = self.theta - self.alpha*(np.matmul(self.phi_k,self.theta) - self._cost() - np.matmul(self.phi_k1,self.theta))*np.transpose((self.phi_k - self.phi_k1))
-        # # self.theta = np.random.randn(6)
+        # self.q_k = self._qvalue()
+        self.theta = self.theta.flatten()
+        self.phi_k = (self._phi(self.state, self.action))
+        next_action = self._get_greedyaction(self.next_state)
+        self.phi_k1 = (self._phi(self.next_state, next_action))
+        self.q = self._qvalue()
+        if self.timestep > 10:
+            self.theta = self.theta + self.alpha * (self._q(self.state, self.action) - self._cost(self.next_state) - self.beta*self._q(self.next_state, next_action))*np.transpose(self.phi_k - self.phi_k1)
+        # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
         self.actionspace = self.config["action_space"]
@@ -659,14 +664,20 @@ class Aggregator:
 
     def collect_data(self):
         agg_load = 0
+        agg_cost = 0
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.hgetall(home["name"])
                 for k, v in vals.items():
                     self.baseline_data[home["name"]][k].append(float(v))
                 agg_load += float(vals["p_grid_opt"])
+                agg_cost += float(vals["cost_opt"])
         self.agg_load = agg_load
+        self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(agg_load)
+
+    def collect_fake_data(self):
+        self.baseline_agg_load_list.append(self.agg_load)
 
     def check_agg_mpc_data(self):
         self.agg_load = 0
@@ -689,13 +700,6 @@ class Aggregator:
         self.agg_mpc_data[self.timestep]["agg_load"].append(self.agg_load)
 
     def record_rl_agg_data(self):
-        self.agg_load = 0
-        self.agg_cost = 0
-        for home in self.all_homes:
-            # self.check_type ?
-            vals = self.redis_client.hgetall(home["name"])
-            self.agg_load += float(vals["p_grid_opt"])
-            self.agg_cost += float(vals["cost_opt"])
         # self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
         # self.baseline_agg_load_list.append(self.agg_load)
         self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
@@ -712,7 +716,8 @@ class Aggregator:
         self.rl_q_data["theta"].append(self.theta.flatten().tolist())
         # self.rl_q_data["theta_k"].append(self.theta_k.flatten().tolist())
         self.rl_q_data["phi"].append(self.phi_k.tolist())
-        self.rl_q_data["q"].append(self.q_k.tolist())
+        # self.rl_q_data["q"].append(self.q_k.tolist())
+        self.rl_q_data["q"].append(self.q)
         self.rl_q_data["action"].append(self.action.tolist())
         self.rl_q_data["state"].append(self.state)
         self.rl_q_data["is_greedy"].append(self.is_greedy)
@@ -856,7 +861,6 @@ class Aggregator:
         temp["state"] = [0]
         temp["is_greedy"] = []
         temp["greedy_failed"] = []
-        temp["e"] = []
         return temp
 
     def _read_setpoint(self):
@@ -875,12 +879,19 @@ class Aggregator:
         # daily_offset = 6
         # sp = (max_p_grid - min_p_grid)*np.sin((self.timestep-6) * 3.14/12) + (min_p_grid + max_p_grid)/2
         # return sp
-        i = self.timestep % 24
-        if i >= 12:
-            sp = 60
-        else:
-            sp = 10
+        # i = self.timestep % 24
+        # if i >= 12:
+        #     sp = 60
+        # else:
+        #     sp = 10
+        sp = 40
         return sp
+
+    def test_response(self):
+        if self.timestep == 0:
+            self.agg_load = 40
+        self.agg_load += self.agg_load*0.001
+        self.agg_cost = self.agg_load * self.reward_price
 
     def run_rl_agg(self, alpha, epsilon, horizon):
         self.agg_log.logger.info(f"Performing RL AGG (learning rate: {alpha}, exploration rate: {epsilon}) with MPC HEMS for horizon: {horizon}")
@@ -900,12 +911,14 @@ class Aggregator:
                 if self.check_type == "all" or home["type"] == self.check_type:
                     self.queue.put(home)
             self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
-
             self.collect_data()
+            # self.test_response()
+            # self.collect_fake_data()
+
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
             # self.collect_data()
-            self._update_qfunctiton()
+            self.update_qfunction()
             self.record_rl_q_data()
 
             self.timestep += 1
