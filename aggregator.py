@@ -530,7 +530,7 @@ class Aggregator:
         xk = (self.agg_load-self.agg_setpoint)/self.agg_setpoint
         return xk
 
-    def _cost(self, xk, xk1):
+    def _cost(self, x):
         sigma = 0.1
         mu = 0
         return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
@@ -545,7 +545,7 @@ class Aggregator:
         return phi
 
     def _qvalue(self):
-        q_k = self._cost(self.state, self.next_state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state))
+        q_k = self._cost(self.next_state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state))
         return q_k
 
     def _get_greedyaction(self, state_k):
@@ -615,7 +615,7 @@ class Aggregator:
         self.phi_k1 = (self._phi(self.next_state, next_action))
         self.q = self._qvalue()
         if self.timestep > 10:
-            self.theta = self.theta + self.alpha * (self._q(self.state, self.action) - self._cost(self.next_state) - self.beta*self._q(self.next_state, next_action))*np.transpose(self.phi_k - self.phi_k1)
+            self.theta = self.theta - self.alpha * (self._q(self.state, self.action) - self._cost(self.next_state) - self.beta*self._q(self.next_state, next_action))*np.transpose(self.phi_k - self.phi_k1)
         # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
