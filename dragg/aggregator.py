@@ -888,9 +888,10 @@ class Aggregator:
         return sp
 
     def test_response(self):
+        c = 0.4
         if self.timestep == 0:
             self.agg_load = 40
-        self.agg_load += self.agg_load*0.001
+        self.agg_load += c * self.reward_price * self.agg_load
         self.agg_cost = self.agg_load * self.reward_price
 
     def run_rl_agg(self, alpha, epsilon, horizon):
