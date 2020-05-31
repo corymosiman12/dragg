@@ -613,9 +613,9 @@ class Aggregator:
         self.phi_k = (self._phi(self.state, self.action))
         next_action = self._get_greedyaction(self.next_state)
         self.phi_k1 = (self._phi(self.next_state, next_action))
-        self.q = self._qvalue()
+        self.q_observed = self._qvalue()
         if self.timestep > 10:
-            self.theta = self.theta - self.alpha * (self._q(self.state, self.action) - self._cost(self.next_state) - self.beta*self._q(self.next_state, next_action))*np.transpose(self.phi_k - self.phi_k1)
+            self.theta = self.theta - self.alpha * (self._q(self.state, self.action) - self.q_observed)*np.transpose(self.phi_k - self.phi_k1)
         # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
@@ -717,7 +717,7 @@ class Aggregator:
         # self.rl_q_data["theta_k"].append(self.theta_k.flatten().tolist())
         self.rl_q_data["phi"].append(self.phi_k.tolist())
         # self.rl_q_data["q"].append(self.q_k.tolist())
-        self.rl_q_data["q"].append(self.q)
+        self.rl_q_data["q"].append(self.q_observed)
         self.rl_q_data["action"].append(self.action.tolist())
         self.rl_q_data["state"].append(self.state)
         self.rl_q_data["is_greedy"].append(self.is_greedy)
@@ -888,10 +888,10 @@ class Aggregator:
         return sp
 
     def test_response(self):
-        c = 0.4
+        c = 0.6
         if self.timestep == 0:
             self.agg_load = 40
-        self.agg_load += c * self.reward_price * self.agg_load
+        self.agg_load -= c * self.reward_price * self.agg_load
         self.agg_cost = self.agg_load * self.reward_price
 
     def run_rl_agg(self, alpha, epsilon, horizon):
