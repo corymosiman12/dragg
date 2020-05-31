@@ -907,13 +907,13 @@ class Aggregator:
             self.rl_update_reward_price()
             self.redis_set_current_values() # broadcast rl price to community
 
-            for home in self.all_homes:
-                if self.check_type == "all" or home["type"] == self.check_type:
-                    self.queue.put(home)
-            self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
-            self.collect_data()
-            # self.test_response()
-            # self.collect_fake_data()
+            # for home in self.all_homes:
+            #     if self.check_type == "all" or home["type"] == self.check_type:
+            #         self.queue.put(home)
+            # self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
+            # self.collect_data()
+            self.test_response()
+            self.collect_fake_data()
 
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
