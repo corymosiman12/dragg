@@ -889,9 +889,9 @@ class Aggregator:
         return sp
 
     def test_response(self):
-        c = 0.4
+        c = 0.8
         if self.timestep == 0:
-            self.agg_load = 40
+            self.agg_load = self.agg_setpoint + np.random.rand()*self.agg_setpoint
         self.agg_load -= c * self.reward_price * self.agg_load
         self.agg_cost = self.agg_load * self.reward_price
 

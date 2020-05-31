@@ -40,7 +40,7 @@
   "agg_learning_rate": 0.9,
   "agg_exploration_rate": 0.1,
   "rl_agg_regularization_factor": 0.001,
-  "rl_agg_discount_factor": 0.2,
+  "rl_agg_discount_factor": 0.3,
   "shoulder_times": [9,21],
   "peak_times": [14,18],
   "offpeak_price": 0.07,
