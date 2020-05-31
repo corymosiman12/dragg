@@ -338,7 +338,7 @@ class Reformat:
             baselineNoMPC = json.load(f)
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.update_layout(shapes = self._show_greedy(os.path.join(self.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-02T00-rl_agg_all-homes_20-horizon_8-iter-results.json")))
+        fig.update_layout(shapes = self._show_greedy(os.path.join(self.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-08T00-rl_agg_all-homes_20-horizon_8-iter-results.json")))
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_aggregate"][:-1], name="RL"))
         # self.add_baseline(fig, baselineMPC, baselineNoMPC)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["TOU"], name="TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
@@ -578,7 +578,7 @@ if __name__ == "__main__":
     # names = ["Jesse-PK4IH", "Crystal-RXXFA", "Dawn-L23XI", "David-JONNO"]
     files = [
         # File("rl_agg", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json"),
-        File("rl_agg", "2015-01-01T00_2015-01-02T00-rl_agg_all-homes_20-horizon_8-results.json"),
+        File("rl_agg", "2015-01-01T00_2015-02-01T00-rl_agg_all-homes_20-horizon_8-results.json"),
         # File("rl_agg", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json"),
         # File("baseline", "2015-01-01T00_2015-01-02T00-baseline_all-homes_20-horizon_8-results.json"),
     ]
@@ -592,14 +592,14 @@ if __name__ == "__main__":
     # r.plot_agg_vs_homes()
     # r.plot_single_home("Jesse-PK4IH")
     # r.rltheta()
-    r.plot_single_home2("Ruth-1HV86") # base
-    r.plot_single_home2("Crystal-RXXFA") # pv_battery
-    r.plot_single_home2("Dawn-L23XI") # pv_only
-    r.plot_single_home2("Jason-INS3S") # battery_only
+    # r.plot_single_home2("Ruth-1HV86") # base
+    # r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    # r.plot_single_home2("Dawn-L23XI") # pv_only
+    # r.plot_single_home2("Jason-INS3S") # battery_only
     # r.reward_prices_over_time()
     # r.rl_reward_prices()
 
-    rlfile = os.path.join(r.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-02T00-rl_agg_all-homes_20-horizon_8-results.json")
+    rlfile = os.path.join(r.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-30T00-rl_agg_all-homes_20-horizon_8-results.json")
     mpc_noaggfile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-03T00-baseline_all-homes_20-horizon_8-results.json")
     baselinefile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-03T00-baseline_all-homes_20-horizon_1-results.json")
 

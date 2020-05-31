@@ -100,7 +100,7 @@ class Aggregator:
         self.epsilon = float(self.config["agg_exploration_rate"])
         self.alpha = float(self.config["agg_learning_rate"])
         self.lam = float(self.config["rl_agg_regularization_factor"])
-        self.theta = np.vstack(np.zeros(6))
+        self.theta = np.vstack(np.ones(6))
         self.beta = float(self.config["rl_agg_discount_factor"])
 
     def _import_config(self):
@@ -531,9 +531,15 @@ class Aggregator:
         return xk
 
     def _cost(self, x):
-        sigma = 0.1
-        mu = 0
-        return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
+        # sigma = 0.1
+        # mu = 0
+        # return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
+        return -1*x**2
+
+    # def _reward(self, x):
+    #     sigma = 0.1
+    #     mu = 0
+    #     return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
 
     def _q(self, state, action):
         q = np.matmul(self.theta.T, self._phi(state, action))
@@ -541,7 +547,7 @@ class Aggregator:
 
     def _phi(self, state, action):
         # phi = np.array([1, state, action, state*action, state**2, action**2])
-        phi = np.array([1, state, action, 0, 0, 0])
+        phi = np.array([1, state, action, state*action, state**2, action**2])
         return phi
 
     def _qvalue(self):
@@ -614,8 +620,11 @@ class Aggregator:
         next_action = self._get_greedyaction(self.next_state)
         self.phi_k1 = (self._phi(self.next_state, next_action))
         self.q = self._qvalue()
-        if self.timestep > 10:
-            self.theta = self.theta - self.alpha * (self._q(self.state, self.action) - self._cost(self.next_state) - self.beta*self._q(self.next_state, next_action))*np.transpose(self.phi_k - self.phi_k1)
+        d_theta = np.array([1])
+        # while np.linalg.norm(d_theta) > 0.5:
+        if self.timestep > 0:
+            d_theta = (self._q(self.state, self.action) - self._cost(self.next_state) - self.beta*self._q(self.next_state, next_action))*np.transpose(self.phi_k - self.phi_k1)
+            self.theta = self.theta + self.alpha * d_theta
         # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
@@ -888,9 +897,10 @@ class Aggregator:
         return sp
 
     def test_response(self):
+        c = 1
         if self.timestep == 0:
-            self.agg_load = 40
-        self.agg_load += self.agg_load*0.001
+            self.agg_load = 40 + 40*np.random.rand()
+        self.agg_load -= self.agg_load * c * self.reward_price
         self.agg_cost = self.agg_load * self.reward_price
 
     def run_rl_agg(self, alpha, epsilon, horizon):
@@ -907,13 +917,13 @@ class Aggregator:
             self.rl_update_reward_price()
             self.redis_set_current_values() # broadcast rl price to community
 
-            for home in self.all_homes:
-                if self.check_type == "all" or home["type"] == self.check_type:
-                    self.queue.put(home)
-            self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
-            self.collect_data()
-            # self.test_response()
-            # self.collect_fake_data()
+            # for home in self.all_homes:
+            #     if self.check_type == "all" or home["type"] == self.check_type:
+            #         self.queue.put(home)
+            # self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
+            # self.collect_data()
+            self.test_response()
+            self.collect_fake_data()
 
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
