@@ -1,0 +1,29 @@
+version: '3'
+services:
+  dragg:
+    build:
+      # the purpose of context one level above is to install the entire alfalfa package
+      # and to copy the wait-for-it.sh file in deploy
+      dockerfile: dragg/Dockerfile
+      context: .
+    environment:
+      - REDIS_HOST
+      - MONGO_URL
+      - MONGO_DB_NAME
+      - REGION
+      - CONFIG_FILE
+      - SOLAR_TEMPERATURE_DATA_FILE
+      - TOU_DATA_FILE
+    volumes:
+      - ~/.dragg:/dragg
+    depends_on:
+      - redis
+      - mongo
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
