@@ -572,43 +572,6 @@ class Aggregator:
         return uk
 
     def update_qfunction(self):
-        # self.q_k = np.array(self._qvalue())
-        # self.phi_k = self._phi(self.state, self.action)
-        # self.phi_k1 = self._phi(self.next_state, self._get_greedyaction(self.next_state))
-        #
-        # if self.timestep == 0: # initialize self.phi and self.q
-        #     self.q = self.q_k
-        #     self.phi = self.phi_k
-        # else: # tack on new observed values
-        #     self.q = np.vstack((self.q, self.q_k))
-        #     self.phi = np.vstack((self.phi, self.phi_k))
-        #
-        # if self.timestep > 24: # remove old observation values
-        #     self.q = self.q[1:,]
-        #     self.phi = self.phi[1:,]
-        #
-        # # # Ridge Regression
-        # # phi_sq = np.matmul(np.vstack(self.phi).T, np.vstack(self.phi))
-        # # state_inv = np.asmatrix(phi_sq + self.lam * np.eye(6)).I
-        # # state_inv = np.matmul(state_inv, np.asmatrix(self.phi).T)
-        # # self.theta_k = np.matmul(state_inv, np.asmatrix(self.q))
-        #
-        # # # Lasso Regression
-        # # clf = Lasso()
-        # # clf.fit(self.phi.reshape((-1,6)), self.q.reshape((-1,1)))
-        # # self.theta_k = np.array(clf.coef_)
-        #
-        # # # Elastic Net Regression
-        # # clf = ElasticNet()
-        # # clf.fit(self.phi.reshape((-1,6)), self.q.reshape((-1,1)))
-        # # self.theta_k = np.array(clf.coef_)
-        # #
-        # # self.theta = self.theta_k.flatten()
-        # # # self.theta = (1-self.alpha)*self.theta + self.alpha*(self.theta_k)
-        # # # self.theta = self.theta + self.alpha*(self.theta_k - self.theta)
-        # # self.theta.tolist()
-
-        # self.q_k = self._qvalue()
         self.theta = self.theta.flatten()
         self.phi_k = (self._phi(self.state, self.action))
         next_action = self._get_greedyaction(self.next_state)
@@ -617,7 +580,6 @@ class Aggregator:
         self.q_observed = self._qvalue()
         if self.timestep > 10:
             self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1)
-        # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
         self.actionspace = self.config["action_space"]
