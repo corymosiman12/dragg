@@ -11,15 +11,6 @@ from plotly.subplots import make_subplots
 
 from dragg.reformat_logger import ReformatLogger
 
-class File:
-    def __init__(self, casetype, fname):
-        self.name = fname
-        self.case = casetype
-        self.path = os.path.join(self.case, self.name)
-
-    def subdir(self, main):
-        self.path = os.path.join(main, self.path)
-
 class Reformat:
     def __init__(self, files):
         self.ref_log = ReformatLogger()
@@ -36,8 +27,6 @@ class Reformat:
         self.end_dt = datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')
         self.hours = self.end_dt - self.start_dt
         self.hours = int(self.hours.total_seconds() / 3600)
-        for f in files:
-            f.subdir(self.outputs_dir)
         self.files_to_reformat = files
         self.data = self._import_data()
         self.summary_data = self._config_summary()
@@ -54,7 +43,7 @@ class Reformat:
     def _import_data(self):
         data = []
         for f in self.files_to_reformat:
-            with open(f.path, 'r') as fh:
+            with open(f, 'r') as fh:
                 d = json.load(fh)
                 data.append(d)
 
@@ -289,11 +278,8 @@ class Reformat:
 
         fig.show()
 
-    def _show_greedy(self, file):
+    def _show_greedy(self, fig, data):
         shapes = []
-
-        with open(file) as f:
-            data = json.load(f)
 
         prev = False
         for timestep in data:
@@ -317,55 +303,41 @@ class Reformat:
                 shapes.append(temp)
             prev = timestep["is_greedy"]
 
-        return shapes
+        fig.update_layout(shapes = shapes)
+        return fig
 
     def add_baseline(self, fig, baselineMPC, baselineNoMPC):
         fig.add_trace(go.Scatter(x=self.x_lims, y=baselineMPC["Summary"]["p_grid_aggregate"], name="MPC No agg."))
         fig.add_trace(go.Scatter(x=self.x_lims, y=baselineNoMPC["Summary"]["p_grid_aggregate"], name="No MPC No agg."))
         return fig
 
-    def rl2baseline(self, rl, baselineMPC, baselineNoMPC):
+    def rl2baseline(self, rl_file, rl_qfile, baselineMPC_file, baselineNoMPC_file):
 
-        rlfile = rl
-        noaggfile = baselineMPC
-        baselinefile = baselineNoMPC
-
-        with open(rlfile) as f:
+        with open(rl_file) as f:
             rldata = json.load(f)
-        with open(noaggfile) as f:
-            baselineMPC = json.load(f)
-        with open(baselinefile) as f:
-            baselineNoMPC = json.load(f)
+
+        with open(rl_qfile) as f:
+            rl_qdata = json.load(f)
+        try:
+            with open(baselineMPC_file) as f:
+                baselineMPC = json.load(f)
+        except:
+            baselineMPC = None
+        try:
+            with open(baselineNoMPC_file) as f:
+                baselineNoMPC = json.load(f)
+        except:
+            baselineMPC = None
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.update_layout(shapes = self._show_greedy(os.path.join(self.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-02T00-rl_agg_all-homes_20-horizon_8-iter-results.json")))
+        self._show_greedy(fig, rl_qdata)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_aggregate"][:-1], name="RL"))
-        # self.add_baseline(fig, baselineMPC, baselineNoMPC)
+        if baselineMPC and baselineNoMPC:
+            self.add_baseline(fig, baselineMPC, baselineNoMPC)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["TOU"], name="TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["RP"], name="Reward Price ($/kWh)", line_shape='hv'), secondary_y=True)
         fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(rldata["Summary"]["TOU"], rldata["Summary"]["RP"]), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
-        fig.show()
-
-    def rl2baseline_shifted(self):
-        base = os.path.join(self.outputs_dir, "baseline", "2015-01-01T00_2015-01-10T00-baseline_all-homes_20-horizon_8-results.json")
-        sin = os.path.join(self.outputs_dir, "rl_agg", "arch", "sin_shift-results.json")
-        sin_earlier = os.path.join(self.outputs_dir, "rl_agg", "arch", "sin_shift_earlier-results.json")
-        sin_later = os.path.join(self.outputs_dir, "rl_agg", "arch", "sin_shift_later-results.json")
-
-        names = ["Baseline", "Cosine", "Cosine (-6hrs)", "Cosine (+6hrs)"]
-        data_list = [base, sin, sin_earlier, sin_later]
-
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        for i in range(len(data_list)):
-            with open(data_list[i]) as f:
-                data = json.load(f)
-
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"], name=f"P grid agg. {names[i]}"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["RP"], name=f"RP {names[i]}", line_shape='hv'), secondary_y=True)
-            if i != 0:
-                fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_setpoint"], name=f"P grid setpoint {names[i]}"))
-
         fig.show()
 
     def compare_methods(self):
@@ -404,35 +376,6 @@ class Reformat:
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(data["Summary"]["TOU"], data["Summary"]["RP"]), name=f"Actual Price ($/kWh) - {names[i]}", line_shape='hv'), secondary_y=True)
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_setpoint"], name=f"RL Setpoint Load - {names[i]}"))
 
-        fig.show()
-
-
-    def rlqfunction(self):
-        rlfile = os.path.join(self.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-q-results.json")
-        with open(rlfile) as f:
-            rldata = json.load(f)
-
-        x=np.linspace(-5,5,1)
-        u=np.linspace(-5,5,1)
-        th = np.array(rldata["theta"][-1][0])
-        z = th[0]*1 + th[1]*x + th[2]*u/100 + th[3]*x*u/100 + th[4]*x**2 + th[5]*u**2/100/100
-        fig = make_subplots()
-        fig.add_trace(go.Scatter3d(x=rldata["state"], y=rldata["action"], z=rldata["q"]))
-        fig.add_trace(go.Surface(x=x, y=u/100, z=z))
-
-        fig.show()
-
-    def rltheta(self):
-        rlfile = os.path.join(self.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-q-results.json")
-        with open(rlfile) as f:
-            rldata = json.load(f)
-
-        fig = make_subplots()
-        for i in range(len(rldata["theta"])):
-            fig.add_trace(go.Scatter(x=[1,2,3,4,5,6], y=rldata["theta"][i][0], mode='markers', marker={'color':'LightSkyBlue'}))
-            fig.add_trace(go.Scatter(x=[1,2,3,4,5,6], y=rldata["theta_k"][i][0], mode='markers', marker={'color':'MediumPurple'}))
-
-        # fig = px.scatter(x=[1,2,3,4,5,6], y=rldata["theta"][0][0])
         fig.show()
 
     def reward_prices_over_time(self):
@@ -577,13 +520,9 @@ class Reformat:
 if __name__ == "__main__":
     # names = ["Jesse-PK4IH", "Crystal-RXXFA", "Dawn-L23XI", "David-JONNO"]
     files = [
-        # File("rl_agg", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json"),
-        File("rl_agg", "2015-01-01T00_2015-01-02T00-rl_agg_all-homes_20-horizon_8-results.json"),
-        # File("rl_agg", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json"),
-        # File("baseline", "2015-01-01T00_2015-01-02T00-baseline_all-homes_20-horizon_8-results.json"),
+        os.path.join("outputs", "rl_agg", "2015-01-01T00_2015-02-01T00-rl_agg_all-homes_20-horizon_8-results.json"),
     ]
     r = Reformat(files)
-    print(r.hours)
     # r.compare_agg_between_runs(n_homes=20)
     # r.calc_agg_costs()
     # r.computation_time_vs_horizon_vs_agg_cost(n_homes=20)
@@ -592,16 +531,17 @@ if __name__ == "__main__":
     # r.plot_agg_vs_homes()
     # r.plot_single_home("Jesse-PK4IH")
     # r.rltheta()
-    r.plot_single_home2("Ruth-1HV86") # base
-    r.plot_single_home2("Crystal-RXXFA") # pv_battery
-    r.plot_single_home2("Dawn-L23XI") # pv_only
-    r.plot_single_home2("Jason-INS3S") # battery_only
+    # r.plot_single_home2("Ruth-1HV86") # base
+    # r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    # r.plot_single_home2("Dawn-L23XI") # pv_only
+    # r.plot_single_home2("Jason-INS3S") # battery_only
     # r.reward_prices_over_time()
     # r.rl_reward_prices()
 
-    rlfile = os.path.join(r.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-02T00-rl_agg_all-homes_20-horizon_8-results.json")
-    mpc_noaggfile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-03T00-baseline_all-homes_20-horizon_8-results.json")
-    baselinefile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-03T00-baseline_all-homes_20-horizon_1-results.json")
+    rlfile = os.path.join(r.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-30T00-rl_agg_all-homes_20-horizon_8-results.json")
+    mpc_noaggfile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-12T00-baseline_all-homes_20-horizon_8-results.json")
+    mpc_noaggfile = None
+    baselinefile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-12T00-baseline_all-homes_20-horizon_1-results.json")
 
     r.rl2baseline(rlfile, mpc_noaggfile, baselinefile)
     # r.rl2baseline_shifted()
