@@ -1,0 +1,8 @@
+.python-version
+*.pyc
+.DS_Store
+.idea
+archive
+*.log
+~$*.xlsx
+outputs
