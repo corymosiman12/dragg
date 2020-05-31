@@ -5,7 +5,7 @@ import os
 
 if __name__ == "__main__":
     a = Aggregator()
-    # a.run()
+    a.run()
 
     # plots using whatever datetime cycle is in the config file
     config_file = os.path.join("data", os.environ.get('CONFIG_FILE', 'config.json'))
