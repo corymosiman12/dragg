@@ -613,9 +613,10 @@ class Aggregator:
         self.phi_k = (self._phi(self.state, self.action))
         next_action = self._get_greedyaction(self.next_state)
         self.phi_k1 = (self._phi(self.next_state, next_action))
+        self.q_predicted = self.q(self.state, self.action)
         self.q_observed = self._qvalue()
         if self.timestep > 10:
-            self.theta = self.theta - self.alpha * (self._q(self.state, self.action) - self.q_observed)*np.transpose(self.phi_k - self.phi_k1)
+            self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1)
         # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
