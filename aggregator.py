@@ -531,15 +531,9 @@ class Aggregator:
         return xk
 
     def _cost(self, x):
-        # sigma = 0.1
-        # mu = 0
-        # return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
-        return -1*x**2
-
-    # def _reward(self, x):
-    #     sigma = 0.1
-    #     mu = 0
-    #     return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
+        sigma = 0.1
+        mu = 0
+        return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
 
     def _q(self, state, action):
         q = np.matmul(self.theta.T, self._phi(state, action))
@@ -624,7 +618,7 @@ class Aggregator:
         # while np.linalg.norm(d_theta) > 0.5:
         if self.timestep > 0:
             d_theta = (self._q(self.state, self.action) - self._cost(self.next_state) - self.beta*self._q(self.next_state, next_action))*np.transpose(self.phi_k - self.phi_k1)
-            self.theta = self.theta + self.alpha * d_theta
+            self.theta = self.theta - self.alpha * d_theta
         # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
@@ -775,7 +769,8 @@ class Aggregator:
             "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist(),
             "TOU": self.all_data.loc[self.mask, "tou"].values.tolist(),
             "RP": self.all_rps.tolist(),
-            "p_grid_setpoint": self.all_sps.tolist()
+            "p_grid_setpoint": self.all_sps.tolist(),
+            "is_greedy": self.rl_q_data["is_greedy"] # will fail for non RL solvers
         }
 
     def write_outputs(self, horizon):
@@ -897,7 +892,7 @@ class Aggregator:
         return sp
 
     def test_response(self):
-        c = 1
+        c = .4
         if self.timestep == 0:
             self.agg_load = 40 + 40*np.random.rand()
         self.agg_load -= self.agg_load * c * self.reward_price
