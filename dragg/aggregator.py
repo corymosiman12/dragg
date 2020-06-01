@@ -100,7 +100,7 @@ class Aggregator:
         self.epsilon = float(self.config["agg_exploration_rate"])
         self.alpha = float(self.config["agg_learning_rate"])
         self.lam = float(self.config["rl_agg_regularization_factor"])
-        self.theta = np.vstack(np.zeros(6))
+        self.theta = np.array([0, 2, 2, .5, .5, .5])#np.vstack(np.ones(6))
         self.beta = float(self.config["rl_agg_discount_factor"])
 
     def _import_config(self):
@@ -615,20 +615,23 @@ class Aggregator:
         self.phi_k1 = (self._phi(self.next_state, next_action))
         self.q_predicted = self._q(self.state, self.action)
         self.q_observed = self._qvalue()
-        if self.timestep > 10:
+        if self.timestep > 2:
             self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1)
         # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
         self.actionspace = self.config["action_space"]
+         # update epsilon
+        if ((self.timestep+201) % 200) == 0: # every 200 timesteps
+            self.epsilon = self.epsilon/2 # decrease exploration rate
         if np.random.uniform(0,1) >= self.epsilon: # the greedy action
             u_k = self._get_greedyaction(self.state)
             self.is_greedy = True
         else: # exploration
             u_k = random.uniform(self.actionspace[0], self.actionspace[1])
             self.is_greedy = False
-        self.action = np.round(u_k, 2)
-        # self.action = u_k
+        self.action = np.round(u_k, 5)
+        #self.action = u_k
 
         self.reward_price = self.action
 
@@ -680,20 +683,20 @@ class Aggregator:
     def collect_fake_data(self):
         self.baseline_agg_load_list.append(self.agg_load)
 
-    def check_agg_mpc_data(self):
-        self.agg_load = 0
-        self.agg_cost = 0
-        for home in self.all_homes:
-            if self.check_type == 'all' or home["type"] == self.check_type:
-                vals = self.redis_client.hgetall(home["name"])
-                self.agg_load += float(vals["p_grid_opt"])
-                self.agg_cost += float(vals["cost_opt"])
-        self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
-        self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
-        self.agg_log.logger.info(f"Max Threshold: {self.max_load_threshold:.20f}")
-        self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}")
-        if self.marginal_demand == 0:
-            self.converged = True
+    # def check_agg_mpc_data(self):
+    #     self.agg_load = 0
+    #     self.agg_cost = 0
+    #     for home in self.all_homes:
+    #         if self.check_type == 'all' or home["type"] == self.check_type:
+    #             vals = self.redis_client.hgetall(home["name"])
+    #             self.agg_load += float(vals["p_grid_opt"])
+    #             self.agg_cost += float(vals["cost_opt"])
+    #     self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
+    #     self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
+    #     self.agg_log.logger.info(f"Max Threshold: {self.max_load_threshold:.20f}")
+    #     self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}")
+    #     if self.marginal_demand == 0:
+    #         self.converged = True
 
     def update_agg_mpc_data(self):
         self.agg_mpc_data[self.timestep]["reward_price"].append(self.reward_price)
@@ -869,7 +872,7 @@ class Aggregator:
         with open(baseline, 'r') as f:
             data = json.load(f)
         sp = np.array(data["Summary"]["p_grid_aggregate"])
-        noise = 0.5*np.random.randn(9)*sp[1::24]
+        noise = 0#0.5*np.random.randn(9)*sp[1::24]
         noise = noise.repeat(24)
         sp += noise
         return sp
@@ -891,8 +894,9 @@ class Aggregator:
     def test_response(self):
         c = 0.8
         if self.timestep == 0:
-            self.agg_load = self.agg_setpoint + np.random.rand()*self.agg_setpoint
-        self.agg_load -= c * self.reward_price * self.agg_load
+            self.agg_load = self.agg_setpoint #+ np.random.rand()*self.agg_setpoint
+        self.agg_load = max(0, self.agg_load - c * self.reward_price * self.agg_load) # can't go negative
+        #self.agg_load = max(200,self.agg_load) # can't go above 200
         self.agg_cost = self.agg_load * self.reward_price
 
     def run_rl_agg(self, alpha, epsilon, horizon):
@@ -909,13 +913,13 @@ class Aggregator:
             self.rl_update_reward_price()
             self.redis_set_current_values() # broadcast rl price to community
 
-            # for home in self.all_homes:
-            #     if self.check_type == "all" or home["type"] == self.check_type:
-            #         self.queue.put(home)
-            # self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
-            # self.collect_data()
-            self.test_response()
-            self.collect_fake_data()
+            for home in self.all_homes:
+                 if self.check_type == "all" or home["type"] == self.check_type:
+                     self.queue.put(home)
+            self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
+            self.collect_data()
+            #self.test_response()
+            #self.collect_fake_data()
 
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
