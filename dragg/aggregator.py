@@ -565,50 +565,13 @@ class Aggregator:
             obj = cp.Minimize(cp.sum(t) + self.theta[5]*(u_k**2))
             prob = cp.Problem(obj, cons)
             prob.solve(solver=cp.ECOS, method="dccp", verbose=False)
-            uk = u_k.value[0]
+            u_k_opt = u_k.value[0]
         except:
-            uk = 0
+            u_k_opt = 0
             self.greedy_failed = True
-        return uk
+        return u_k_opt
 
     def update_qfunction(self):
-        # self.q_k = np.array(self._qvalue())
-        # self.phi_k = self._phi(self.state, self.action)
-        # self.phi_k1 = self._phi(self.next_state, self._get_greedyaction(self.next_state))
-        #
-        # if self.timestep == 0: # initialize self.phi and self.q
-        #     self.q = self.q_k
-        #     self.phi = self.phi_k
-        # else: # tack on new observed values
-        #     self.q = np.vstack((self.q, self.q_k))
-        #     self.phi = np.vstack((self.phi, self.phi_k))
-        #
-        # if self.timestep > 24: # remove old observation values
-        #     self.q = self.q[1:,]
-        #     self.phi = self.phi[1:,]
-        #
-        # # # Ridge Regression
-        # # phi_sq = np.matmul(np.vstack(self.phi).T, np.vstack(self.phi))
-        # # state_inv = np.asmatrix(phi_sq + self.lam * np.eye(6)).I
-        # # state_inv = np.matmul(state_inv, np.asmatrix(self.phi).T)
-        # # self.theta_k = np.matmul(state_inv, np.asmatrix(self.q))
-        #
-        # # # Lasso Regression
-        # # clf = Lasso()
-        # # clf.fit(self.phi.reshape((-1,6)), self.q.reshape((-1,1)))
-        # # self.theta_k = np.array(clf.coef_)
-        #
-        # # # Elastic Net Regression
-        # # clf = ElasticNet()
-        # # clf.fit(self.phi.reshape((-1,6)), self.q.reshape((-1,1)))
-        # # self.theta_k = np.array(clf.coef_)
-        # #
-        # # self.theta = self.theta_k.flatten()
-        # # # self.theta = (1-self.alpha)*self.theta + self.alpha*(self.theta_k)
-        # # # self.theta = self.theta + self.alpha*(self.theta_k - self.theta)
-        # # self.theta.tolist()
-
-        # self.q_k = self._qvalue()
         self.theta = self.theta.flatten()
         self.phi_k = (self._phi(self.state, self.action))
         next_action = self._get_greedyaction(self.next_state)
@@ -617,7 +580,6 @@ class Aggregator:
         self.q_observed = self._qvalue()
         if self.timestep > 2:
             self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1)
-        # self.theta = self.theta - self.alpha*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
         self.actionspace = self.config["action_space"]
@@ -631,7 +593,6 @@ class Aggregator:
             u_k = random.uniform(self.actionspace[0], self.actionspace[1])
             self.is_greedy = False
         self.action = np.round(u_k, 5)
-        #self.action = u_k
 
         self.reward_price = self.action
 
@@ -683,20 +644,20 @@ class Aggregator:
     def collect_fake_data(self):
         self.baseline_agg_load_list.append(self.agg_load)
 
-    # def check_agg_mpc_data(self):
-    #     self.agg_load = 0
-    #     self.agg_cost = 0
-    #     for home in self.all_homes:
-    #         if self.check_type == 'all' or home["type"] == self.check_type:
-    #             vals = self.redis_client.hgetall(home["name"])
-    #             self.agg_load += float(vals["p_grid_opt"])
-    #             self.agg_cost += float(vals["cost_opt"])
-    #     self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
-    #     self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
-    #     self.agg_log.logger.info(f"Max Threshold: {self.max_load_threshold:.20f}")
-    #     self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}")
-    #     if self.marginal_demand == 0:
-    #         self.converged = True
+    def check_agg_mpc_data(self):
+        self.agg_load = 0
+        self.agg_cost = 0
+        for home in self.all_homes:
+            if self.check_type == 'all' or home["type"] == self.check_type:
+                vals = self.redis_client.hgetall(home["name"])
+                self.agg_load += float(vals["p_grid_opt"])
+                self.agg_cost += float(vals["cost_opt"])
+        self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
+        self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
+        self.agg_log.logger.info(f"Max Threshold: {self.max_load_threshold:.20f}")
+        self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}")
+        if self.marginal_demand == 0:
+            self.converged = True
 
     def update_agg_mpc_data(self):
         self.agg_mpc_data[self.timestep]["reward_price"].append(self.reward_price)
@@ -704,11 +665,8 @@ class Aggregator:
         self.agg_mpc_data[self.timestep]["agg_load"].append(self.agg_load)
 
     def record_rl_agg_data(self):
-        # self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
-        # self.baseline_agg_load_list.append(self.agg_load)
         self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
         self.agg_log.logger.info(f"Desired Setpoint: {self.agg_setpoint:.20f}")
-        # self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}") # don't need but should we record this anyways?
         self.rl_agg_data[self.timestep]["reward_price"] = float(self.reward_price)
         self.rl_agg_data[self.timestep]["agg_cost"] = self.agg_cost
         self.rl_agg_data[self.timestep]["agg_load"] = self.agg_load
@@ -718,9 +676,7 @@ class Aggregator:
     def record_rl_q_data(self):
         self.rl_q_data["timestep"].append(self.timestep)
         self.rl_q_data["theta"].append(self.theta.flatten().tolist())
-        # self.rl_q_data["theta_k"].append(self.theta_k.flatten().tolist())
         self.rl_q_data["phi"].append(self.phi_k.tolist())
-        # self.rl_q_data["q"].append(self.q_k.tolist())
         self.rl_q_data["q"].append(self.q_observed)
         self.rl_q_data["action"].append(self.action.tolist())
         self.rl_q_data["state"].append(self.state)
@@ -867,16 +823,6 @@ class Aggregator:
         temp["greedy_failed"] = []
         return temp
 
-    def _read_setpoint(self):
-        baseline = os.path.join(self.outputs_dir, "baseline", "2015-01-01T00_2015-01-10T00-baseline_all-homes_20-horizon_8-results.json")
-        with open(baseline, 'r') as f:
-            data = json.load(f)
-        sp = np.array(data["Summary"]["p_grid_aggregate"])
-        noise = 0#0.5*np.random.randn(9)*sp[1::24]
-        noise = noise.repeat(24)
-        sp += noise
-        return sp
-
     def _gen_setpoint(self):
         # min_p_grid = 10
         # max_p_grid = 60
@@ -929,7 +875,6 @@ class Aggregator:
 
             self.timestep += 1
             self.state = self.next_state
-
 
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
@@ -998,5 +943,3 @@ class Aggregator:
                 self.run_rl_agg(self.config["agg_learning_rate"], self.config["agg_exploration_rate"], horizon)
                 self.summarize_baseline(horizon)
                 self.write_outputs(horizon)
-        #     self.redis_set_initial_values()
-        #     self.run_mpc(h)
