@@ -24,3 +24,8 @@ if __name__ == "__main__":
     baselinefile = os.path.join(r.outputs_dir, "baseline", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-baseline_all-homes_20-horizon_1-results.json")
 
     r.rl2baseline(rlfile, rl_qfile, mpc_noaggfile, baselinefile)
+
+    r.plot_single_home2("Ruth-1HV86") # base
+    r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    r.plot_single_home2("Dawn-L23XI") # pv_only
+    r.plot_single_home2("Jason-INS3S") # battery_only

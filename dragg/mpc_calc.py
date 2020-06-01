@@ -113,6 +113,8 @@ class MPCCalc:
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
+        self.discomfort = 0.005
+
     def setup_battery_problem(self):
         if self.timestep == 0:
             self.e_batt_init = cp.Constant(self.e_b_init)
@@ -200,7 +202,7 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.wf_temp * self.total_price[0] * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * self.total_price[0] * cp.norm(self.temp_wh - self.temp_wh_sp))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.wf_temp * cp.sum(cp.abs(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.abs(self.temp_wh - self.temp_wh_sp))))
 
 
     def set_battery_only_p_grid(self):
@@ -208,21 +210,21 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.batt_cons * cp.norm(self.e_batt / self.batt_cap_total - 0.5) + self.wf_temp * self.total_price[0] * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * self.total_price[0] * cp.norm(self.temp_wh - self.temp_wh_sp))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.batt_cons * cp.sum(cp.abs(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.abs(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.abs(self.temp_wh - self.temp_wh_sp))))
 
     def set_pv_only_p_grid(self):
         self.constraints += [
             # Set grid load
             self.p_grid == self.p_load - self.p_pv
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.wf_temp * self.total_price[0] * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * self.total_price[0] * cp.norm(self.temp_wh - self.temp_wh_sp))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.wf_temp * cp.sum(cp.abs(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.abs(self.temp_wh - self.temp_wh_sp))))
 
     def set_pv_battery_p_grid(self):
         self.constraints += [
             # Set grid load
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch - self.p_pv
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.batt_cons * cp.norm(self.e_batt / self.batt_cap_total - 0.5) + self.wf_temp * self.total_price[0] * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * self.total_price[0] * cp.norm(self.temp_wh - self.temp_wh_sp)) # i think this was previously adding the current negotiated reward price to every timestep
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.batt_cons * cp.sum(cp.abs(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.abs(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.abs(self.temp_wh - self.temp_wh_sp)))) # i think this was previously adding the current negotiated reward price to every timestep
 
     def solve_mpc(self):
         # self.obj = cp.Minimize(cp.sum((self.base_price[0:self.horizon] + self.reward_price) * self.p_grid[0:self.horizon]))

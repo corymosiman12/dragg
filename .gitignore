@@ -7,3 +7,4 @@ archive
 ~$*.xlsx
 outputs
 dragg/dump.rdb
+data/config.json
