@@ -6,3 +6,4 @@ archive
 *.log
 ~$*.xlsx
 outputs
+data/config.json
