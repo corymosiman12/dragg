@@ -520,7 +520,7 @@ class Reformat:
 if __name__ == "__main__":
     # names = ["Jesse-PK4IH", "Crystal-RXXFA", "Dawn-L23XI", "David-JONNO"]
     files = [
-        os.path.join("outputs", "rl_agg", "2015-01-01T00_2015-02-01T00-rl_agg_all-homes_20-horizon_8-results.json"),
+        os.path.join("outputs", "rl_agg", "2015-01-01T00_2015-01-08T00-rl_agg_all-homes_20-horizon_8-results.json"),
     ]
     r = Reformat(files)
     # r.compare_agg_between_runs(n_homes=20)
@@ -531,10 +531,10 @@ if __name__ == "__main__":
     # r.plot_agg_vs_homes()
     # r.plot_single_home("Jesse-PK4IH")
     # r.rltheta()
-    # r.plot_single_home2("Ruth-1HV86") # base
-    # r.plot_single_home2("Crystal-RXXFA") # pv_battery
-    # r.plot_single_home2("Dawn-L23XI") # pv_only
-    # r.plot_single_home2("Jason-INS3S") # battery_only
+    r.plot_single_home2("Ruth-1HV86") # base
+    r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    r.plot_single_home2("Dawn-L23XI") # pv_only
+    r.plot_single_home2("Jason-INS3S") # battery_only
     # r.reward_prices_over_time()
     # r.rl_reward_prices()
 
