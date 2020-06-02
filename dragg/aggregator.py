@@ -102,6 +102,7 @@ class Aggregator:
         self.lam = float(self.config["rl_agg_regularization_factor"])
         self.theta = np.array([0, 2, 2, .5, .5, .5])#np.vstack(np.ones(6))
         self.beta = float(self.config["rl_agg_discount_factor"])
+        self.rl_agg_horizon = int(self.config["rl_agg_time_horizon"])
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -461,7 +462,7 @@ class Aggregator:
         :return:
         """
         self.timestep = 0
-        self.reward_price = 0
+        self.reward_price = np.zeros(self.rl_agg_horizon)
         temp_sp = self.config["temp_sp"]
         wh_sp = self.config["wh_sp"]
         min_runtime = self.config["min_runtime_mins"]
@@ -476,7 +477,9 @@ class Aggregator:
         self.redis_client.hset("initial_values", "min_runtime_mins", min_runtime)
         self.redis_client.set("start_hour_index", self.start_hour_index)
         self.redis_client.hset("current_values", "timestep", self.timestep)
-        self.redis_client.hset("current_values", "reward_price", self.reward_price)
+        for val in self.reward_price.tolist():
+            self.redis_client.rpush("reward_price", val)
+        # self.redis_client.hset("current_values", "reward_price", self.reward_price.tolist())
 
         if self.case == "agg_mpc":
             self.iteration = 0
@@ -513,8 +516,12 @@ class Aggregator:
 
     def redis_set_current_values(self):
         self.redis_client.hset("current_values", "timestep", self.timestep)
-        self.redis_client.hset("current_values", "reward_price", float(self.reward_price))
-        self.all_rps[self.timestep] = self.reward_price
+        for val in self.reward_price.tolist():
+            self.redis_client.lpop("reward_price")
+            self.redis_client.rpush("reward_price", val)
+        # self.redis_client.hset("current_values", "reward_price", self.reward_price)
+        # self.all_rps[self.timestep] = self.reward_price
+        self.all_rps[self.timestep] = self.action
 
         if self.case == "agg_mpc":
             self.redis_client.hset("current_values", "iteration", self.iteration)
@@ -578,11 +585,12 @@ class Aggregator:
         self.phi_k1 = (self._phi(self.next_state, next_action))
         self.q_predicted = self._q(self.state, self.action)
         self.q_observed = self._qvalue()
-        if self.timestep > 2:
+        if self.timestep > 10:
             self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1)
 
     def rl_update_reward_price(self):
-        self.actionspace = self.config["action_space"]
+        avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
+        self.actionspace = self.config["action_space"] - avg_rp
          # update epsilon
         if ((self.timestep+201) % 200) == 0: # every 200 timesteps
             self.epsilon = self.epsilon/2 # decrease exploration rate
@@ -594,7 +602,8 @@ class Aggregator:
             self.is_greedy = False
         self.action = np.round(u_k, 5)
 
-        self.reward_price = self.action
+        self.reward_price[1:] = self.reward_price[:-1]
+        self.reward_price[-1] = self.action
 
     def set_baseline_initial_vals(self):
         for home in self.all_homes:
@@ -667,7 +676,7 @@ class Aggregator:
     def record_rl_agg_data(self):
         self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
         self.agg_log.logger.info(f"Desired Setpoint: {self.agg_setpoint:.20f}")
-        self.rl_agg_data[self.timestep]["reward_price"] = float(self.reward_price)
+        self.rl_agg_data[self.timestep]["reward_price"] = self.reward_price.tolist()
         self.rl_agg_data[self.timestep]["agg_cost"] = self.agg_cost
         self.rl_agg_data[self.timestep]["agg_load"] = self.agg_load
         self.rl_agg_data[self.timestep]["is_greedy"] = self.is_greedy

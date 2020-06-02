@@ -15,7 +15,7 @@ if __name__ == "__main__":
     end_dt = datetime.strptime(config["end_datetime"], '%Y-%m-%d %H')
 
     print(config["end_datetime"])
-    r = Reformat([os.path.join("outputs", "rl_agg", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-rl_agg_all-homes_20-horizon_8-results.json")])
+    r = Reformat([os.path.join("outputs", "baseline", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-baseline_all-homes_20-horizon_8-results.json")])
 
     rlfile = os.path.join(r.outputs_dir, "rl_agg", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-rl_agg_all-homes_20-horizon_8-results.json")
     rl_qfile = os.path.join(r.outputs_dir, "rl_agg", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-rl_agg_all-homes_20-horizon_8-iter-results.json")
@@ -27,5 +27,5 @@ if __name__ == "__main__":
 
     r.plot_single_home2("Ruth-1HV86") # base
     r.plot_single_home2("Crystal-RXXFA") # pv_battery
-    r.plot_single_home2("Dawn-L23XI") # pv_only
+    r.plot_single_home2("Bruno-PVRNB") # pv_only
     r.plot_single_home2("Jason-INS3S") # battery_only

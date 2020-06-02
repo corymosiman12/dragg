@@ -331,7 +331,7 @@ class Reformat:
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         self._show_greedy(fig, rl_qdata)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_aggregate"][:-1], name="RL"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_aggregate"][1:], name="RL"))
         if baselineMPC and baselineNoMPC:
             self.add_baseline(fig, baselineMPC, baselineNoMPC)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["TOU"], name="TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
