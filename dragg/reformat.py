@@ -30,7 +30,7 @@ class Reformat:
         self.files_to_reformat = files
         self.data = self._import_data()
         self.summary_data = self._config_summary()
-        self.x_lims = [self.start_dt + timedelta(hours=x) for x in range(self.hours)]
+        self.x_lims = [self.start_dt + timedelta(hours=x) for x in range(self.hours + self.config["rl_agg_time_horizon"])]
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -278,32 +278,66 @@ class Reformat:
 
         fig.show()
 
+    # def _show_greedy(self, fig, data):
+    #     shapes = []
+    #
+    #     prev = False
+    #     for timestep in data:
+    #         if timestep['is_greedy'] and not prev:
+    #             temp = {'type':'rect',
+    #                     'xref':"x",
+    #                     'yref':"paper",
+    #                     'fillcolor':"LightSalmon",
+    #                     'opacity':0.2,
+    #                     'layer':"below",
+    #                     'line_width':0,
+    #                     'x0':self.start_dt + timedelta(hours=timestep["timestep"] + self.config["rl_agg_time_horizon"]),
+    #                     'y0':0}
+    #         elif not timestep['is_greedy'] and prev:
+    #             temp["x1"] = self.start_dt + timedelta(hours=timestep["timestep"] + self.config["rl_agg_time_horizon"])
+    #             temp["y1"] = 1
+    #             shapes.append(temp)
+    #         elif timestep["timestep"] == self.hours - 1 and prev:
+    #             temp["x1"] = self.start_dt + timedelta(hours=timestep["timestep"] + self.config["rl_agg_time_horizon"])
+    #             temp["y1"] = 1
+    #             shapes.append(temp)
+    #         prev = timestep["is_greedy"]
+    #
+    #     fig.update_layout(shapes = shapes)
+    #     return fig
+
     def _show_greedy(self, fig, data):
         shapes = []
 
-        prev = False
-        for timestep in data:
-            if timestep['is_greedy'] and not prev:
-                temp = {'type':'rect',
-                        'xref':"x",
-                        'yref':"paper",
-                        'fillcolor':"LightSalmon",
-                        'opacity':0.2,
-                        'layer':"below",
-                        'line_width':0,
-                        'x0':self.start_dt + timedelta(hours=timestep["timestep"]),
-                        'y0':0}
-            elif not timestep['is_greedy'] and prev:
-                temp["x1"] = self.start_dt + timedelta(hours=timestep["timestep"])
-                temp["y1"] = 1
-                shapes.append(temp)
-            elif timestep["timestep"] == self.hours - 1 and prev:
-                temp["x1"] = self.start_dt + timedelta(hours=timestep["timestep"])
-                temp["y1"] = 1
-                shapes.append(temp)
-            prev = timestep["is_greedy"]
+        rtgs = {}
+        for i in range(self.config["rl_agg_time_horizon"]+1):
+            rtgs[i] = []
 
-        fig.update_layout(shapes = shapes)
+        is_greedy = [False]*(self.config["rl_agg_time_horizon"]-1)
+        is_random = []
+        for timestep in data:
+            is_greedy.append(timestep['is_greedy'])
+
+        for t in range(self.hours):
+            rating = sum(is_greedy[t:t+self.config["rl_agg_time_horizon"]])
+            rtgs[rating].append(t)
+            if not is_greedy[t]:
+                is_random.append(t)
+
+        for i in rtgs:
+            if i > 6:
+                color = 'green'
+            elif i > 4:
+                color = 'yellow'
+            else:
+                color = 'red'
+
+            opacity = abs(i-4)/10
+
+            times = rtgs[i]
+            fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(hours=t) for t in times], y=[1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
+
+        fig.add_trace(go.Bar(name="Random Action", x=[self.start_dt + timedelta(hours=t) for t in is_random], y=[1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
         return fig
 
     def add_baseline(self, fig, baselineMPC, baselineNoMPC):
@@ -312,7 +346,6 @@ class Reformat:
         return fig
 
     def rl2baseline(self, rl_file, rl_qfile, baselineMPC_file, baselineNoMPC_file):
-
         with open(rl_file) as f:
             rldata = json.load(f)
 
@@ -336,7 +369,7 @@ class Reformat:
             self.add_baseline(fig, baselineMPC, baselineNoMPC)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["TOU"], name="TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["RP"], name="Reward Price ($/kWh)", line_shape='hv'), secondary_y=True)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(rldata["Summary"]["TOU"], rldata["Summary"]["RP"]), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(rldata["Summary"]["TOU"], rldata["Summary"]["RP"]).tolist(), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
         fig.show()
 
@@ -520,7 +553,7 @@ class Reformat:
 if __name__ == "__main__":
     # names = ["Jesse-PK4IH", "Crystal-RXXFA", "Dawn-L23XI", "David-JONNO"]
     files = [
-        os.path.join("outputs", "rl_agg", "2015-01-01T00_2015-01-08T00-rl_agg_all-homes_20-horizon_8-results.json"),
+        os.path.join("outputs", "rl_agg", "2015-01-01T00_2015-01-15T00-rl_agg_all-homes_20-horizon_8-results.json"),
     ]
     r = Reformat(files)
     # r.compare_agg_between_runs(n_homes=20)
@@ -531,17 +564,19 @@ if __name__ == "__main__":
     # r.plot_agg_vs_homes()
     # r.plot_single_home("Jesse-PK4IH")
     # r.rltheta()
-    r.plot_single_home2("Ruth-1HV86") # base
-    r.plot_single_home2("Crystal-RXXFA") # pv_battery
-    r.plot_single_home2("Dawn-L23XI") # pv_only
-    r.plot_single_home2("Jason-INS3S") # battery_only
+
+    # r.plot_single_home2("Ruth-1HV86") # base
+    # r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    # r.plot_single_home2("Dawn-L23XI") # pv_only
+    # r.plot_single_home2("Jason-INS3S") # battery_only
+
     # r.reward_prices_over_time()
     # r.rl_reward_prices()
 
-    rlfile = os.path.join(r.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-30T00-rl_agg_all-homes_20-horizon_8-results.json")
-    mpc_noaggfile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-12T00-baseline_all-homes_20-horizon_8-results.json")
+    rlfile = os.path.join(r.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-15T00-rl_agg_all-homes_20-horizon_8-results.json")
+    mpc_noaggfile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-15T00-baseline_all-homes_20-horizon_8-results.json")
     mpc_noaggfile = None
-    baselinefile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-12T00-baseline_all-homes_20-horizon_1-results.json")
+    baselinefile = os.path.join(r.outputs_dir, "baseline", "2015-01-01T00_2015-01-15T00-baseline-tou_all-homes_20-horizon_8-results.json")
 
     r.rl2baseline(rlfile, mpc_noaggfile, baselinefile)
     # r.rl2baseline_shifted()

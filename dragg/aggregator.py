@@ -520,8 +520,8 @@ class Aggregator:
             self.redis_client.lpop("reward_price")
             self.redis_client.rpush("reward_price", val)
         # self.redis_client.hset("current_values", "reward_price", self.reward_price)
-        # self.all_rps[self.timestep] = self.reward_price
-        self.all_rps[self.timestep] = self.action
+        self.all_rps[self.timestep] = self.reward_price[0]
+        # self.all_rps[self.timestep] = self.action
 
         if self.case == "agg_mpc":
             self.redis_client.hset("current_values", "iteration", self.iteration)
@@ -533,14 +533,14 @@ class Aggregator:
         return rp
 
     def _calc_state(self):
-        # xk = (self.agg_load - self.agg_setpoint)/self.agg_setpoint
         xk = (self.agg_load-self.agg_setpoint)/self.agg_setpoint
         return xk
 
     def _cost(self, x):
-        sigma = 0.1
-        mu = 0
-        return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
+        # sigma = 0.1
+        # mu = 0
+        # return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
+        return x**2
 
     def _q(self, state, action):
         q = np.matmul(self.theta.T, self._phi(state, action))
@@ -600,10 +600,11 @@ class Aggregator:
         else: # exploration
             u_k = random.uniform(self.actionspace[0], self.actionspace[1])
             self.is_greedy = False
-        self.action = np.round(u_k, 5)
+        # self.action = np.round(u_k, 2)
+        self.action = u_k
 
-        self.reward_price[1:] = self.reward_price[:-1]
-        self.reward_price[-1] = self.action
+        self.reward_price[:-1] = self.reward_price[1:]
+        self.reward_price[-1] = np.round(avg_rp + self.action,2)
 
     def set_baseline_initial_vals(self):
         for home in self.all_homes:
