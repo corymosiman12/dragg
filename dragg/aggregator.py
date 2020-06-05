@@ -578,30 +578,6 @@ class Aggregator:
         u_k_opt = self.q_lookup[np.argmin(self.q_lookup[:,1]),0]
         if u_k_opt != 0:
             print(u_k_opt)
-        # try:
-        #     u_k = cp.Variable(1)
-        #     xhat_k = cp.Constant(state_k)
-        #     th = cp.Constant(self.theta)
-        #     c = cp.Variable(1)
-        #     temp = cp.Variable(5)
-        #     cons = [u_k >= self.actionspace[0],
-        #             u_k <= self.actionspace[1],
-        #             temp[0] == self.theta[0]*xhat_k,
-        #             temp[1] == self.theta[1]*u_k,
-        #             temp[2] == self.theta[2]*xhat_k*u_k,
-        #             temp[3] == self.theta[3]*xhat_k**2*u_k,
-        #             temp[4] == self.theta[5]*xhat_k**2,
-        #             c == self.theta[4]*xhat_k + self.theta[6]]
-        #
-        #     obj = cp.Minimize(xhat_k + u_k)
-        #     prob = cp.Problem(obj, cons)
-        #     prob.solve(solver=cp.ECOS, method="dccp", verbose=False)
-        #
-        #     u_k_opt = u_k.value[0]
-        # except:
-        #     self.agg_log.logger.error(f"Error optimizing parameterized Q at timestep {self.timestep}: {prob.status}")
-        #     u_k_opt = 0
-        #     self.greedy_failed = True
 
         return u_k_opt
 
@@ -631,7 +607,7 @@ class Aggregator:
         self.action = avg_rp + u_k
 
         self.reward_price[:-1] = self.reward_price[1:]
-        self.reward_price[-1] = np.round(avg_rp + self.action,2)
+        self.reward_price[-1] = np.round(self.action,2)
 
     def set_baseline_initial_vals(self):
         for home in self.all_homes:
@@ -708,23 +684,23 @@ class Aggregator:
         self.rl_agg_data[self.timestep]["agg_cost"] = self.agg_cost
         self.rl_agg_data[self.timestep]["agg_load"] = self.agg_load
         self.rl_agg_data[self.timestep]["is_greedy"] = self.is_greedy
-        self.rl_agg_data[self.timestep]["greedy_failed"] = self.greedy_failed
 
     def record_rl_q_data(self):
         self.rl_q_data["timestep"].append(self.timestep)
         self.rl_q_data["theta"].append(self.theta.flatten().tolist())
         self.rl_q_data["phi"].append(self.phi_k.tolist())
-        self.rl_q_data["q"].append(self.q_observed)
+        self.rl_q_data["q_obs"].append(self.q_observed)
+        self.rl_q_data["q_pred"].append(self.q_predicted)
         self.rl_q_data["action"].append(self.action)
         self.rl_q_data["state"].append(self.state)
         self.rl_q_data["is_greedy"].append(self.is_greedy)
-        self.rl_q_data["greedy_failed"].append(self.greedy_failed)
         self.rl_q_data["q_tables"].append(self.q_lookup.tolist())
 
     def run_baseline(self, horizon=1):
         self.agg_log.logger.info(f"Performing baseline run for horizon: {horizon}")
         self.start_time = datetime.now()
         for hour in range(self.hours):
+            self.agg_setpoint = self._gen_setpoint()
             for home in self.all_homes:
                 if self.check_type == "all" or home["type"] == self.check_type:
                     self.queue.put(home)
@@ -871,11 +847,11 @@ class Aggregator:
         temp["timestep"] = [-1]
         temp["theta"] = []
         temp["phi"] = []
-        temp["q"] = []
+        temp["q_obs"] = []
+        temp["q_pred"] = []
         temp["action"] = []
         temp["state"] = [0]
         temp["is_greedy"] = []
-        temp["greedy_failed"] = []
         temp["q_tables"] = []
         return temp
 
@@ -910,8 +886,8 @@ class Aggregator:
         self.rl_q_data = self.set_rl_q_initial_vals()
         self.baseline_agg_load_list = [0]
         self.state = 0
+        self.theta = np.ones(len(self._phi(0,0)))
         for hour in range(self.hours):
-            self.greedy_failed = False
             self.agg_setpoint = self._gen_setpoint()
 
             self.rl_update_reward_price()
@@ -1004,8 +980,6 @@ class Aggregator:
                     self.beta = float(beta)
                     for epsilon in epsilons:
                         self.epsilon = float(epsilon)
-
-                        self.theta = np.array([2, 2, .5, .5, .5, .5, .5])
 
                         self.flush_redis()
                         self.redis_set_initial_values()
