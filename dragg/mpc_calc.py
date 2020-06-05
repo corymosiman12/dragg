@@ -111,7 +111,7 @@ class MPCCalc:
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
-        self.discomfort = self.total_price[0]
+        self.discomfort = 0.7*0.02
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -152,9 +152,17 @@ class MPCCalc:
             self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / self.wh_r) + self.wh_heat_on * self.wh_p) / self.wh_c,
             # self.temp_in[1:self.h_plus] >= self.temp_in_min,
             # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
+
+            self.temp_in[1:self.h_plus] >= 16,
+            self.temp_wh[1:self.h_plus] >= 42,
+
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
             # self.temp_in[1:self.h_plus] <= self.temp_in_max,
             # self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
+
+            self.temp_in[1:self.h_plus] <= 21,
+            self.temp_wh[1:self.h_plus] <= 48,
+
             self.hvac_cool_on <= 1,
             self.hvac_cool_on >= 0,
             self.hvac_heat_on <= 1,
@@ -199,7 +207,7 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load
         ]
-        self.wf_wh = 1.4 * self.wf_wh
+        self.wf_wh = 1.8 * self.wf_wh
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
 
 
@@ -208,7 +216,7 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch
         ]
-        self.wf_wh = 2 * self.wf_wh
+        self.wf_wh = 2.2 * self.wf_wh
         self.batt_cons = 0.5
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.batt_cons * cp.sum(cp.norm(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
 
@@ -334,7 +342,9 @@ class MPCCalc:
         self.all_spp = [float(i) for i in self.all_spp]
         self.timestep = int(self.current_values["timestep"])
         # self.current_rp = float(self.current_values["reward_price"])
-        self.reward_price = self.redis_client.lrange('reward_price', 0, -1)
+        rp = self.redis_client.lrange('reward_price', 0, -1)
+        self.reward_price = np.zeros(self.horizon)
+        self.reward_price[:len(rp)] = rp
         try:
             self.iteration = int(self.current_values["iteration"])
         except:
