@@ -33,6 +33,7 @@ class Reformat:
         self.x_lims = [self.start_dt + timedelta(hours=x) for x in range(self.hours + self.config["rl_agg_time_horizon"])]
         self.baselines = []
         self.parametrics = []
+        self.parametric_qs = []
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -62,6 +63,9 @@ class Reformat:
 
     def add_parametric(self, path, name):
         self.parametrics.append({"path":path, "name":name})
+
+    def add_qfile(self, path, name):
+        self.parametric_qs.append({"path":path, "name":name})
 
     def plot_baseline_summary(self):
         fig = make_subplots(rows=1, cols=2)
@@ -288,6 +292,32 @@ class Reformat:
 
         return fig
 
+    def _show_baseline_error(self, fig, rldata):
+        file = self.baselines[0]
+        with open(file["path"]) as f:
+            data = json.load(f)
+
+        baseline_load = data["Summary"]["p_grid_aggregate"]
+        baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
+        baseline_error = np.subtract(baseline_load, baseline_setpoint)
+        fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(baseline_error), name="Error - Baseline"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline"))
+
+        return fig
+
+    def _show_parametric_error(self, fig):
+        for file in self.parametrics:
+            with open(file["path"]) as f:
+                data = json.load(f)
+
+            name = file["name"]
+            rl_load = data["Summary"]["p_grid_aggregate"][1:]
+            rl_setpoint = data["Summary"]["p_grid_setpoint"]
+            rl_error = np.subtract(rl_load, rl_setpoint)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(rl_error), name=f"Error - {name}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Error - {name}"))
+        return fig
+
     def rl2baseline(self, rl_file, rl_qfile):
         with open(rl_file) as f:
             rldata = json.load(f)
@@ -299,8 +329,14 @@ class Reformat:
         fig = self._show_greedy(fig, rl_qdata)
         fig = self._show_baseline(fig)
         fig = self._show_parametric(fig)
+        fig = self._show_baseline_error(fig, rldata)
+        fig = self._show_parametric_error(fig)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
         fig.show()
+
+    def rl_error(self, rl_file, rl_q_file):
+        fig = make_subplots()
+        fig = add_trace(go.Scatter(x=self.x_lims, y=rl_qdata["state"]))
 
     def compare_methods(self):
         base = os.path.join(self.outputs_dir, "baseline", "2015-01-01T00_2015-01-10T00-baseline_all-homes_20-horizon_8-results.json")
@@ -487,23 +523,33 @@ if __name__ == "__main__":
     start_dt = datetime.strptime(config["start_datetime"], '%Y-%m-%d %H')
     end_dt = datetime.strptime(config["end_datetime"], '%Y-%m-%d %H')
 
-    print(config["end_datetime"])
-    r = Reformat([os.path.join("outputs", "rl_agg", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-rl_agg_all-homes_20-horizon_8-alpha_0.2-epsilon_0.3-beta_0.6-results.json")])
-    for alpha in r.config["agg_learning_rate"]:
-        for epsilon in r.config["agg_exploration_rate"]:
-            for beta in r.config["rl_agg_discount_factor"]:
-                file = os.path.join("outputs", "rl_agg", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-rl_agg_all-homes_20-horizon_8-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-results.json")
+    nHouses = config["total_number_homes"]
+    mpcHorizon = config["agg_mpc_horizon"]
+    mpc_folder = f"all-homes_{nHouses}-horizon_{mpcHorizon}"
+
+    alphas = config["agg_learning_rate"]
+    epsilons = config["agg_exploration_rate"]
+    betas = config["rl_agg_discount_factor"]
+
+    rlHorizon = config["rl_agg_time_horizon"]
+
+    rl_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-results.json") # file used to plot house response
+    rl_q_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-iter-results.json")
+
+    r = Reformat([rl_file])
+
+    for alpha in alphas:
+        for epsilon in epsilons:
+            for beta in betas:
+                file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-results.json")
                 name = f"alpha={alpha}, beta={beta}, epsilon={epsilon}"
-                r.add_baseline(file, name)
+                r.add_parametric(file, name)
 
-    rlfile = os.path.join("outputs", "rl_agg", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-rl_agg_all-homes_20-horizon_8-alpha_0.2-epsilon_0.3-beta_0.6-results.json")
-    rl_qfile = os.path.join("outputs", "rl_agg", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-rl_agg_all-homes_20-horizon_8-alpha_0.2-epsilon_0.3-beta_0.6-iter-results.json")
-    # adds the baseline if you've run the baseline, otherwise continues without plotting.
-    mpc_tou = os.path.join(r.outputs_dir, "baseline", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-baseline_all-homes_20-horizon_8-results.json")
-    baselinefile = os.path.join(r.outputs_dir, "baseline", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-baseline_all-homes_20-horizon_8-results.json")
+    base_file = os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json")
+    if os.path.isfile(base_file):
+        r.add_baseline(os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json"), "baseline")
 
-    r.add_baseline(os.path.join(r.outputs_dir, "baseline", f"{start_dt.strftime('%Y-%m-%dT%H')}_{end_dt.strftime('%Y-%m-%dT%H')}-baseline_all-homes_20-horizon_8-results.json"), "baseline")
-    r.rl2baseline(rlfile, rl_qfile)
+    r.rl2baseline(rl_file, rl_q_file)
 
     r.plot_single_home2("Ruth-1HV86") # base
     r.plot_single_home2("Crystal-RXXFA") # pv_battery
