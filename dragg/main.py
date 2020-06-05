@@ -34,8 +34,10 @@ if __name__ == "__main__":
         for epsilon in epsilons:
             for beta in betas:
                 file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-results.json")
+                qfile = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-q-results.json")
                 name = f"alpha={alpha}, beta={beta}, epsilon={epsilon}"
                 r.add_parametric(file, name)
+                r.add_qfile(qfile, name)
 
     base_file = os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json")
     if os.path.isfile(base_file):
