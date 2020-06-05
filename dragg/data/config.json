@@ -39,7 +39,7 @@
   "min_runtime_mins": 15,
   "agg_learning_rate": [0.2],
   "agg_exploration_rate": [0.3],
-  "rl_agg_discount_factor": [0.6],
+  "rl_agg_discount_factor": [0.1],
   "shoulder_times": [9,21],
   "peak_times": [14,18],
   "offpeak_price": 0.05,
