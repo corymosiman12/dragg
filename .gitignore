@@ -5,6 +5,4 @@
 archive
 *.log
 ~$*.xlsx
-outputs
 dragg/dump.rdb
-data/config.json
