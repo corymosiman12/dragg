@@ -97,12 +97,13 @@ class Aggregator:
         self.agg_setpoint = None
         self.action = 0
         self.state = 0
-        self.epsilon = float(self.config["agg_exploration_rate"])
-        self.alpha = float(self.config["agg_learning_rate"])
-        self.lam = float(self.config["rl_agg_regularization_factor"])
-        self.theta = np.array([0, 2, 2, .5, .5, .5])#np.vstack(np.ones(6))
-        self.beta = float(self.config["rl_agg_discount_factor"])
-        self.rl_agg_horizon = int(self.config["rl_agg_time_horizon"])
+        # self.epsilon = float(self.config["agg_exploration_rate"]) # moved to self.run()
+        # self.alpha = float(self.config["agg_learning_rate"])
+        # self.lam = float(self.config["rl_agg_regularization_factor"])
+        self.theta = np.array([0, 2, 2, .5, .5, .5, .5, .5])#np.vstack(np.ones(6))
+        # self.beta = float(self.config["rl_agg_discount_factor"])
+        # self.rl_agg_horizon = int(self.config["rl_agg_time_horizon"])
+        self.q_tables = []
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -462,7 +463,7 @@ class Aggregator:
         :return:
         """
         self.timestep = 0
-        self.reward_price = np.zeros(self.rl_agg_horizon)
+        # self.reward_price = np.zeros(self.rl_agg_horizon)
         temp_sp = self.config["temp_sp"]
         wh_sp = self.config["wh_sp"]
         min_runtime = self.config["min_runtime_mins"]
@@ -477,13 +478,17 @@ class Aggregator:
         self.redis_client.hset("initial_values", "min_runtime_mins", min_runtime)
         self.redis_client.set("start_hour_index", self.start_hour_index)
         self.redis_client.hset("current_values", "timestep", self.timestep)
-        for val in self.reward_price.tolist():
-            self.redis_client.rpush("reward_price", val)
-        # self.redis_client.hset("current_values", "reward_price", self.reward_price.tolist())
 
         if self.case == "agg_mpc":
             self.iteration = 0
             self.redis_client.hset("current_values", "iteration", self.iteration)
+            self.redis_client.hset("current_values", "reward_price", self.reward_price.tolist())
+
+        if self.case == "rl_agg":
+            self.reward_price = np.zeros(self.rl_agg_horizon)
+            print(self.rl_agg_horizon, self.reward_price)
+            for val in self.reward_price.tolist():
+                self.redis_client.rpush("reward_price", val)
 
     def redis_set_state_for_previous_timestep(self):
         """
@@ -516,17 +521,19 @@ class Aggregator:
 
     def redis_set_current_values(self):
         self.redis_client.hset("current_values", "timestep", self.timestep)
-        for val in self.reward_price.tolist():
-            self.redis_client.lpop("reward_price")
-            self.redis_client.rpush("reward_price", val)
+
         # self.redis_client.hset("current_values", "reward_price", self.reward_price)
-        self.all_rps[self.timestep] = self.reward_price[0]
+
         # self.all_rps[self.timestep] = self.action
 
         if self.case == "agg_mpc":
             self.redis_client.hset("current_values", "iteration", self.iteration)
         elif self.case == "rl_agg":
             self.all_sps[self.timestep] = self.agg_setpoint
+            self.all_rps[self.timestep] = self.reward_price[0]
+            for val in self.reward_price.tolist():
+                self.redis_client.lpop("reward_price")
+                self.redis_client.rpush("reward_price", val)
 
     def update_reward_price(self):
         rp = self.reward_price + self.step_size_coeff * self.marginal_demand
@@ -541,14 +548,19 @@ class Aggregator:
         # mu = 0
         # return 1/(sigma*np.sqrt(2*np.pi))*np.exp(-1*(x-mu)**2)
         return x**2
+        # if abs(x-1) < .7:
+        #     return -1
+        # elif abs(x-1) < 2:
+        #     return 0
+        # else:
+        #     return 1
 
     def _q(self, state, action):
         q = np.matmul(self.theta.T, self._phi(state, action))
         return q
 
     def _phi(self, state, action):
-        # phi = np.array([1, state, action, state*action, state**2, action**2])
-        phi = np.array([1, state, action, state*action, state**2, action**2])
+        phi = np.array([state, action, state*action, state**2*action, state*action**2, state**2, action**2])
         return phi
 
     def _qvalue(self):
@@ -556,26 +568,41 @@ class Aggregator:
         return q_k
 
     def _get_greedyaction(self, state_k):
-        try:
-            u_k = cp.Variable(1)
-            xhat_k = cp.Constant(state_k)
-            th = cp.Constant(self.theta)
-            t = cp.Variable(5)
-            cons = [u_k >= self.actionspace[0],
-                    u_k <= self.actionspace[1],
-                    t[0] == self.theta[0],
-                    t[1] == self.theta[1]*xhat_k,
-                    t[2] == self.theta[2]*u_k,
-                    t[3] == self.theta[3]*xhat_k*u_k,
-                    t[4] == self.theta[4]*xhat_k**2]
+        self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1], 0.01)
+        self.q_lookup = np.column_stack((self.q_lookup, self.q_lookup))
+        for i in range(len(self.q_lookup)):
+            self.q_lookup[i,1] = self._q(state_k, self.q_lookup[i,0])
 
-            obj = cp.Minimize(cp.sum(t) + self.theta[5]*(u_k**2))
-            prob = cp.Problem(obj, cons)
-            prob.solve(solver=cp.ECOS, method="dccp", verbose=False)
-            u_k_opt = u_k.value[0]
-        except:
-            u_k_opt = 0
-            self.greedy_failed = True
+        self.q_tables.append(self.q_lookup.tolist())
+
+        u_k_opt = self.q_lookup[np.argmin(self.q_lookup[:,1]),0]
+        if u_k_opt != 0:
+            print(u_k_opt)
+        # try:
+        #     u_k = cp.Variable(1)
+        #     xhat_k = cp.Constant(state_k)
+        #     th = cp.Constant(self.theta)
+        #     c = cp.Variable(1)
+        #     temp = cp.Variable(5)
+        #     cons = [u_k >= self.actionspace[0],
+        #             u_k <= self.actionspace[1],
+        #             temp[0] == self.theta[0]*xhat_k,
+        #             temp[1] == self.theta[1]*u_k,
+        #             temp[2] == self.theta[2]*xhat_k*u_k,
+        #             temp[3] == self.theta[3]*xhat_k**2*u_k,
+        #             temp[4] == self.theta[5]*xhat_k**2,
+        #             c == self.theta[4]*xhat_k + self.theta[6]]
+        #
+        #     obj = cp.Minimize(xhat_k + u_k)
+        #     prob = cp.Problem(obj, cons)
+        #     prob.solve(solver=cp.ECOS, method="dccp", verbose=False)
+        #
+        #     u_k_opt = u_k.value[0]
+        # except:
+        #     self.agg_log.logger.error(f"Error optimizing parameterized Q at timestep {self.timestep}: {prob.status}")
+        #     u_k_opt = 0
+        #     self.greedy_failed = True
+
         return u_k_opt
 
     def update_qfunction(self):
@@ -600,8 +627,8 @@ class Aggregator:
         else: # exploration
             u_k = random.uniform(self.actionspace[0], self.actionspace[1])
             self.is_greedy = False
-        # self.action = np.round(u_k, 2)
-        self.action = u_k
+
+        self.action = avg_rp + u_k
 
         self.reward_price[:-1] = self.reward_price[1:]
         self.reward_price[-1] = np.round(avg_rp + self.action,2)
@@ -688,10 +715,11 @@ class Aggregator:
         self.rl_q_data["theta"].append(self.theta.flatten().tolist())
         self.rl_q_data["phi"].append(self.phi_k.tolist())
         self.rl_q_data["q"].append(self.q_observed)
-        self.rl_q_data["action"].append(self.action.tolist())
+        self.rl_q_data["action"].append(self.action)
         self.rl_q_data["state"].append(self.state)
         self.rl_q_data["is_greedy"].append(self.is_greedy)
         self.rl_q_data["greedy_failed"].append(self.greedy_failed)
+        self.rl_q_data["q_tables"].append(self.q_lookup.tolist())
 
     def run_baseline(self, horizon=1):
         self.agg_log.logger.info(f"Performing baseline run for horizon: {horizon}")
@@ -741,23 +769,40 @@ class Aggregator:
 
     def write_outputs(self, horizon):
         # Write values for baseline run to file
-        case_output = os.path.join(self.outputs_dir, self.case)
-        if not os.path.isdir(case_output):
-            os.makedirs(case_output)
-        file = os.path.join(case_output, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}-{self.case}_{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-results.json")
-        with open(file, 'w+') as f:
-            json.dump(self.baseline_data, f, indent=4)
-        if self.case == "agg_mpc":
-            f2 = os.path.join(case_output, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}-{self.case}_{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-iter-results.json")
+        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
+        if not os.path.isdir(date_output):
+            os.makedirs(date_output)
+
+        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}")
+        if not os.path.isdir(mpc_output):
+            os.makedirs(mpc_output)
+
+        agg_output = os.path.join(mpc_output, f"{self.case}")
+        if not os.path.isdir(agg_output):
+            os.makedirs(agg_output)
+
+        if self.case == "baseline":
+            file_name = "baseline-results.json"
+
+        elif self.case == "agg_mpc":
+            file_name = "baseline-results.json"
+            f2 = os.path.join(agg_output, f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-iter-results.json")
             with open(f2, 'w+') as f:
                 json.dump(self.agg_mpc_data, f, indent=4)
-        if self.case == "rl_agg":
-            f3 = os.path.join(case_output, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}-{self.case}_{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-iter-results.json")
+
+        else:
+            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}-results.json"
+            f3 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}-iter-results.json")
             with open(f3, 'w+') as f:
                 json.dump(self.rl_agg_data, f, indent=4)
-            f4 = os.path.join(case_output, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}-{self.case}_{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-q-results.json")
+            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}-q-results.json")
             with open(f4, 'w+') as f:
                 json.dump(self.rl_q_data, f, indent=4)
+
+        file = os.path.join(agg_output, file_name)
+        with open(file, 'w+') as f:
+            json.dump(self.baseline_data, f, indent=4)
+
 
     def write_home_configs(self):
         # Write all home configurations to file
@@ -831,6 +876,7 @@ class Aggregator:
         temp["state"] = [0]
         temp["is_greedy"] = []
         temp["greedy_failed"] = []
+        temp["q_tables"] = []
         return temp
 
     def _gen_setpoint(self):
@@ -839,12 +885,14 @@ class Aggregator:
         # daily_offset = 6
         # sp = (max_p_grid - min_p_grid)*np.sin((self.timestep-6) * 3.14/12) + (min_p_grid + max_p_grid)/2
         # return sp
-        # i = self.timestep % 24
-        # if i >= 12:
-        #     sp = 60
-        # else:
-        #     sp = 10
-        sp = 40
+
+        i = self.timestep % 24
+        if i >= 2 and i <= 14:
+            sp = 60
+        else:
+            sp = 10
+
+        # sp = 20
         return sp
 
     def test_response(self):
@@ -855,8 +903,8 @@ class Aggregator:
         #self.agg_load = max(200,self.agg_load) # can't go above 200
         self.agg_cost = self.agg_load * self.reward_price
 
-    def run_rl_agg(self, alpha, epsilon, horizon):
-        self.agg_log.logger.info(f"Performing RL AGG (learning rate: {alpha}, exploration rate: {epsilon}) with MPC HEMS for horizon: {horizon}")
+    def run_rl_agg(self, horizon):
+        self.agg_log.logger.info(f"Performing RL AGG (learning rate: {self.alpha}, exploration rate: {self.epsilon}) with MPC HEMS for horizon: {horizon}")
         self.start_time = datetime.now()
         self.rl_agg_data = self.set_rl_agg_initial_vals()
         self.rl_q_data = self.set_rl_q_initial_vals()
@@ -944,12 +992,25 @@ class Aggregator:
             self.case = "rl_agg"
             horizon = self.config["agg_mpc_horizon"]
             self.max_load_threshold = self.config["max_load_threshold"][0]
-            params = [0]
-            for param in params:
-                self.flush_redis()
-                self.redis_set_initial_values()
-                self.reset_baseline_data()
-                self.set_baseline_initial_vals()
-                self.run_rl_agg(self.config["agg_learning_rate"], self.config["agg_exploration_rate"], horizon)
-                self.summarize_baseline(horizon)
-                self.write_outputs(horizon)
+
+            epsilons = self.config["agg_exploration_rate"]
+            alphas = self.config["agg_learning_rate"]
+            betas = self.config["rl_agg_discount_factor"]
+            self.rl_agg_horizon = int(self.config["rl_agg_time_horizon"])
+
+            for alpha in alphas:
+                self.alpha = float(alpha)
+                for beta in betas:
+                    self.beta = float(beta)
+                    for epsilon in epsilons:
+                        self.epsilon = float(epsilon)
+
+                        self.theta = np.array([2, 2, .5, .5, .5, .5, .5])
+
+                        self.flush_redis()
+                        self.redis_set_initial_values()
+                        self.reset_baseline_data()
+                        self.set_baseline_initial_vals()
+                        self.run_rl_agg(horizon)
+                        self.summarize_baseline(horizon)
+                        self.write_outputs(horizon)
