@@ -4,8 +4,8 @@ import json
 import os
 
 if __name__ == "__main__":
-    # a = Aggregator()
-    # a.run()
+    a = Aggregator()
+    a.run()
 
     config_file = os.path.join("data", os.environ.get('CONFIG_FILE', 'config.json'))
     with open(config_file, 'r') as f:
