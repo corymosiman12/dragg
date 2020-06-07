@@ -344,7 +344,7 @@ class MPCCalc:
         # self.current_rp = float(self.current_values["reward_price"])
         rp = self.redis_client.lrange('reward_price', 0, -1)
         self.reward_price = np.zeros(self.horizon)
-        self.reward_price[:len(rp)] = rp
+        self.reward_price[:min(len(rp), self.horizon)] = rp[:min(len(rp), self.horizon)]
         try:
             self.iteration = int(self.current_values["iteration"])
         except:
