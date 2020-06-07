@@ -538,12 +538,12 @@ class Aggregator:
         time = self.timestep % 24
         return [current_error, persistence_error, forecast_error, forecast_delta, time]
 
-    def _cost(self, x):
+    def _reward(self, x):
         # return x[0]**2
         sigma = 0.2
         mu = 0
-        cost = -1/(np.sqrt(2*np.pi*sigma)) * np.exp(-0.5*(x[0]-mu)**2/(sigma**2))
-        return cost
+        reward = 1/(np.sqrt(2*np.pi*sigma)) * np.exp(-0.5*(x[0]-mu)**2/(sigma**2))
+        return reward
 
     def _q(self, state, action):
         q = self.theta @ self._phi(state, action)
@@ -570,33 +570,56 @@ class Aggregator:
         return phi
 
     def _qvalue(self):
-        q_k = self._cost(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state))
+        q_k = self._reward(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state)[0])
         # q_k = self._cost(self.state) + self.beta * self._cost(self.next_state)
         return q_k
 
     def _get_greedyaction(self, state_k):
         self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1], 0.01)
+        self.nActions = len(self.q_lookup)
         self.q_lookup = np.column_stack((self.q_lookup, self.q_lookup))
         for i in range(len(self.q_lookup)):
             self.q_lookup[i,1] = self._q(state_k, self.q_lookup[i,0])
 
         self.q_tables.append(self.q_lookup.tolist())
 
-        u_k_opt = self.q_lookup[np.argmin(self.q_lookup[:,1]),0]
+        index = np.argmax(self.q_lookup[:,1])
+        u_k_opt = self.q_lookup[index,0]
+        q_max = self.q_lookup[index,1]
 
-        return u_k_opt
+        return [u_k_opt, q_max]
+
+    # def _pi(self):
+    #     q_greedy = self.q_lookup
+    #     pi = q_greedy + q_probabilistic
+    #     return pi
 
     def update_qfunction(self):
         self.phi_k = (self._phi(self.state, self.action))
-        next_action = self._get_greedyaction(self.next_state)
-        self.phi_k1 = (self._phi(self.next_state, next_action))
+        greedy_vals = self._get_greedyaction(self.next_state)
+        next_action = greedy_vals[0]
+        self.phi_k1 = (self._phi(self.next_state, next_action)) # phi_bar according to Maei & Sutton notation
         self.q_predicted = self._q(self.state, self.action)
         self.q_observed = self._qvalue()
+
         # print("state_k", self.state)
         # print("state_k1", self.next_state)
         # print("action", self.action)
         # print("theta_k", self.theta)
         if self.timestep >= 0: #optional delay on learning
+            if self.is_greedy:
+                learning_policy = 1 # pi (policy)
+                behavior_policy = (1-self.epsilon) + self.epsilon / self.nActions # b (policy), using stochastic probabilities
+            else:
+                learning_policy = 0
+                behavior_policy = self.epsilon / self.nActions
+            responsibility = learning_policy / behavior_policy # rho
+
+            self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
+            self.delta = self.q_observed - self.q_predicted
+            self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
+            k = (1 - self.beta) * (1 - self.lam)
+            self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
             # self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1) # weight vector update
 
         # print("q_pred", self.q_predicted)
@@ -619,7 +642,7 @@ class Aggregator:
         if ((self.timestep+201) % 200) == 0: # every 200 timesteps
             self.epsilon = self.epsilon/2 # decrease exploration rate
         if np.random.uniform(0,1) >= self.epsilon: # the greedy action
-            u_k = self._get_greedyaction(self.state)
+            u_k = self._get_greedyaction(self.state)[0]
             self.is_greedy = True
         else: # exploration
             u_k = random.uniform(self.actionspace[0], self.actionspace[1])
@@ -878,6 +901,7 @@ class Aggregator:
     def rl_initialize_forecast(self):
         forecast_file = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}", f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{self.horizon}", "baseline", "baseline-results.json")
         if not os.path.isfile(forecast_file):
+            self.agg_log.logger.warning("No baseline file found for MPC with no aggregator. Running baseline file now.")
             self.case = "baseline" # no aggregator
             for h in self.config["prediction_horizons"]:
                 self.flush_redis()
@@ -894,6 +918,7 @@ class Aggregator:
         forecast = data["Summary"]["p_grid_aggregate"]
         forecast_data = 50*np.ones(self.hours)
         forecast_data[:len(forecast)] = forecast
+        np.append(forecast_data, forecast_data[-1])
         return forecast_data
 
     def _gen_forecast(self):
@@ -930,8 +955,12 @@ class Aggregator:
         self.rl_q_data = self.set_rl_q_initial_vals()
         self.baseline_agg_load_list = [0]
 
-        self.state = [0,0,0,0,23] # state initialization
-        self.theta = np.ones(len(self._phi(self.state,0))) # theta initialization
+        self.state = [0, 0, 0, 0, 23] # state initialization
+        self.lam = 0.9
+        n = len(self._phi(self.state, 0))
+        self.theta = np.ones(n) # theta initialization
+        self.e = np.zeros(n)
+        self.w = np.zeros(n)
         self.forecast_data = self.rl_initialize_forecast()
 
         for hour in range(self.hours):

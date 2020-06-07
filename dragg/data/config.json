@@ -20,7 +20,7 @@
   "pv_area": 32,
   "pv_efficiency": 0.2,
   "start_datetime": "2015-01-01 00",
-  "end_datetime": "2015-01-11 00",
+  "end_datetime": "2015-02-01 00",
   "prediction_horizons": [8],
   "random_seed": 12,
   "load_zone": "LZ_HOUSTON",

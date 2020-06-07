@@ -22,7 +22,7 @@ if __name__ == "__main__":
     alphas = config["agg_learning_rate"]
     epsilons = config["agg_exploration_rate"]
     betas = config["rl_agg_discount_factor"]
-    betas.append(0.49)
+    # betas.append(0.49)
 
     rlHorizons = config["rl_agg_time_horizon"]
 
