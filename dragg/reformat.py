@@ -10,6 +10,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 
 from dragg.reformat_logger import ReformatLogger
+import dragg.aggregator as agg
 
 class Reformat:
     def __init__(self, files):
@@ -30,7 +31,7 @@ class Reformat:
         self.files_to_reformat = files
         self.data = self._import_data()
         self.summary_data = self._config_summary()
-        self.x_lims = [self.start_dt + timedelta(hours=x) for x in range(self.hours + self.config["rl_agg_time_horizon"])]
+        self.x_lims = [self.start_dt + timedelta(hours=x) for x in range(self.hours + max(self.config["rl_agg_time_horizon"]))]
         self.baselines = []
         self.parametrics = []
         self.parametric_qs = []
@@ -240,16 +241,16 @@ class Reformat:
 
     def _show_greedy(self, fig, data):
         rtgs = {}
-        for i in range(self.config["rl_agg_time_horizon"]+1):
+        for i in range(max(self.config["rl_agg_time_horizon"])+1):
             rtgs[i] = []
 
-        is_greedy = [False]*(self.config["rl_agg_time_horizon"]-1)
+        is_greedy = [False]*(max(self.config["rl_agg_time_horizon"])-1)
         is_random = []
         for timestep in data:
             is_greedy.append(timestep['is_greedy'])
 
         for t in range(self.hours):
-            rating = sum(is_greedy[t:t+self.config["rl_agg_time_horizon"]])
+            rating = sum(is_greedy[t:t+max(self.config["rl_agg_time_horizon"])])
             rtgs[rating].append(t)
             if not is_greedy[t]:
                 is_random.append(t)
@@ -268,7 +269,7 @@ class Reformat:
             fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(hours=t) for t in times], y=[1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
 
         fig.add_trace(go.Bar(name="Random Action - Current", x=[self.start_dt + timedelta(hours=t) for t in is_random], y=[1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
-        fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(hours=t-(self.config["rl_agg_time_horizon"]-1)) for t in is_random], y=[1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
+        fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(hours=t-(max(self.config["rl_agg_time_horizon"])-1)) for t in is_random], y=[1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
         return fig
 
     def _show_baseline(self, fig):
@@ -293,16 +294,18 @@ class Reformat:
         return fig
 
     def _show_baseline_error(self, fig, rldata):
-        file = self.baselines[0]
-        with open(file["path"]) as f:
-            data = json.load(f)
+        try:
+            file = self.baselines[0]
+            with open(file["path"]) as f:
+                data = json.load(f)
 
-        baseline_load = data["Summary"]["p_grid_aggregate"]
-        baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
-        baseline_error = np.subtract(baseline_load, baseline_setpoint)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(baseline_error), name="Error - Baseline"))
-        fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline"))
-
+            baseline_load = data["Summary"]["p_grid_aggregate"]
+            baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
+            baseline_error = np.subtract(baseline_load, baseline_setpoint)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(baseline_error), name="Error - Baseline"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline"))
+        except:
+            pass
         return fig
 
     def _show_parametric_error(self, fig):
@@ -334,46 +337,37 @@ class Reformat:
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
         fig.show()
 
-    def rl_error(self, rl_file, rl_q_file):
+    def rl_qtables(self, rl_q_file):
+        with open(rl_q_file) as f:
+            data = json.load(f)
+
         fig = make_subplots()
-        fig = add_trace(go.Scatter(x=self.x_lims, y=rl_qdata["state"]))
+        x = []
+        y = []
+        t = 100
+        for i in range(len(data["q_tables"][t])):
+            x.append(data[t][i][0])
+            y.append(data[t][i][1])
 
-    def compare_methods(self):
-        base = os.path.join(self.outputs_dir, "baseline", "2015-01-01T00_2015-01-10T00-baseline_all-homes_20-horizon_8-results.json")
-        basetou = os.path.join(self.outputs_dir, "baseline", "2015-01-01T00_2015-01-10T00-baseline_all-homes_20-horizon_8-results-tou.json")
-        rr_rl =  os.path.join(self.outputs_dir, "rl_agg","ridge", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json")
-        en_rl =  os.path.join(self.outputs_dir, "rl_agg","elasticNet", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json")
-        la_rl =  os.path.join(self.outputs_dir, "rl_agg","lasso", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json")
+        print(x,y)
+        fig.add_trace(go.Scatter(x=x, y=y))
 
-        files = [base, basetou, rr_rl, en_rl, la_rl]
-        for i in files:
-            with open(i):
-                data = json.load(f)
+        fig.show()
 
-    def compare2(self):
-        opt1 = os.path.join(self.outputs_dir, "rl_agg","elasticNet", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json")
-        opt2 = os.path.join(self.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-10T00-rl_agg_all-homes_20-horizon_8-results.json")
-        baselinefile = os.path.join(self.outputs_dir, "baseline", "2015-01-01T00_2015-01-10T00-baseline_all-homes_20-horizon_1-results.json")
-        with open(baselinefile) as f:
-            baselinedata = json.load(f)
+    def q_values(self, rl_q_file):
+        with open(rl_q_file) as f:
+            data = json.load(f)
 
-
-        opts = [opt1, opt2]
-        names = ["L2 Norm", "Gradient Penalty"]
-
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(go.Scatter(x=self.x_lims, y=baselinedata["Summary"]["p_grid_aggregate"], name="MPC No agg."))
-        for i in range(2):
-            with open(opts[i]) as f:
-                data = json.load(f)
-
-            fig.update_layout(shapes = self._show_greedy(os.path.join(self.outputs_dir, "rl_agg", "2015-01-01T00_2015-01-02T00-rl_agg_all-homes_20-horizon_8-iter-results.json")))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"], name=f"RL - {names[i]}"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["TOU"], name=f"TOU Price ($/kWh) - {names[i]}", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["RP"], name=f"Reward Price ($/kWh) - {names[i]}", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(data["Summary"]["TOU"], data["Summary"]["RP"]), name=f"Actual Price ($/kWh) - {names[i]}", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_setpoint"], name=f"RL Setpoint Load - {names[i]}"))
-
+        x1 = []
+        x2 = []
+        for i in data["state"]:
+            if i[0] < 0:
+                x1.append(i[0])
+            else:
+                x2.append(i[0])
+        fig = make_subplots()
+        fig.add_trace(go.Scatter3d(x=x1, y=data["action"], z=data["q_obs"], mode="markers"))
+        fig.add_trace(go.Scatter3d(x=x2, y=data["action"], z=data["q_obs"], mode="markers"))
         fig.show()
 
     def reward_prices_over_time(self):
