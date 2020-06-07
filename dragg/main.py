@@ -22,30 +22,38 @@ if __name__ == "__main__":
     alphas = config["agg_learning_rate"]
     epsilons = config["agg_exploration_rate"]
     betas = config["rl_agg_discount_factor"]
+    betas.append(0.49)
 
-    rlHorizon = config["rl_agg_time_horizon"]
+    rlHorizons = config["rl_agg_time_horizon"]
 
-    rl_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-results.json") # file used to plot house response
-    rl_q_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-iter-results.json")
+    rl_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-results.json") # file used to plot house response
+    rl_iter_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-iter-results.json")
+    rl_q_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-q-results.json")
 
     r = Reformat([rl_file])
+
+    # r.q_values(rl_q_file)
 
     for alpha in alphas:
         for epsilon in epsilons:
             for beta in betas:
-                file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-results.json")
-                qfile = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-q-results.json")
-                name = f"alpha={alpha}, beta={beta}, epsilon={epsilon}"
-                r.add_parametric(file, name)
-                r.add_qfile(qfile, name)
+                for rlHorizon in rlHorizons:
+                    file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-results.json")
+                    qfile = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-q-results.json")
+                    name = f"horizon={rlHorizon}, alpha={alpha}, beta={beta}, epsilon={epsilon}"
+                    if os.path.isfile(file) and os.path.isfile(qfile):
+                        r.add_parametric(file, name)
+                        r.add_qfile(qfile, name)
 
     base_file = os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json")
     if os.path.isfile(base_file):
         r.add_baseline(os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json"), "baseline")
 
-    r.rl2baseline(rl_file, rl_q_file)
+    r.rl2baseline(rl_file, rl_iter_file)
 
-    r.plot_single_home2("Ruth-1HV86") # base
-    r.plot_single_home2("Crystal-RXXFA") # pv_battery
-    r.plot_single_home2("Bruno-PVRNB") # pv_only
-    r.plot_single_home2("Jason-INS3S") # battery_only
+    # r.plot_single_home2("Ruth-1HV86") # base
+    # r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    # r.plot_single_home2("Bruno-PVRNB") # pv_only
+    # r.plot_single_home2("Jason-INS3S") # battery_only
+
+    # r.rl_qtables(rl_q_file)
