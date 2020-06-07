@@ -94,14 +94,7 @@ class Aggregator:
         self.all_rps = np.zeros(self.hours)
         self.all_sps = np.zeros(self.hours)
 
-        self.agg_setpoint = None
         self.action = 0
-        self.state = 0
-        # self.epsilon = float(self.config["agg_exploration_rate"]) # moved to self.run()
-        # self.alpha = float(self.config["agg_learning_rate"])
-        # self.lam = float(self.config["rl_agg_regularization_factor"])
-        # self.beta = float(self.config["rl_agg_discount_factor"])
-        # self.rl_agg_horizon = int(self.config["rl_agg_time_horizon"])
         self.q_tables = []
 
     def _import_config(self):
@@ -539,38 +532,46 @@ class Aggregator:
 
     def _calc_state(self):
         current_error = (self.agg_load - self.agg_setpoint) / self.agg_setpoint
+        persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
         forecast_error = (self.agg_forecast - self.forecast_setpoint) / self.forecast_setpoint
+        forecast_delta = self.agg_forecast - self.agg_load
         time = self.timestep % 24
-        return [current_error, forecast_error, time]
+        return [current_error, persistence_error, forecast_error, forecast_delta, time]
 
     def _cost(self, x):
-        return x[0]**2
-        # if abs(x[0]) < 1:
-        #     cost = -1
-        # else:
-        #     cost = 0
-        # return cost
+        # return x[0]**2
+        sigma = 0.2
+        mu = 0
+        cost = -1/(np.sqrt(2*np.pi*sigma)) * np.exp(-0.5*(x[0]-mu)**2/(sigma**2))
+        return cost
 
     def _q(self, state, action):
-        q = np.matmul(self.theta.T, self._phi(state, action))
+        q = self.theta @ self._phi(state, action)
         return q
 
     def _phi(self, state, action):
-        p_grid_error = state[0]
-        p_grid_forecast = state[1]
-        time = state[2]
+        p_curr_error = state[0]
+        persistence_error = state[1]
+        p_forecast_error = state[2]
+        p_forecast_delta = state[3]
+        time = state[4]
 
-        action_basis = [action, action**2]
-        current_error_basis = [p_grid_error, p_grid_error*action, p_grid_error**2*action, p_grid_error*action**2, p_grid_error**2]
-        forecast_error_basis = [p_grid_forecast, p_grid_forecast*action, p_grid_forecast**2*action, p_grid_forecast*action**2, p_grid_forecast**2]
-        time_basis = [np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)]
-        phi = np.concatenate((action_basis, current_error_basis, forecast_error_basis, time_basis))
+        action_basis = np.array([action, action**2])
+        current_error_basis = np.array([p_curr_error, p_curr_error*action, p_curr_error**2*action, p_curr_error*action**2, p_curr_error**2])
+        persistence_error_basis = np.array([persistence_error, persistence_error*action, persistence_error**2*action, persistence_error*action**2, persistence_error**2])
+        forecast_error_basis = np.array([p_forecast_error, p_forecast_error*action, p_forecast_error**2*action, p_forecast_error*action**2, p_forecast_error**2])
+        delta_basis = np.array([p_forecast_delta, p_forecast_delta*action, p_forecast_delta**2*action, p_forecast_delta*action**2, p_forecast_delta**2])
+        time_basis = np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)])
+        n = time_basis[0] * current_error_basis
+        m = time_basis[1] * current_error_basis
+        # phi = np.concatenate((action_basis, current_error_basis, forecast_error_basis, n, m))
+        phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, delta_basis, n, m))
 
         return phi
 
     def _qvalue(self):
-        # q_k = self._cost(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state))
-        q_k = self._cost(self.state) + self.beta * self._cost(self.next_state)
+        q_k = self._cost(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state))
+        # q_k = self._cost(self.state) + self.beta * self._cost(self.next_state)
         return q_k
 
     def _get_greedyaction(self, state_k):
@@ -586,19 +587,17 @@ class Aggregator:
         return u_k_opt
 
     def update_qfunction(self):
-        self.theta = self.theta.flatten()
         self.phi_k = (self._phi(self.state, self.action))
         next_action = self._get_greedyaction(self.next_state)
         self.phi_k1 = (self._phi(self.next_state, next_action))
         self.q_predicted = self._q(self.state, self.action)
         self.q_observed = self._qvalue()
-        error = self.q_predicted - self.q_observed
         # print("state_k", self.state)
         # print("state_k1", self.next_state)
         # print("action", self.action)
         # print("theta_k", self.theta)
-        if self.timestep >= 0:
-            self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1)
+        if self.timestep >= 0: #optional delay on learning
+            # self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1) # weight vector update
 
         # print("q_pred", self.q_predicted)
         # print("q_obs", self.q_observed)
@@ -611,7 +610,10 @@ class Aggregator:
         # print('.')
 
     def rl_update_reward_price(self):
-        avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
+        if self.rl_agg_horizon > 1:
+            avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
+        else:
+            avg_rp = np.sum(0)
         self.actionspace = self.config["action_space"] - avg_rp
          # update epsilon
         if ((self.timestep+201) % 200) == 0: # every 200 timesteps
@@ -922,13 +924,13 @@ class Aggregator:
         self.agg_cost = self.agg_load * self.reward_price
 
     def run_rl_agg(self, horizon):
-        self.agg_log.logger.info(f"Performing RL AGG (learning rate: {self.alpha}, exploration rate: {self.epsilon}) with MPC HEMS for horizon: {self.horizon}")
+        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.rl_agg_horizon}, learning rate: {self.alpha}, discount factor: {self.beta}, exploration rate: {self.epsilon}) with MPC HEMS for horizon: {self.horizon}")
         self.start_time = datetime.now()
         self.rl_agg_data = self.set_rl_agg_initial_vals()
         self.rl_q_data = self.set_rl_q_initial_vals()
         self.baseline_agg_load_list = [0]
 
-        self.state = [0,0,23] # state initialization
+        self.state = [0,0,0,0,23] # state initialization
         self.theta = np.ones(len(self._phi(self.state,0))) # theta initialization
         self.forecast_data = self.rl_initialize_forecast()
 
@@ -1019,7 +1021,7 @@ class Aggregator:
             epsilons = self.config["agg_exploration_rate"]
             alphas = self.config["agg_learning_rate"]
             betas = self.config["rl_agg_discount_factor"]
-            self.rl_agg_horizon = int(self.config["rl_agg_time_horizon"])
+            rl_agg_horizons = self.config["rl_agg_time_horizon"]
 
             for alpha in alphas:
                 self.alpha = float(alpha)
@@ -1027,11 +1029,13 @@ class Aggregator:
                     self.beta = float(beta)
                     for epsilon in epsilons:
                         self.epsilon = float(epsilon)
+                        for h in rl_agg_horizons:
+                            self.rl_agg_horizon = int(h)
 
-                        self.flush_redis()
-                        self.redis_set_initial_values()
-                        self.reset_baseline_data()
-                        self.set_baseline_initial_vals()
-                        self.run_rl_agg(self.horizon)
-                        self.summarize_baseline(self.horizon)
-                        self.write_outputs(self.horizon)
+                            self.flush_redis()
+                            self.redis_set_initial_values()
+                            self.reset_baseline_data()
+                            self.set_baseline_initial_vals()
+                            self.run_rl_agg(self.horizon)
+                            self.summarize_baseline(self.horizon)
+                            self.write_outputs(self.horizon)
