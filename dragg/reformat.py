@@ -370,6 +370,22 @@ class Reformat:
         fig.add_trace(go.Scatter3d(x=x2, y=data["action"], z=data["q_obs"], mode="markers"))
         fig.show()
 
+    def rl_thetas(self, rl_q_file):
+        with open(rl_q_file) as f:
+            data = json.load(f)
+
+        theta = data["theta"]
+
+        fig = make_subplots()
+        x = np.arange(self.hours)
+        for i in range(len(data["theta"][0])):
+            y = []
+            for j in range(self.hours):
+                y.append(theta[j][i])
+            fig.add_trace(go.Scatter(x=x, y=y, name=f"Theta_{i}"))
+
+        fig.show()
+
     def reward_prices_over_time(self):
         file = os.path.join(self.outputs_dir, "agg_mpc", "2015-01-01T00_2015-01-02T00-agg_mpc_all-homes_20-horizon_8-iter-results.json")
         with open(file) as f:
