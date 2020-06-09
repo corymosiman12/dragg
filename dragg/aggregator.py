@@ -16,15 +16,19 @@ import cvxpy as cp
 import dccp
 from sklearn.linear_model import ElasticNet
 from sklearn.linear_model import Lasso
+import redis
 
 # Local
 from dragg.aggregator_logger import AggregatorLogger
+from dragg.mpc_calc_logger import MPCCalcLogger
 from dragg.mpc_calc import MPCCalc
+from dragg.redis_client import RedisClient
 
 
 class Aggregator:
-    def __init__(self):
-        self.agg_log = AggregatorLogger()
+    def __init__(self, logs):
+        self.agg_log = logs["aggregator"]
+        self.mpc_log = logs["mpc_calc"]
         self.data_dir = 'data'
         self.outputs_dir = 'outputs'
         if not os.path.isdir(self.outputs_dir):
@@ -80,7 +84,9 @@ class Aggregator:
         self.hours = None  # Set by _set_dt
         self.all_homes = None  # Set by create_homes
         self.queue = Queue()
-        self.redis_client = StrictRedis(host=os.environ.get('REDIS_HOST'), decode_responses=True)
+        # self.redis_pool = redis.ConnectionPool(host = os.environ.get('REDIS_HOST', 'localhost'), decode_responses = True, db = 0)
+        # self.redis_client = redis.Redis(connection_pool = self.redis_pool)
+        self.redis_client = RedisClient()
         self.config = self._import_config()
         self.step_size_coeff = self.config["step_size_coeff"]
         self.check_type = self.config["check_type"]  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
@@ -460,26 +466,26 @@ class Aggregator:
         wh_sp = self.config["wh_sp"]
         min_runtime = self.config["min_runtime_mins"]
         self.e_batt_init = self.config["battery_capacity"] * self.config["battery_cap_bounds"][0]
-        self.redis_client.hset("initial_values", "temp_in_init", self.config["temp_in_init"])
-        self.redis_client.hset("initial_values", "temp_wh_init", self.config["temp_wh_init"])
-        self.redis_client.hset("initial_values", "e_batt_init", self.e_batt_init)
-        self.redis_client.hset("initial_values", "temp_in_min", temp_sp[0])
-        self.redis_client.hset("initial_values", "temp_in_max", temp_sp[1])
-        self.redis_client.hset("initial_values", "temp_wh_min", wh_sp[0])
-        self.redis_client.hset("initial_values", "temp_wh_max", wh_sp[1])
-        self.redis_client.hset("initial_values", "min_runtime_mins", min_runtime)
-        self.redis_client.set("start_hour_index", self.start_hour_index)
-        self.redis_client.hset("current_values", "timestep", self.timestep)
+        self.redis_client.conn.hset("initial_values", "temp_in_init", self.config["temp_in_init"])
+        self.redis_client.conn.hset("initial_values", "temp_wh_init", self.config["temp_wh_init"])
+        self.redis_client.conn.hset("initial_values", "e_batt_init", self.e_batt_init)
+        self.redis_client.conn.hset("initial_values", "temp_in_min", temp_sp[0])
+        self.redis_client.conn.hset("initial_values", "temp_in_max", temp_sp[1])
+        self.redis_client.conn.hset("initial_values", "temp_wh_min", wh_sp[0])
+        self.redis_client.conn.hset("initial_values", "temp_wh_max", wh_sp[1])
+        self.redis_client.conn.hset("initial_values", "min_runtime_mins", min_runtime)
+        self.redis_client.conn.set("start_hour_index", self.start_hour_index)
+        self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
         if self.case == "agg_mpc":
             self.iteration = 0
-            self.redis_client.hset("current_values", "iteration", self.iteration)
-            self.redis_client.hset("current_values", "reward_price", self.reward_price.tolist())
+            self.redis_client.conn.hset("current_values", "iteration", self.iteration)
+            self.redis_client.conn.hset("current_values", "reward_price", self.reward_price.tolist())
 
         if self.case == "rl_agg":
             self.reward_price = np.zeros(self.rl_agg_horizon)
             for val in self.reward_price.tolist():
-                self.redis_client.rpush("reward_price", val)
+                self.redis_client.conn.rpush("reward_price", val)
 
     def redis_set_state_for_previous_timestep(self):
         """
@@ -492,11 +498,11 @@ class Aggregator:
         for home, vals in self.baseline_data.items():
             for k, v in vals.items():
                 if k == "temp_in_opt":
-                    self.redis_client.hset(home, k, v[-1])
+                    self.redis_client.conn.hset(home, k, v[-1])
                 elif k == "temp_wh_opt":
-                    self.redis_client.hset(home, k, v[-1])
+                    self.redis_client.conn.hset(home, k, v[-1])
                 if 'battery' in vals['type'] and k == "e_batt_opt":
-                    self.redis_client.hset(home, k, v[-1])
+                    self.redis_client.conn.hset(home, k, v[-1])
 
     def redis_add_all_data(self):
         """
@@ -508,23 +514,23 @@ class Aggregator:
         for c in self.all_data.columns.to_list():
             data = self.all_data[c]
             for val in data.values.tolist():
-                self.redis_client.rpush(c, val)
+                self.redis_client.conn.rpush(c, val)
 
     def redis_set_current_values(self):
-        self.redis_client.hset("current_values", "timestep", self.timestep)
+        self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
         # self.redis_client.hset("current_values", "reward_price", self.reward_price)
 
         # self.all_rps[self.timestep] = self.action
 
         if self.case == "agg_mpc":
-            self.redis_client.hset("current_values", "iteration", self.iteration)
+            self.redis_client.conn.hset("current_values", "iteration", self.iteration)
         elif self.case == "rl_agg":
             self.all_sps[self.timestep] = self.agg_setpoint
             self.all_rps[self.timestep] = self.reward_price[0]
             for val in self.reward_price.tolist():
-                self.redis_client.lpop("reward_price")
-                self.redis_client.rpush("reward_price", val)
+                self.redis_client.conn.lpop("reward_price")
+                self.redis_client.conn.rpush("reward_price", val)
 
     def update_reward_price(self):
         rp = self.reward_price + self.step_size_coeff * self.marginal_demand
@@ -535,15 +541,21 @@ class Aggregator:
         persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
         forecast_error = (self.agg_forecast - self.forecast_setpoint) / self.forecast_setpoint
         forecast_delta = self.agg_forecast - self.agg_load
-        time = self.timestep % 24
-        return [current_error, persistence_error, forecast_error, forecast_delta, time]
+        time_of_day = self.timestep % 24
+        return [current_error, persistence_error, forecast_error, forecast_delta, time_of_day]
 
     def _reward(self, x):
         # return x[0]**2
-        sigma = 0.2
-        mu = 0
-        reward = 1/(np.sqrt(2*np.pi*sigma)) * np.exp(-0.5*(x[0]-mu)**2/(sigma**2))
-        return reward
+        # sigma = 0.2
+        # mu = 0
+        # reward = 1/(np.sqrt(2*np.pi*sigma)) * np.exp(-0.5*(x[0]-mu)**2/(sigma**2))
+        # return reward
+        if self.state[0]**2 > self.next_state[0]**2:
+            return 1
+        elif self.state[0]**2 < self.next_state[0]**2:
+            return -1
+        else:
+            return 0
 
     def _q(self, state, action):
         q = self.theta @ self._phi(state, action)
@@ -556,22 +568,31 @@ class Aggregator:
         p_forecast_delta = state[3]
         time = state[4]
 
-        action_basis = np.array([action, action**2])
-        current_error_basis = np.array([p_curr_error, p_curr_error*action, p_curr_error**2*action, p_curr_error*action**2, p_curr_error**2])
-        persistence_error_basis = np.array([persistence_error, persistence_error*action, persistence_error**2*action, persistence_error*action**2, persistence_error**2])
-        forecast_error_basis = np.array([p_forecast_error, p_forecast_error*action, p_forecast_error**2*action, p_forecast_error*action**2, p_forecast_error**2])
-        delta_basis = np.array([p_forecast_delta, p_forecast_delta*action, p_forecast_delta**2*action, p_forecast_delta*action**2, p_forecast_delta**2])
-        time_basis = np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)])
+        # action_basis = np.array([action, action**2])
+        # current_error_basis = np.array([p_curr_error, p_curr_error*action, p_curr_error**2*action, p_curr_error*action**2, p_curr_error**2])
+        # persistence_error_basis = np.array([persistence_error, persistence_error*action, persistence_error**2*action, persistence_error*action**2, persistence_error**2])
+        # forecast_error_basis = np.array([p_forecast_error, p_forecast_error*action, p_forecast_error**2*action, p_forecast_error*action**2, p_forecast_error**2])
+        # delta_basis = np.array([p_forecast_delta, p_forecast_delta*action, p_forecast_delta**2*action, p_forecast_delta*action**2, p_forecast_delta**2])
+        # time_basis = np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)])
+        # n = time_basis[0] * current_error_basis
+        # m = time_basis[1] * current_error_basis
+        # phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, delta_basis, n, m))
+
+        current_error_basis = np.array([action*np.exp(-1*(p_curr_error**2)/0.5)])
+        persistence_error_basis = np.array([action*np.exp(-1*(persistence_error**2)/0.5)])
+        forecast_error_basis = np.array([np.exp(-1*(p_forecast_error**2)/0.5), np.exp(-1*(p_forecast_error**2)/4)])
+        delta_basis = np.array([np.exp(-1*(p_forecast_delta**2)/0.5), np.exp(-1*(p_forecast_delta**2)/4)])
+        time_basis = np.array([np.sin(2*np.pi * time/24)])
         n = time_basis[0] * current_error_basis
-        m = time_basis[1] * current_error_basis
-        # phi = np.concatenate((action_basis, current_error_basis, forecast_error_basis, n, m))
-        phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, delta_basis, n, m))
+        # m = time_basis[1] * current_error_basis
+        phi = np.concatenate((current_error_basis, persistence_error_basis, delta_basis, n))
 
         return phi
 
     def _qvalue(self):
-        q_k = self._reward(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state)[0])
-        # q_k = self._cost(self.state) + self.beta * self._cost(self.next_state)
+        q_k = self._reward(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state)) # off policy learning (Q-learning)
+        # q_k = self._reward(self.state) + self.beta * self._q(self.next_state, self.next_action) # on policy learning (SARSA)
+        # q_k = self._reward(self.state) + self.beta * self._reward(self.next_state) # check for divergence stemming from the Q-function approximation
         return q_k
 
     def _get_greedyaction(self, state_k):
@@ -587,7 +608,7 @@ class Aggregator:
         u_k_opt = self.q_lookup[index,0]
         q_max = self.q_lookup[index,1]
 
-        return [u_k_opt, q_max]
+        return u_k_opt
 
     # def _pi(self):
     #     q_greedy = self.q_lookup
@@ -596,8 +617,8 @@ class Aggregator:
 
     def update_qfunction(self):
         self.phi_k = (self._phi(self.state, self.action))
-        greedy_vals = self._get_greedyaction(self.next_state)
-        next_action = greedy_vals[0]
+        # next_action = self._get_greedyaction(self.next_state)
+        next_action = self.next_action
         self.phi_k1 = (self._phi(self.next_state, next_action)) # phi_bar according to Maei & Sutton notation
         self.q_predicted = self._q(self.state, self.action)
         self.q_observed = self._qvalue()
@@ -607,20 +628,22 @@ class Aggregator:
         # print("action", self.action)
         # print("theta_k", self.theta)
         if self.timestep >= 0: #optional delay on learning
-            if self.is_greedy:
-                learning_policy = 1 # pi (policy)
-                behavior_policy = (1-self.epsilon) + self.epsilon / self.nActions # b (policy), using stochastic probabilities
-            else:
-                learning_policy = 0
-                behavior_policy = self.epsilon / self.nActions
-            responsibility = learning_policy / behavior_policy # rho
-
-            self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
+            # if self.is_greedy:
+            #     learning_policy = 1 # pi (policy)
+            #     behavior_policy = (1-self.epsilon) + self.epsilon / self.nActions # b (policy), using stochastic probabilities
+            # else:
+            #     learning_policy = 0
+            #     behavior_policy = self.epsilon / self.nActions
+            # responsibility = learning_policy / behavior_policy # rho
+            #
+            # self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
+            # self.q_predicted = np.clip(self.q_predicted, 0, 1)
             self.delta = self.q_observed - self.q_predicted
-            self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
-            k = (1 - self.beta) * (1 - self.lam)
-            self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
-            # self.theta = self.theta - self.alpha * (self.q_predicted - self.q_observed)*np.transpose(self.phi_k - self.phi_k1) # weight vector update
+            self.delta = np.clip(self.delta, -1, 1)
+            # self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
+            # k = (1 - self.beta) * (1 - self.lam)
+            # self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
+            self.theta = self.theta - self.alpha * (self.delta)*np.transpose(self.phi_k - self.phi_k1) # weight vector update
 
         # print("q_pred", self.q_predicted)
         # print("q_obs", self.q_observed)
@@ -637,21 +660,28 @@ class Aggregator:
             avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
         else:
             avg_rp = np.sum(0)
+
+        self.reward_price[:-1] = self.reward_price[1:]
+        self.reward_price[-1] = np.round(avg_rp + self.action,2)
+
+    def _get_action(self, state): # action is the change in RP from the average RP in the last h timesteps
+        if self.rl_agg_horizon > 1:
+            avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
+        else:
+            avg_rp = self.reward_price[0]
         self.actionspace = self.config["action_space"] - avg_rp
          # update epsilon
         if ((self.timestep+201) % 200) == 0: # every 200 timesteps
             self.epsilon = self.epsilon/2 # decrease exploration rate
         if np.random.uniform(0,1) >= self.epsilon: # the greedy action
-            u_k = self._get_greedyaction(self.state)[0]
+            u_k = self._get_greedyaction(state)
             self.is_greedy = True
         else: # exploration
             u_k = random.uniform(self.actionspace[0], self.actionspace[1])
             self.is_greedy = False
 
-        self.action = avg_rp + u_k
-
-        self.reward_price[:-1] = self.reward_price[1:]
-        self.reward_price[-1] = np.round(self.action,2)
+        action = u_k
+        return action
 
     def set_baseline_initial_vals(self):
         for home in self.all_homes:
@@ -674,7 +704,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self, horizon=1):
-        worker = MPCCalc(self.queue, horizon)
+        worker = MPCCalc(self.queue, horizon, self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
@@ -689,7 +719,7 @@ class Aggregator:
         agg_cost = 0
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
-                vals = self.redis_client.hgetall(home["name"])
+                vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
                     self.baseline_data[home["name"]][k].append(float(v))
                 agg_load += float(vals["p_grid_opt"])
@@ -706,7 +736,7 @@ class Aggregator:
         self.agg_cost = 0
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
-                vals = self.redis_client.hgetall(home["name"])
+                vals = self.redis_client.conn.hgetall(home["name"])
                 self.agg_load += float(vals["p_grid_opt"])
                 self.agg_cost += float(vals["cost_opt"])
         self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
@@ -918,7 +948,7 @@ class Aggregator:
         forecast = data["Summary"]["p_grid_aggregate"]
         forecast_data = 50*np.ones(self.hours)
         forecast_data[:len(forecast)] = forecast
-        np.append(forecast_data, forecast_data[-1])
+        forecast_data = np.append(forecast_data, forecast_data[-1])
         return forecast_data
 
     def _gen_forecast(self):
@@ -956,8 +986,10 @@ class Aggregator:
         self.baseline_agg_load_list = [0]
 
         self.state = [0, 0, 0, 0, 23] # state initialization
+        self.action = 0
         self.lam = 0.9
-        n = len(self._phi(self.state, 0))
+        self.is_greedy=True
+        n = len(self._phi(self.state, self.action))
         self.theta = np.ones(n) # theta initialization
         self.e = np.zeros(n)
         self.w = np.zeros(n)
@@ -981,19 +1013,21 @@ class Aggregator:
 
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
+            self.next_action = self._get_action(self.next_state)
             # self.collect_data()
             self.update_qfunction()
             self.record_rl_q_data()
 
             self.timestep += 1
             self.state = self.next_state
+            self.action = self.next_action
 
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
         self.agg_log.logger.info(f"Horizon: {horizon}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
     def flush_redis(self):
-        self.redis_client.flushall()
+        # self.redis_client.flushall()
         self.agg_log.logger.info("Flushing Redis")
         time.sleep(1)
         self.check_all_data_indices()

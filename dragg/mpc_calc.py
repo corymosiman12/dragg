@@ -3,12 +3,14 @@ import os
 import numpy as np
 import cvxpy as cp
 from redis import StrictRedis
+import redis
 
 from dragg.mpc_calc_logger import MPCCalcLogger
+from dragg.redis_client import RedisClient
 
 
 class MPCCalc:
-    def __init__(self, q, h):
+    def __init__(self, q, h, redis_client, mpc_log):
         """
 
         :param q: queue.Queue
@@ -16,8 +18,11 @@ class MPCCalc:
         """
         self.q = q  # Queue
         self.horizon = h  # Prediction horizon
-        self.mpc_log = MPCCalcLogger()
-        self.redis_client = StrictRedis(host=os.environ.get('REDIS_HOST', 'localhost'), decode_responses=True)
+        self.mpc_log = mpc_log
+        # self.redis_client = StrictRedis(host=os.environ.get('REDIS_HOST', 'localhost'), decode_responses=True)
+        # self.redis_client = redis.Redis(connection_pool = self.redis_pool)
+        self.redis_client = redis_client
+        # self.redis_client = redis_client
         self.home = None  # reset every time home retrieved from Queue
         self.type = None  # reset every time home retrieved from Queue
         self.start_hour_index = None  # set once upon thread init
@@ -56,10 +61,10 @@ class MPCCalc:
 
     def redis_write_optimal_vals(self):
         for k, v in self.optimal_vals.items():
-            self.redis_client.hset(self.home["name"], k, v)
+            self.redis_client.conn.hset(self.home["name"], k, v)
 
     def redis_get_prev_optimal_vals(self):
-        self.prev_optimal_vals = self.redis_client.hgetall(self.home["name"])
+        self.prev_optimal_vals = self.redis_client.conn.hgetall(self.home["name"])
 
     def setup_base_problem(self, mode="tou"):
         if self.timestep == 0:
@@ -321,13 +326,13 @@ class MPCCalc:
         self.cleanup_and_finish()
 
     def redis_get_initial_values(self):
-        self.start_hour_index = self.redis_client.get('start_hour_index')
-        self.initial_values = self.redis_client.hgetall("initial_values")
-        self.current_values = self.redis_client.hgetall("current_values")
-        self.all_ghi = self.redis_client.lrange('GHI', 0, -1)
-        self.all_oat = self.redis_client.lrange('OAT', 0, -1)
-        self.all_spp = self.redis_client.lrange('SPP', 0, -1)
-        self.all_tou = self.redis_client.lrange('tou', 0, -1)
+        self.start_hour_index = self.redis_client.conn.get('start_hour_index')
+        self.initial_values = self.redis_client.conn.hgetall("initial_values")
+        self.current_values = self.redis_client.conn.hgetall("current_values")
+        self.all_ghi = self.redis_client.conn.lrange('GHI', 0, -1)
+        self.all_oat = self.redis_client.conn.lrange('OAT', 0, -1)
+        self.all_spp = self.redis_client.conn.lrange('SPP', 0, -1)
+        self.all_tou = self.redis_client.conn.lrange('tou', 0, -1)
 
     def cast_redis_vals(self):
         self.start_hour_index = int(float(self.start_hour_index))
@@ -342,7 +347,7 @@ class MPCCalc:
         self.all_spp = [float(i) for i in self.all_spp]
         self.timestep = int(self.current_values["timestep"])
         # self.current_rp = float(self.current_values["reward_price"])
-        rp = self.redis_client.lrange('reward_price', 0, -1)
+        rp = self.redis_client.conn.lrange('reward_price', 0, -1)
         self.reward_price = np.zeros(self.horizon)
         self.reward_price[:min(len(rp), self.horizon)] = rp[:min(len(rp), self.horizon)]
         try:
@@ -386,3 +391,4 @@ class MPCCalc:
                 self.mpc_pv_battery()
             self.q.task_done()
         self.mpc_log.logger.info(f"Queue Empty.  ts: {self.timestep}; iteration: {self.iteration}; horizon: {self.horizon}")
+        # self.redis_pool.disconnect()
