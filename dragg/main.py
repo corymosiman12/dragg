@@ -1,10 +1,12 @@
 from dragg.aggregator import Aggregator
 from dragg.reformat import *
+from dragg.logger import Logger
 import json
 import os
 
 if __name__ == "__main__":
-    a = Aggregator()
+    logs = {"aggregator":Logger("aggregator"), "mpc_calc":Logger("mpc_calc")}
+    a = Aggregator(logs)
     a.run()
 
     config_file = os.path.join("data", os.environ.get('CONFIG_FILE', 'config.json'))
@@ -22,7 +24,7 @@ if __name__ == "__main__":
     alphas = config["agg_learning_rate"]
     epsilons = config["agg_exploration_rate"]
     betas = config["rl_agg_discount_factor"]
-    # betas.append(0.49)
+    betas += [0.49,0.51,0.52] # append values of runs you have stored, but don't want to rerun
 
     rlHorizons = config["rl_agg_time_horizon"]
 
@@ -50,6 +52,7 @@ if __name__ == "__main__":
         r.add_baseline(os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json"), "baseline")
 
     r.rl2baseline(rl_file, rl_iter_file)
+    r.rl_thetas(rl_q_file)
 
     # r.plot_single_home2("Ruth-1HV86") # base
     # r.plot_single_home2("Crystal-RXXFA") # pv_battery
