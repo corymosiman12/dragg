@@ -19,8 +19,6 @@ from sklearn.linear_model import Lasso
 import redis
 
 # Local
-from dragg.aggregator_logger import AggregatorLogger
-from dragg.mpc_calc_logger import MPCCalcLogger
 from dragg.mpc_calc import MPCCalc
 from dragg.redis_client import RedisClient
 
@@ -1027,7 +1025,7 @@ class Aggregator:
         self.agg_log.logger.info(f"Horizon: {horizon}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
     def flush_redis(self):
-        # self.redis_client.flushall()
+        self.redis_client.conn.flushall()
         self.agg_log.logger.info("Flushing Redis")
         time.sleep(1)
         self.check_all_data_indices()

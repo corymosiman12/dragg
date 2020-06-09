@@ -5,7 +5,6 @@ import cvxpy as cp
 from redis import StrictRedis
 import redis
 
-from dragg.mpc_calc_logger import MPCCalcLogger
 from dragg.redis_client import RedisClient
 
 
