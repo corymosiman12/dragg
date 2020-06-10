@@ -9,12 +9,12 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
-from dragg.reformat_logger import ReformatLogger
+from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, files):
-        self.ref_log = ReformatLogger()
+    def __init__(self, files, log=Logger("reformat")):
+        self.ref_log = log
         self.data_dir = 'data'
         self.outputs_dir = 'outputs'
         if not os.path.isdir(self.outputs_dir):
