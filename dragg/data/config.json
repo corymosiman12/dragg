@@ -37,14 +37,15 @@
   "run_rl_agg": true,
   "agg_mpc_horizon": 8,
   "min_runtime_mins": 15,
-  "agg_learning_rate": [0.6],
+  "agg_learning_rate": [0.1],
   "agg_exploration_rate": [0.3],
-  "rl_agg_discount_factor": [0.51],
+  "rl_agg_discount_factor": [0.5],
   "shoulder_times": [9,21],
   "peak_times": [14,18],
   "offpeak_price": 0.05,
   "shoulder_price": 0.05,
   "peak_price": 0.05,
   "action_space": [-0.04, 0.04],
-  "rl_agg_time_horizon": [1]
+  "rl_agg_time_horizon": [6],
+  "batch_size": 0
 }
