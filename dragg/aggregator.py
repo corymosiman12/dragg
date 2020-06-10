@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 from queue import Queue
+from copy import deepcopy
 
 import pandas as pd
 from datetime import datetime, timedelta
@@ -10,7 +11,6 @@ import numpy as np
 import json
 import random
 import names
-from redis import StrictRedis
 import string
 import cvxpy as cp
 import dccp
@@ -21,12 +21,12 @@ import redis
 # Local
 from dragg.mpc_calc import MPCCalc
 from dragg.redis_client import RedisClient
-
+from dragg.logger import Logger
 
 class Aggregator:
-    def __init__(self, logs):
-        self.agg_log = logs["aggregator"]
-        self.mpc_log = logs["mpc_calc"]
+    def __init__(self, agg_log=Logger("aggregator"), mpc_log=Logger("mpc_calc")):
+        self.agg_log = agg_log
+        self.mpc_log = mpc_log
         self.data_dir = 'data'
         self.outputs_dir = 'outputs'
         if not os.path.isdir(self.outputs_dir):
@@ -100,6 +100,8 @@ class Aggregator:
 
         self.action = 0
         self.q_tables = []
+        self.memory = []
+        self.batch_size = int(self.config["batch_size"])
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -537,17 +539,18 @@ class Aggregator:
     def _calc_state(self):
         current_error = (self.agg_load - self.agg_setpoint) / self.agg_setpoint
         persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
-        forecast_error = (self.agg_forecast - self.forecast_setpoint) / self.forecast_setpoint
-        forecast_delta = self.agg_forecast - self.agg_load
+        forecast_error = (self.forecast_load - self.forecast_setpoint) / self.forecast_setpoint
+        forecast_delta = self.forecast_load - self.agg_load
+        prev_forecast_error = (self.agg_load - self.prev_forecast_load) / max(self.prev_forecast_load,0.001)
         time_of_day = self.timestep % 24
-        return [current_error, persistence_error, forecast_error, forecast_delta, time_of_day]
+        return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day]
 
     def _reward(self, x):
-        # return x[0]**2
         # sigma = 0.2
         # mu = 0
         # reward = 1/(np.sqrt(2*np.pi*sigma)) * np.exp(-0.5*(x[0]-mu)**2/(sigma**2))
         # return reward
+
         if self.state[0]**2 > self.next_state[0]**2:
             return 1
         elif self.state[0]**2 < self.next_state[0]**2:
@@ -556,34 +559,42 @@ class Aggregator:
             return 0
 
     def _q(self, state, action):
-        q = self.theta @ self._phi(state, action)
-        return q
+        return self.theta @ self._phi(state, action)
+
+    def _experience(self):
+        experience = {"state": self.state, "action": self.action, "next_state": self.next_state, "reward": self.reward}
+        self.memory.append(experience)
+        return experience
 
     def _phi(self, state, action):
-        p_curr_error = state[0]
+        curr_error = state[0]
         persistence_error = state[1]
-        p_forecast_error = state[2]
-        p_forecast_delta = state[3]
-        time = state[4]
+        forecast_error = state[2]
+        forecast_delta = state[3]
+        prev_forecast_error = state[4]
+        time = state[5]
 
-        # action_basis = np.array([action, action**2])
-        # current_error_basis = np.array([p_curr_error, p_curr_error*action, p_curr_error**2*action, p_curr_error*action**2, p_curr_error**2])
-        # persistence_error_basis = np.array([persistence_error, persistence_error*action, persistence_error**2*action, persistence_error*action**2, persistence_error**2])
-        # forecast_error_basis = np.array([p_forecast_error, p_forecast_error*action, p_forecast_error**2*action, p_forecast_error*action**2, p_forecast_error**2])
-        # delta_basis = np.array([p_forecast_delta, p_forecast_delta*action, p_forecast_delta**2*action, p_forecast_delta*action**2, p_forecast_delta**2])
+        sigma = 0.5
+        normalized = 1/(sigma*np.sqrt(2*np.pi))
+
+        action_basis = np.array([action, action**2])
+        current_error_basis = np.array([np.exp(-1*(curr_error**2)/(2*sigma**2)), action*np.exp(-1*(curr_error**2)/(2*sigma**2)), action**2*np.exp(-1*(curr_error**2)/(2*sigma**2))])
+        persistence_error_basis = np.array([np.exp(-1*(persistence_error**2)/(2*sigma**2)), action*np.exp(-1*(persistence_error**2)/(2*sigma**2)), action**2*np.exp(-1*(persistence_error**2)/(2*sigma**2))])
+        forecast_error_basis = np.array([np.exp(-1*(forecast_error**2)/(2*sigma**2)), action*np.exp(-1*(forecast_error**2)/(2*sigma**2)), action**2*np.exp(-1*(forecast_error**2)/(2*sigma**2))])
+        prev_forecast_error_basis = np.array([np.exp(-1*(prev_forecast_error**2)/(2*sigma**2)), action*np.exp(-1*(prev_forecast_error**2)/(2*sigma**2)), action**2*np.exp(-1*(prev_forecast_error**2)/(2*sigma**2))])
+        delta_basis = np.array([np.exp(-1*(forecast_delta**2)/(2*sigma**2)), action*np.exp(-1*(forecast_delta**2)/(2*sigma**2)), action**2*np.exp(-1*(forecast_delta**2)/(2*sigma**2))])
+        time_basis = np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)])
+
+        # action_basis = self.pb(action)
+        # current_error_basis = self.pb(curr_error)
+        # persistence_error_basis = self.pb(persistence_error)
+        # forecast_error_basis = self.pb(forecast_error)
+        # delta_basis = self.pb(forecast_delta)
         # time_basis = np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)])
-        # n = time_basis[0] * current_error_basis
-        # m = time_basis[1] * current_error_basis
-        # phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, delta_basis, n, m))
 
-        current_error_basis = np.array([action*np.exp(-1*(p_curr_error**2)/0.5)])
-        persistence_error_basis = np.array([action*np.exp(-1*(persistence_error**2)/0.5)])
-        forecast_error_basis = np.array([np.exp(-1*(p_forecast_error**2)/0.5), np.exp(-1*(p_forecast_error**2)/4)])
-        delta_basis = np.array([np.exp(-1*(p_forecast_delta**2)/0.5), np.exp(-1*(p_forecast_delta**2)/4)])
-        time_basis = np.array([np.sin(2*np.pi * time/24)])
-        n = time_basis[0] * current_error_basis
-        # m = time_basis[1] * current_error_basis
-        phi = np.concatenate((current_error_basis, persistence_error_basis, delta_basis, n))
+        n = time_basis[0] * action_basis
+        m = time_basis[1] * action_basis
+        phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, prev_forecast_error_basis, delta_basis, n, m))
 
         return phi
 
@@ -613,18 +624,14 @@ class Aggregator:
     #     pi = q_greedy + q_probabilistic
     #     return pi
 
-    def update_qfunction(self):
-        self.phi_k = (self._phi(self.state, self.action))
+    def update_qfunction(self, temp_theta, theta):
+        self.phi_k = self._phi(self.state, self.action)
         # next_action = self._get_greedyaction(self.next_state)
         next_action = self.next_action
-        self.phi_k1 = (self._phi(self.next_state, next_action)) # phi_bar according to Maei & Sutton notation
-        self.q_predicted = self._q(self.state, self.action)
-        self.q_observed = self._qvalue()
+        self.phi_k1 = self._phi(self.next_state, next_action) # phi_bar according to Maei & Sutton notation
+        self.q_predicted = self.theta @ self.phi_k
+        self.q_observed = self._reward(self.state) + self.beta * (temp_theta @ self.phi_k1)
 
-        # print("state_k", self.state)
-        # print("state_k1", self.next_state)
-        # print("action", self.action)
-        # print("theta_k", self.theta)
         if self.timestep >= 0: #optional delay on learning
             # if self.is_greedy:
             #     learning_policy = 1 # pi (policy)
@@ -643,15 +650,15 @@ class Aggregator:
             # self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
             self.theta = self.theta - self.alpha * (self.delta)*np.transpose(self.phi_k - self.phi_k1) # weight vector update
 
-        # print("q_pred", self.q_predicted)
-        # print("q_obs", self.q_observed)
-        # print("phi_k", self.phi_k)
-        # print("phi_k1", self.phi_k1)
-        # print("phi_k - phi_k1", self.phi_k - self.phi_k1)
-        # print("theta_k1", self.theta)
-        # print('.')
-        # print('.')
-        # print('.')
+    def update_theta(self, theta, exp):
+        phi_k = self._phi(exp["state"], exp["action"])
+        phi_k1 = self._phi(exp["next_state"], self._get_greedyaction(exp["next_state"]))
+        q_predicted = theta @ phi_k
+        q_observed = exp["reward"] + self.beta * theta @ phi_k1
+        delta = q_predicted - q_observed
+        delta = np.clip(delta, -1, 1)
+        theta = theta - self.alpha * delta * np.transpose(phi_k - phi_k1)
+        return theta
 
     def rl_update_reward_price(self):
         if self.rl_agg_horizon > 1:
@@ -850,7 +857,6 @@ class Aggregator:
         with open(file, 'w+') as f:
             json.dump(self.baseline_data, f, indent=4)
 
-
     def write_home_configs(self):
         # Write all home configurations to file
         ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['total_number_homes']}-config.json")
@@ -950,7 +956,7 @@ class Aggregator:
         return forecast_data
 
     def _gen_forecast(self):
-        return self.forecast_data[self.timestep]
+        return self.forecast_data[self.timestep + 1]
 
     def _gen_setpoint(self, time):
         # min_p_grid = 10
@@ -981,9 +987,19 @@ class Aggregator:
         self.start_time = datetime.now()
         self.rl_agg_data = self.set_rl_agg_initial_vals()
         self.rl_q_data = self.set_rl_q_initial_vals()
+        self.forecast_data = self.rl_initialize_forecast()
         self.baseline_agg_load_list = [0]
 
-        self.state = [0, 0, 0, 0, 23] # state initialization
+
+        self.timestep = -1
+        self.forecast_load = self._gen_forecast()
+        self.prev_forecast_load = self.forecast_load
+        self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
+        self.agg_load = self._gen_forecast() # approximate load for initial timestep
+        self.agg_setpoint = self._gen_setpoint(self.timestep)
+        self.state = self._calc_state()
+        self.timestep += 1
+
         self.action = 0
         self.lam = 0.9
         self.is_greedy=True
@@ -991,11 +1007,11 @@ class Aggregator:
         self.theta = np.ones(n) # theta initialization
         self.e = np.zeros(n)
         self.w = np.zeros(n)
-        self.forecast_data = self.rl_initialize_forecast()
 
         for hour in range(self.hours):
             self.agg_setpoint = self._gen_setpoint(self.timestep)
-            self.agg_forecast = self._gen_forecast()
+            self.prev_forecast_load = self.forecast_load
+            self.forecast_load = self._gen_forecast()
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
 
             self.rl_update_reward_price()
@@ -1011,9 +1027,19 @@ class Aggregator:
 
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
-            self.next_action = self._get_action(self.next_state)
-            # self.collect_data()
-            self.update_qfunction()
+            self.reward = self._reward(self.next_state)
+            self._experience()
+
+            if len(self.memory) > self.batch_size: # experience replay
+                temp_theta = deepcopy(self.theta)
+                batch = random.sample(self.memory, self.batch_size)
+                for experience in batch:
+                    temp_theta = self.update_theta(temp_theta, experience)
+            else:
+                temp_theta = self.theta
+
+            self.next_action = self._get_action(self.next_state) # necessary for SARSA learning
+            self.update_qfunction(temp_theta, self.theta)
             self.record_rl_q_data()
 
             self.timestep += 1
@@ -1063,7 +1089,7 @@ class Aggregator:
 
         if self.config["run_agg_mpc"]:
             self.case = "agg_mpc"
-            seflf.horizon = self.config["agg_mpc_horizon"]
+            self.horizon = self.config["agg_mpc_horizon"]
             for threshold in self.config["max_load_threshold"]:
                 self.max_load_threshold = threshold
                 self.flush_redis()
