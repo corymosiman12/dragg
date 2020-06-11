@@ -101,6 +101,7 @@ class Aggregator:
         self.action = 0
         self.q_tables = []
         self.memory = []
+        self.memory_size = 1000
         # self.batch_sizes = int(self.config["batch_size"])
 
     def _import_config(self):
@@ -537,6 +538,7 @@ class Aggregator:
         return rp
 
     def _calc_state(self):
+        # TODO: include the magnitude of the current load
         current_error = (self.agg_load - self.agg_setpoint) / self.agg_setpoint
         persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
         forecast_error = (self.forecast_load - self.forecast_setpoint) / self.forecast_setpoint
@@ -574,7 +576,7 @@ class Aggregator:
         prev_forecast_error = state[4]
         time = state[5]
 
-        sigma = 0.5
+        sigma = 0.1
         normalized = 1/(sigma*np.sqrt(2*np.pi))
 
         action_basis = np.array([action, action**2])
@@ -1013,6 +1015,7 @@ class Aggregator:
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
         self.theta = np.ones(n) # theta initialization
+        self.average_reward = 0
         self.e = np.zeros(n)
         self.w = np.zeros(n)
 
