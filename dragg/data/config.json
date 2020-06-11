@@ -36,7 +36,7 @@
   "run_agg_mpc": false,
   "run_rl_agg": true,
   "agg_mpc_horizon": 8,
-  "agg_learning_rate": [0.1],
+  "agg_learning_rate": [0.01],
   "agg_exploration_rate": [0.3],
   "rl_agg_discount_factor": [0.49],
   "shoulder_times": [9,21],
