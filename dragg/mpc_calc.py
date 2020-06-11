@@ -18,10 +18,7 @@ class MPCCalc:
         self.q = q  # Queue
         self.horizon = h  # Prediction horizon
         self.mpc_log = mpc_log
-        # self.redis_client = StrictRedis(host=os.environ.get('REDIS_HOST', 'localhost'), decode_responses=True)
-        # self.redis_client = redis.Redis(connection_pool = self.redis_pool)
         self.redis_client = redis_client
-        # self.redis_client = redis_client
         self.home = None  # reset every time home retrieved from Queue
         self.type = None  # reset every time home retrieved from Queue
         self.start_hour_index = None  # set once upon thread init
@@ -338,9 +335,9 @@ class MPCCalc:
         self.t_in_init = float(self.initial_values["temp_in_init"])
         self.t_wh_init = float(self.initial_values["temp_wh_init"])
         self.e_b_init = float(self.initial_values["e_batt_init"])
-        self.min_runtime = int(float(self.initial_values["min_runtime_mins"]))
-        self.min_runtime_fraction = self.min_runtime / 60  # proportion of an hour
-        self.min_runtime_fraction_inv = 1 / self.min_runtime_fraction
+        # self.min_runtime = int(float(self.initial_values["min_runtime_mins"]))
+        # self.min_runtime_fraction = self.min_runtime / 60  # proportion of an hour
+        # self.min_runtime_fraction_inv = 1 / self.min_runtime_fraction
         self.all_ghi = [float(i) for i in self.all_ghi]
         self.all_oat = [float(i) for i in self.all_oat]
         self.all_spp = [float(i) for i in self.all_spp]

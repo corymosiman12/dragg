@@ -3,6 +3,7 @@ from dragg.reformat import *
 from dragg.logger import Logger
 import json
 import os
+import sys
 
 if __name__ == "__main__":
     a = Aggregator()
@@ -23,14 +24,15 @@ if __name__ == "__main__":
     alphas = config["agg_learning_rate"]
     epsilons = config["agg_exploration_rate"]
     betas = config["rl_agg_discount_factor"]
+    batch_sizes = config["batch_size"]
     alphas += [0.9]
     betas += [0.49,0.51,0.52] # append values of runs you have stored, but don't want to rerun
 
     rlHorizons = config["rl_agg_time_horizon"]
 
-    rl_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-results.json") # file used to plot house response
-    rl_iter_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-iter-results.json")
-    rl_q_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-q-results.json")
+    rl_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}_batch-{batch_sizes[0]}-results.json") # file used to plot house response
+    rl_iter_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}_batch-{batch_sizes[0]}-iter-results.json")
+    rl_q_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}_batch-{batch_sizes[0]}-q-results.json")
 
     r = Reformat([rl_file])
 
@@ -40,12 +42,13 @@ if __name__ == "__main__":
         for epsilon in epsilons:
             for beta in betas:
                 for rlHorizon in rlHorizons:
-                    file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-results.json")
-                    qfile = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-q-results.json")
-                    name = f"horizon={rlHorizon}, alpha={alpha}, beta={beta}, epsilon={epsilon}"
-                    if os.path.isfile(file) and os.path.isfile(qfile):
-                        r.add_parametric(file, name)
-                        r.add_qfile(qfile, name)
+                    for batch_size in batch_sizes:
+                        file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}_batch-{batch_size}-results.json")
+                        qfile = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}_batch-{batch_size}-q-results.json")
+                        name = f"horizon={rlHorizon}, alpha={alpha}, beta={beta}, epsilon={epsilon}, batch={batch_size}"
+                        if os.path.isfile(file) and os.path.isfile(qfile):
+                            r.add_parametric(file, name)
+                            r.add_qfile(qfile, name)
 
     base_file = os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json")
     if os.path.isfile(base_file):

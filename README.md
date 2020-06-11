@@ -82,6 +82,7 @@ You will need to have docker and docker-compose installed, but do not need Redis
 # Known Limitations / TODOs
 - Hope to make into a Dash / plotly webapp
 - Not distributed architecture - runs in single process, however, still communicates across Redis.  Could implement threading, celery, etc. for scaling workers based on nubmer of tasks. The separate classes help for the aggregator and the MPC solver
+- Separate the weather forecasting for the MPC solver so that houses can forecast weather in real time rather than reading a historical JSON
 - Although a MongoDB is included in the compose setup, it is not utilized.
 
 # Notable changes from upstream development

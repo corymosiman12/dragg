@@ -101,7 +101,7 @@ class Aggregator:
         self.action = 0
         self.q_tables = []
         self.memory = []
-        self.batch_size = int(self.config["batch_size"])
+        # self.batch_sizes = int(self.config["batch_size"])
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -464,7 +464,7 @@ class Aggregator:
         # self.reward_price = np.zeros(self.rl_agg_horizon)
         temp_sp = self.config["temp_sp"]
         wh_sp = self.config["wh_sp"]
-        min_runtime = self.config["min_runtime_mins"]
+        # min_runtime = self.config["min_runtime_mins"]
         self.e_batt_init = self.config["battery_capacity"] * self.config["battery_cap_bounds"][0]
         self.redis_client.conn.hset("initial_values", "temp_in_init", self.config["temp_in_init"])
         self.redis_client.conn.hset("initial_values", "temp_wh_init", self.config["temp_wh_init"])
@@ -473,7 +473,7 @@ class Aggregator:
         self.redis_client.conn.hset("initial_values", "temp_in_max", temp_sp[1])
         self.redis_client.conn.hset("initial_values", "temp_wh_min", wh_sp[0])
         self.redis_client.conn.hset("initial_values", "temp_wh_max", wh_sp[1])
-        self.redis_client.conn.hset("initial_values", "min_runtime_mins", min_runtime)
+        # self.redis_client.conn.hset("initial_values", "min_runtime_mins", min_runtime)
         self.redis_client.conn.set("start_hour_index", self.start_hour_index)
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
@@ -619,10 +619,18 @@ class Aggregator:
 
         return u_k_opt
 
-    # def _pi(self):
-    #     q_greedy = self.q_lookup
-    #     pi = q_greedy + q_probabilistic
-    #     return pi
+    def experience_replay(self):
+        num_memories = len(self.memory)
+        if num_memories > self.batch_size: # experience replay
+            temp_theta = deepcopy(self.theta)
+            batch = random.sample(self.memory, self.batch_size)
+            for experience in batch:
+                temp_theta = self.update_theta(temp_theta, experience)
+            if num_memories > self.memory_size:
+                self.memory.remove(self.memory[0]) # remove oldest memory
+        else:
+            temp_theta = self.theta
+        return temp_theta
 
     def update_qfunction(self, temp_theta, theta):
         self.phi_k = self._phi(self.state, self.action)
@@ -644,7 +652,7 @@ class Aggregator:
             # self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
             # self.q_predicted = np.clip(self.q_predicted, 0, 1)
             self.delta = self.q_observed - self.q_predicted
-            self.delta = np.clip(self.delta, -1, 1)
+            self.delta = np.clip(self.delta, -2, 2)
             # self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
             # k = (1 - self.beta) * (1 - self.lam)
             # self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
@@ -845,11 +853,11 @@ class Aggregator:
                 json.dump(self.agg_mpc_data, f, indent=4)
 
         else:
-            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.config['agg_exploration_rate'][0]}-beta_{self.beta}-results.json"
-            f3 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.config['agg_exploration_rate'][0]}-beta_{self.beta}-iter-results.json")
+            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}_batch-{self.batch_size}-results.json"
+            f3 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}_batch-{self.batch_size}-iter-results.json")
             with open(f3, 'w+') as f:
                 json.dump(self.rl_agg_data, f, indent=4)
-            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.config['agg_exploration_rate'][0]}-beta_{self.beta}-q-results.json")
+            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}_batch-{self.batch_size}-q-results.json")
             with open(f4, 'w+') as f:
                 json.dump(self.rl_q_data, f, indent=4)
 
@@ -1030,13 +1038,8 @@ class Aggregator:
             self.reward = self._reward(self.next_state)
             self._experience()
 
-            if len(self.memory) > self.batch_size: # experience replay
-                temp_theta = deepcopy(self.theta)
-                batch = random.sample(self.memory, self.batch_size)
-                for experience in batch:
-                    temp_theta = self.update_theta(temp_theta, experience)
-            else:
-                temp_theta = self.theta
+            temp_theta = self.experience_replay()
+
 
             self.next_action = self._get_action(self.next_state) # necessary for SARSA learning
             self.update_qfunction(temp_theta, self.theta)
@@ -1109,6 +1112,7 @@ class Aggregator:
             alphas = self.config["agg_learning_rate"]
             betas = self.config["rl_agg_discount_factor"]
             rl_agg_horizons = self.config["rl_agg_time_horizon"]
+            batch_sizes = self.config["batch_size"]
 
             for alpha in alphas:
                 self.alpha = float(alpha)
@@ -1118,11 +1122,13 @@ class Aggregator:
                         self.epsilon = float(epsilon)
                         for h in rl_agg_horizons:
                             self.rl_agg_horizon = int(h)
+                            for b in batch_sizes:
+                                self.batch_size = int(b)
 
-                            self.flush_redis()
-                            self.redis_set_initial_values()
-                            self.reset_baseline_data()
-                            self.set_baseline_initial_vals()
-                            self.run_rl_agg(self.horizon)
-                            self.summarize_baseline(self.horizon)
-                            self.write_outputs(self.horizon)
+                                self.flush_redis()
+                                self.redis_set_initial_values()
+                                self.reset_baseline_data()
+                                self.set_baseline_initial_vals()
+                                self.run_rl_agg(self.horizon)
+                                self.summarize_baseline(self.horizon)
+                                self.write_outputs(self.horizon)
