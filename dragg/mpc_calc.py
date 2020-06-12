@@ -114,7 +114,7 @@ class MPCCalc:
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
-        self.discomfort = 0.7*0.02 / self.dt
+        self.discomfort = sum(self.total_price) /self.horizon / self.dt
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -152,7 +152,7 @@ class MPCCalc:
             self.temp_in[0] == self.temp_in_init,
             self.temp_wh[0] == self.temp_wh_init,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
-            self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c / self.dt),
+            self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
             # self.temp_in[1:self.h_plus] >= self.temp_in_min,
             # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
@@ -201,10 +201,15 @@ class MPCCalc:
     def add_pv_constraints(self):
         self.constraints += [
             # PV constraints.  GHI provided in W/m2 - convert to kWh
-            self.p_pv == self.ghi[0:self.horizon] * self.pv_area * self.pv_eff * (1 - self.u_pv_curt) / 1000,
+            # self.p_pv == self.ghi[0:self.horizon] * self.pv_area * self.pv_eff * (1 - self.u_pv_curt) / 1000, # not sure why this doesn't work
             self.u_pv_curt >= 0,
             self.u_pv_curt <= 1,
         ]
+        for i in range(self.horizon):
+            self.constraints += [
+            self.p_pv[i] == self.ghi[i] * self.pv_area * self.pv_eff * (1 - self.u_pv_curt[i]) / 1000
+            ]
+
 
     def set_base_p_grid(self):
         self.constraints += [

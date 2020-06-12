@@ -98,8 +98,8 @@ class Aggregator:
         self._build_tou_price()
         self.all_data.drop("ts", axis=1)
 
-        self.all_rps = np.zeros(self.hours)
-        self.all_sps = np.zeros(self.hours)
+        self.all_rps = np.zeros(self.hours * self.dt)
+        self.all_sps = np.zeros(self.hours * self.dt)
 
         self.action = 0
         self.q_tables = []
@@ -680,9 +680,10 @@ class Aggregator:
         next_action = self._get_greedyaction(self.next_state)
         self.phi_k1 = self._phi(self.next_state, next_action)
         self.q_predicted = self.average_reward + self.theta @ self.phi_k
-        self.q_oberserved = self.reward + self.theta @ self.phi_k1
+        self.q_observed = self.reward + self.theta @ self.phi_k1
         self.delta = self.q_observed - self.q_predicted
         self.delta = np.clip(self.delta, -1, 1)
+        self.average_reward = self.average_reward + self.alpha*self.delta
         self.theta = self.theta - self.alpha * self.delta * np.transpose(self.phi_k - self.phi_k1)
 
     def update_theta(self, theta, exp):
@@ -946,7 +947,7 @@ class Aggregator:
     def set_rl_agg_initial_vals(self): # initializes an empty list of important data the length of the simulation
         self.q = np.array([])
         temp = []
-        for h in range(self.hours):
+        for h in range(self.hours * self.dt):
             temp.append({
                 "timestep": h,
                 "reward_price": None,
@@ -969,7 +970,7 @@ class Aggregator:
         return temp
 
     def rl_initialize_forecast(self):
-        forecast_file = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}", f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{self.horizon}", "baseline", "baseline-results.json")
+        forecast_file = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}_{self.dt_interval}Minutes", f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{self.horizon}", "baseline", "baseline-results.json")
         if not os.path.isfile(forecast_file):
             self.agg_log.logger.warning("No baseline file found for MPC with no aggregator. Running baseline file now.")
             self.case = "baseline" # no aggregator
@@ -981,18 +982,18 @@ class Aggregator:
                 self.run_baseline(h)
                 self.summarize_baseline(h)
                 self.write_outputs(h)
-
+        self.case = "rl_agg"
         with open(forecast_file) as f:
             data = json.load(f)
 
-        forecast = data["Summary"]["p_grid_aggregate"]
-        forecast_data = 50*np.ones(self.hours)
-        forecast_data[:len(forecast)] = forecast
-        forecast_data = np.append(forecast_data, forecast_data[-1])
+        forecast_data = data["Summary"]["p_grid_aggregate"]
         return forecast_data
 
     def _gen_forecast(self):
-        return self.forecast_data[self.timestep + 1]
+        try:
+            return self.forecast_data[self.timestep + 1]
+        except:
+            return 50
 
     def _gen_setpoint(self, time):
         # min_p_grid = 10
@@ -1041,12 +1042,12 @@ class Aggregator:
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
         self.theta = np.ones(n) # theta initialization
-        self.cumulative_reward = 0
+        self.average_reward = 0
         self.e = np.zeros(n)
         self.w = np.zeros(n)
 
         for t in range(self.num_timesteps):
-            self.agg_setpoint = self._gen_setpoint(self.timestep)
+            self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
             self.prev_forecast_load = self.forecast_load
             self.forecast_load = self._gen_forecast()
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
@@ -1065,7 +1066,7 @@ class Aggregator:
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
             self.reward = self._reward(self.next_state)
-            self.cumulative_reward += self.reward
+            # self.cumulative_reward += self.reward
             self._experience()
 
             temp_theta = self.experience_replay()
