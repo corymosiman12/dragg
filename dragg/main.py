@@ -37,29 +37,29 @@ if __name__ == "__main__":
     rl_iter_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}_batch-{batch_sizes[0]}-iter-results.json")
     rl_q_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizons[0]}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}_batch-{batch_sizes[0]}-q-results.json")
 
-    r = Reformat([base_file])
+    r = Reformat([rl_file])
 
-    # for alpha in alphas:
-    #     for epsilon in epsilons:
-    #         for beta in betas:
-    #             for rlHorizon in rlHorizons:
-    #                 for batch_size in batch_sizes:
-    #                     file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}_batch-{batch_size}-results.json")
-    #                     qfile = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}_batch-{batch_size}-q-results.json")
-    #                     name = f"horizon={rlHorizon}, alpha={alpha}, beta={beta}, epsilon={epsilon}, batch={batch_size}"
-    #                     if os.path.isfile(file) and os.path.isfile(qfile):
-    #                         r.add_parametric(file, name)
-    #                         r.add_qfile(qfile, name)
-    #
-    # base_file = os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json")
-    # if os.path.isfile(base_file):
-    #     r.add_baseline(os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json"), "baseline")
-    #
-    # r.rl2baseline(rl_file, rl_iter_file)
-    # r.rl_thetas(rl_q_file)
+    for alpha in alphas:
+        for epsilon in epsilons:
+            for beta in betas:
+                for rlHorizon in rlHorizons:
+                    for batch_size in batch_sizes:
+                        file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}_batch-{batch_size}-results.json")
+                        qfile = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}_batch-{batch_size}-q-results.json")
+                        name = f"horizon={rlHorizon}, alpha={alpha}, beta={beta}, epsilon={epsilon}, batch={batch_size}"
+                        if os.path.isfile(file) and os.path.isfile(qfile):
+                            r.add_parametric(file, name)
+                            r.add_qfile(qfile, name)
 
-    r.plot_single_home2("Ruth-1HV86") # base
-    # r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    base_file = os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json")
+    if os.path.isfile(base_file):
+        r.add_baseline(os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json"), "baseline")
+
+    r.rl2baseline(rl_file, rl_iter_file)
+    r.rl_thetas(rl_q_file)
+
+    # r.plot_single_home2("Ruth-1HV86") # base
+    r.plot_single_home2("Crystal-RXXFA") # pv_battery
     # r.plot_single_home2("Bruno-PVRNB") # pv_only
     # r.plot_single_home2("Jason-INS3S") # battery_only
 
