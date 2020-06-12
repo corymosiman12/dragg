@@ -28,10 +28,13 @@ class Reformat:
         self.end_dt = datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')
         self.hours = self.end_dt - self.start_dt
         self.hours = int(self.hours.total_seconds() / 3600)
+        self.dt = self.config["mpc_hourly_steps"]
+        self.timesteps = self.hours * self.dt
+        self.dt_minutes = 60 // self.dt
         self.files_to_reformat = files
         self.data = self._import_data()
         self.summary_data = self._config_summary()
-        self.x_lims = [self.start_dt + timedelta(hours=x) for x in range(self.hours + max(self.config["rl_agg_time_horizon"]))]
+        self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_time_horizon"])*self.timesteps)]
         self.baselines = []
         self.parametrics = []
         self.parametric_qs = []
@@ -157,29 +160,32 @@ class Reformat:
             type = h["type"]
             horizon = d["Summary"]["horizon"]
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["temp_in_opt"][0:self.hours], name="Tin (C)"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["temp_wh_opt"][0:self.hours], name="Twh (C)"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["OAT"][0:self.hours], name="OAT (C)"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["GHI"][0:self.hours], name="GHI (W/m2)"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_grid_opt"][0:self.hours], name="Pgrid (kW)", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_load_opt"][0:self.hours], name="Pload (kW)", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["hvac_cool_on_opt"][0:self.hours], name="HVAC Cool Cmd", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["hvac_heat_on_opt"][0:self.hours], name="HVAC Heat Cmd", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["wh_heat_on_opt"][0:self.hours], name="WH Heat Cmd", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["TOU"][0:self.hours], name="TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(self.summary_data[n]["TOU"][0:self.hours], self.summary_data[n]["RP"][0:self.hours]), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
-
+            fig.add_trace(go.Scatter(x=self.x_lims, y=h["temp_in_opt"][0:self.timesteps], name="Tin (C)"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=h["temp_wh_opt"][0:self.timesteps], name="Twh (C)"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["OAT"][0:self.timesteps], name="OAT (C)"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["GHI"][0:self.timesteps], name="GHI (W/m2)"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_grid_opt"][0:self.timesteps], name="Pgrid (kW)", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_load_opt"][0:self.timesteps], name="Pload (kW)", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=h["hvac_cool_on_opt"][0:self.timesteps], name="HVAC Cool Cmd", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=h["hvac_heat_on_opt"][0:self.timesteps], name="HVAC Heat Cmd", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=h["wh_heat_on_opt"][0:self.timesteps], name="WH Heat Cmd", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["TOU"][0:self.timesteps], name="TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
+            try:
+                fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(self.summary_data[n]["TOU"][0:self.timesteps], self.summary_data[n]["RP"][0:self.timesteps]), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
+            except:
+                pass
+                
             case = self.summary_data[n]["case"]
             fig.update_xaxes(title_text="Time of Day (hour)")
             fig.update_layout(title_text=f"{case} - {name} - {type} type - horizon {horizon}")
 
             if 'pv' in type:
-                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_pv_opt"][0:self.hours], name="Ppv (kW)", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_pv_opt"][0:self.timesteps], name="Ppv (kW)", line_shape='hv'))
 
             if 'battery' in type:
-                fig.add_trace(go.Scatter(x=self.x_lims, y=h["e_batt_opt"][0:self.hours], name="SOC (kW)", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_batt_ch"][0:self.hours], name="Pch (kW)", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_batt_disch"][0:self.hours], name="Pdis (kW)", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=h["e_batt_opt"][0:self.timesteps], name="SOC (kW)", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_batt_ch"][0:self.timesteps], name="Pch (kW)", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_batt_disch"][0:self.timesteps], name="Pdis (kW)", line_shape='hv'))
 
             fig.show()
 
