@@ -80,6 +80,8 @@ class Aggregator:
         self.start_dt = None  # Set by _set_dt
         self.end_dt = None  # Set by _set_dt
         self.hours = None  # Set by _set_dt
+        self.dt = None  # Set by _set_dt
+        self.num_timesteps = None  # Set by _set_dt
         self.all_homes = None  # Set by create_homes
         self.queue = Queue()
         # self.redis_pool = redis.ConnectionPool(host = os.environ.get('REDIS_HOST', 'localhost'), decode_responses = True, db = 0)
@@ -88,6 +90,7 @@ class Aggregator:
         self.config = self._import_config()
         self.step_size_coeff = self.config["step_size_coeff"]
         self.check_type = self.config["check_type"]  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
+
         self.ts_data = self._import_ts_data()  # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
         self.tou_data = self._import_tou_data()  # SPP: $/kWh
         self.all_data = self.join_data()
@@ -102,6 +105,7 @@ class Aggregator:
         self.q_tables = []
         self.memory = []
         self.memory_size = 1000
+
         # self.batch_sizes = int(self.config["batch_size"])
 
     def _import_config(self):
@@ -131,6 +135,8 @@ class Aggregator:
             sys.exit(1)
         self.hours = self.end_dt - self.start_dt
         self.hours = int(self.hours.total_seconds() / 3600)
+
+        self.num_timesteps = self.hours * self.dt
         self.mask = (self.all_data.index >= self.start_dt) & (self.all_data.index < self.end_dt)
         self.agg_log.logger.info(f"Start: {self.start_dt.isoformat()}; End: {self.end_dt.isoformat()}; Number of hours: {self.hours}")
 
@@ -146,7 +152,15 @@ class Aggregator:
             sys.exit(1)
 
         df = pd.read_csv(self.ts_data_file, skiprows=2)
-        df = df[df["Minute"] == 0]
+        # df = df[df["Minute"] == 0]
+        self.dt = int(self.config["mpc_hourly_steps"])
+        self.dt_interval = 60 // self.dt
+        reps = [np.ceil(self.dt/2) if val==0 else np.floor(self.dt/2) for val in df.Minute]
+        df = df.loc[np.repeat(df.index.values, reps)]
+        interval_minutes = self.dt_interval * np.arange(self.dt)
+        n_intervals = len(df.index) // self.dt
+        x = np.tile(interval_minutes, n_intervals)
+        df.Minute = x
         df = df.astype(str)
         df['ts'] = df[["Year", "Month", "Day", "Hour", "Minute"]].apply(lambda x: ' '.join(x), axis=1)
         df = df.rename(columns={"Temperature": "OAT"})
@@ -203,7 +217,8 @@ class Aggregator:
         Join the TOU, GHI, temp data into a single dataframe
         :return: pandas.DataFrame
         """
-        df = pd.merge(self.ts_data, self.tou_data, on='ts')
+        df = pd.merge(self.ts_data, self.tou_data, how='outer', on='ts')
+        df = df.fillna(method='ffill')
         return df.set_index('ts', drop=False)
 
     def _check_home_configs(self):
@@ -634,37 +649,47 @@ class Aggregator:
             temp_theta = self.theta
         return temp_theta
 
+    # def update_qfunction(self, temp_theta, theta):
+    #     self.phi_k = self._phi(self.state, self.action)
+    #     # next_action = self._get_greedyaction(self.next_state)
+    #     next_action = self.next_action
+    #     self.phi_k1 = self._phi(self.next_state, next_action) # phi_bar according to Maei & Sutton notation
+    #     self.q_predicted = self.theta @ self.phi_k
+    #     self.q_observed = self._reward(self.state) + self.beta * (temp_theta @ self.phi_k1)
+    #
+    #     if self.timestep >= 0: #optional delay on learning
+    #         # if self.is_greedy:
+    #         #     learning_policy = 1 # pi (policy)
+    #         #     behavior_policy = (1-self.epsilon) + self.epsilon / self.nActions # b (policy), using stochastic probabilities
+    #         # else:
+    #         #     learning_policy = 0
+    #         #     behavior_policy = self.epsilon / self.nActions
+    #         # responsibility = learning_policy / behavior_policy # rho
+    #         #
+    #         # self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
+    #         # self.q_predicted = np.clip(self.q_predicted, 0, 1)
+    #         self.delta = self.q_observed - self.q_predicted
+    #         self.delta = np.clip(self.delta, -2, 2)
+    #         # self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
+    #         # k = (1 - self.beta) * (1 - self.lam)
+    #         # self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
+    #         self.theta = self.theta - self.alpha * (self.delta)*np.transpose(self.phi_k - self.phi_k1) # weight vector update
+
     def update_qfunction(self, temp_theta, theta):
         self.phi_k = self._phi(self.state, self.action)
-        # next_action = self._get_greedyaction(self.next_state)
-        next_action = self.next_action
-        self.phi_k1 = self._phi(self.next_state, next_action) # phi_bar according to Maei & Sutton notation
-        self.q_predicted = self.theta @ self.phi_k
-        self.q_observed = self._reward(self.state) + self.beta * (temp_theta @ self.phi_k1)
-
-        if self.timestep >= 0: #optional delay on learning
-            # if self.is_greedy:
-            #     learning_policy = 1 # pi (policy)
-            #     behavior_policy = (1-self.epsilon) + self.epsilon / self.nActions # b (policy), using stochastic probabilities
-            # else:
-            #     learning_policy = 0
-            #     behavior_policy = self.epsilon / self.nActions
-            # responsibility = learning_policy / behavior_policy # rho
-            #
-            # self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
-            # self.q_predicted = np.clip(self.q_predicted, 0, 1)
-            self.delta = self.q_observed - self.q_predicted
-            self.delta = np.clip(self.delta, -2, 2)
-            # self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
-            # k = (1 - self.beta) * (1 - self.lam)
-            # self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
-            self.theta = self.theta - self.alpha * (self.delta)*np.transpose(self.phi_k - self.phi_k1) # weight vector update
+        next_action = self._get_greedyaction(self.next_state)
+        self.phi_k1 = self._phi(self.next_state, next_action)
+        self.q_predicted = self.average_reward + self.theta @ self.phi_k
+        self.q_oberserved = self.reward + self.theta @ self.phi_k1
+        self.delta = self.q_observed - self.q_predicted
+        self.delta = np.clip(self.delta, -1, 1)
+        self.theta = self.theta - self.alpha * self.delta * np.transpose(self.phi_k - self.phi_k1)
 
     def update_theta(self, theta, exp):
         phi_k = self._phi(exp["state"], exp["action"])
         phi_k1 = self._phi(exp["next_state"], self._get_greedyaction(exp["next_state"]))
         q_predicted = theta @ phi_k
-        q_observed = exp["reward"] + self.beta * theta @ phi_k1
+        q_observed = exp["reward"] - self.average_reward + self.beta * theta @ phi_k1
         delta = q_predicted - q_observed
         delta = np.clip(delta, -1, 1)
         theta = theta - self.alpha * delta * np.transpose(phi_k - phi_k1)
@@ -719,7 +744,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self, horizon=1):
-        worker = MPCCalc(self.queue, horizon, self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, horizon, self.dt, self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
@@ -788,7 +813,7 @@ class Aggregator:
     def run_baseline(self, horizon=1):
         self.agg_log.logger.info(f"Performing baseline run for horizon: {horizon}")
         self.start_time = datetime.now()
-        for hour in range(self.hours):
+        for t in range(self.num_timesteps):
             for home in self.all_homes:
                 if self.check_type == "all" or home["type"] == self.check_type:
                     self.queue.put(home)
@@ -833,7 +858,8 @@ class Aggregator:
 
     def write_outputs(self, horizon):
         # Write values for baseline run to file
-        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
+
+        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}_{self.dt_interval}Minutes")
         if not os.path.isdir(date_output):
             os.makedirs(date_output)
 
@@ -855,11 +881,11 @@ class Aggregator:
                 json.dump(self.agg_mpc_data, f, indent=4)
 
         else:
-            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}_batch-{self.batch_size}-results.json"
-            f3 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}_batch-{self.batch_size}-iter-results.json")
+            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}-results.json"
+            f3 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}-iter-results.json")
             with open(f3, 'w+') as f:
                 json.dump(self.rl_agg_data, f, indent=4)
-            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon}-beta_{self.beta}_batch-{self.batch_size}-q-results.json")
+            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}-q-results.json")
             with open(f4, 'w+') as f:
                 json.dump(self.rl_q_data, f, indent=4)
 
@@ -888,7 +914,7 @@ class Aggregator:
         self.agg_log.logger.info(f"Performing AGG MPC run for horizon: {horizon}")
         self.start_time = datetime.now()
         self.agg_mpc_data = self.set_agg_mpc_initial_vals()
-        for hour in range(self.hours):
+        for t in range(self.num_timesteps):
             self.converged = False
             while True:
                 for home in self.all_homes:
@@ -1015,11 +1041,11 @@ class Aggregator:
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
         self.theta = np.ones(n) # theta initialization
-        self.average_reward = 0
+        self.cumulative_reward = 0
         self.e = np.zeros(n)
         self.w = np.zeros(n)
 
-        for hour in range(self.hours):
+        for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep)
             self.prev_forecast_load = self.forecast_load
             self.forecast_load = self._gen_forecast()
@@ -1028,17 +1054,18 @@ class Aggregator:
             self.rl_update_reward_price()
             self.redis_set_current_values() # broadcast rl price to community
 
-            for home in self.all_homes:
+            for home in self.all_homes: # uncomment these for the actual model response
                  if self.check_type == "all" or home["type"] == self.check_type:
                      self.queue.put(home)
             self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
             self.collect_data()
-            # self.test_response()
+            # self.test_response() # uncomment these for simplified
             # self.collect_fake_data()
 
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
             self.reward = self._reward(self.next_state)
+            self.cumulative_reward += self.reward
             self._experience()
 
             temp_theta = self.experience_replay()
@@ -1122,7 +1149,8 @@ class Aggregator:
                 for beta in betas:
                     self.beta = float(beta)
                     for epsilon in epsilons:
-                        self.epsilon = float(epsilon)
+                        self.epsilon_init = float(epsilon)
+                        self.epsilon = self.epsilon_init
                         for h in rl_agg_horizons:
                             self.rl_agg_horizon = int(h)
                             for b in batch_sizes:

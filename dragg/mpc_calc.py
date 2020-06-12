@@ -9,14 +9,16 @@ from dragg.redis_client import RedisClient
 
 
 class MPCCalc:
-    def __init__(self, q, h, redis_client, mpc_log):
+    def __init__(self, q, h, dt, redis_client, mpc_log):
         """
 
         :param q: queue.Queue
         :param h: int, prediction horizon
+        :param dt: int, number of timesteps per hour
         """
         self.q = q  # Queue
-        self.horizon = h  # Prediction horizon
+        self.dt = dt
+        self.horizon = h * self.dt  # Prediction horizon
         self.mpc_log = mpc_log
         self.redis_client = redis_client
         self.home = None  # reset every time home retrieved from Queue
@@ -112,7 +114,7 @@ class MPCCalc:
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
-        self.discomfort = 0.7*0.02
+        self.discomfort = 0.7*0.02 / self.dt
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -149,8 +151,8 @@ class MPCCalc:
         self.constraints = [
             self.temp_in[0] == self.temp_in_init,
             self.temp_wh[0] == self.temp_wh_init,
-            self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r) - self.hvac_cool_on * self.hvac_p_c + self.hvac_heat_on * self.hvac_p_h) / self.home_c,
-            self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / self.wh_r) + self.wh_heat_on * self.wh_p) / self.wh_c,
+            self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
+            self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c / self.dt),
             # self.temp_in[1:self.h_plus] >= self.temp_in_min,
             # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
@@ -173,18 +175,19 @@ class MPCCalc:
             self.p_grid >= 0
         ]
 
-        if max(self.oat_current) <= 26:
+        # set constraints on HVAC by season
+        if max(self.oat_current) <= 26: # "winter"
             self.constraints += [self.hvac_cool_on == 0]
             self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_min"]))
 
-        if min(self.oat_current) >= 15:
+        if min(self.oat_current) >= 15: # "summer"
             self.constraints += [self.hvac_heat_on == 0]
             self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_max"]))
 
     def add_battery_constraints(self):
         self.constraints += [
             # Battery constraints
-            self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon] + self.batt_ch_eff * self.p_batt_ch[0:self.horizon] + self.p_batt_disch[0:self.horizon] / self.batt_disch_eff,
+            self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon] + self.batt_ch_eff * self.p_batt_ch[0:self.horizon] / self.dt + self.p_batt_disch[0:self.horizon] / self.dt / self.batt_disch_eff,
             self.e_batt[0] == self.e_batt_init,
             self.p_batt_ch[0:self.horizon] <= self.batt_max_rate,
             self.p_batt_ch[0:self.horizon] >= 0,
@@ -197,7 +200,7 @@ class MPCCalc:
 
     def add_pv_constraints(self):
         self.constraints += [
-            # PV constraints.  GHI provided in W/m2 - convert to kW
+            # PV constraints.  GHI provided in W/m2 - convert to kWh
             self.p_pv == self.ghi[0:self.horizon] * self.pv_area * self.pv_eff * (1 - self.u_pv_curt) / 1000,
             self.u_pv_curt >= 0,
             self.u_pv_curt <= 1,
@@ -209,7 +212,7 @@ class MPCCalc:
             self.p_grid == self.p_load
         ]
         self.wf_wh = 1.8 * self.wf_wh
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
 
 
     def set_battery_only_p_grid(self):
@@ -219,7 +222,7 @@ class MPCCalc:
         ]
         self.wf_wh = 2.2 * self.wf_wh
         self.batt_cons = 0.5
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.batt_cons * cp.sum(cp.norm(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.sum(cp.norm(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
 
     def set_pv_only_p_grid(self):
         self.constraints += [
@@ -228,7 +231,7 @@ class MPCCalc:
         ]
         self.wf_temp = self.hvac_p_h*1.5
         self.wf_wh = self.wh_p*2
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
 
     def set_pv_battery_p_grid(self):
         self.constraints += [
@@ -236,7 +239,7 @@ class MPCCalc:
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch - self.p_pv
         ]
         self.wf_wh = 1.5 * self.wf_wh
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon]) + self.discomfort * (self.batt_cons * cp.sum(cp.norm(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp)))) # i think this was previously adding the current negotiated reward price to every timestep
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.sum(cp.norm(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp)))) # i think this was previously adding the current negotiated reward price to every timestep
 
     def solve_mpc(self):
         # self.obj = cp.Minimize(cp.sum((self.total_price) * self.p_grid[0:self.horizon]))
@@ -246,11 +249,8 @@ class MPCCalc:
         self.prob.solve(solver=cp.ECOS, verbose=False)
 
     def cleanup_and_finish(self):
-        # if self.prob.status in ["infeasible", "unbounded"]:
         if self.prob.status != "optimal":
             self.mpc_log.logger.error(f"Couldn't solve problem for {self.home['name']}: {self.prob.status}")
-        # elif self.prob.status != "optimal":
-        #     self.mpc_log.logger.info(f"Problem status: {self.prob.status}")
         else:
             # self.mpc_log.logger.info(f"Status for {self.home['name']}: {self.prob.status}")
             self.optimal_vals = {
