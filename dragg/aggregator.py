@@ -23,10 +23,14 @@ from dragg.mpc_calc import MPCCalc
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 
+def rbf(x, sigma, mu=0):
+    return 1/(sigma*np.sqrt(2*np.pi)) * np.exp(-1*(x**2)/(2*sigma**2))
+
 class Aggregator:
-    def __init__(self, agg_log=Logger("aggregator"), mpc_log=Logger("mpc_calc")):
-        self.agg_log = agg_log
-        self.mpc_log = mpc_log
+    def __init__(self):
+        self.agg_log = Logger("aggregator")
+        self.mpc_log = Logger("mpc_calc")
+        self.forecast_log = Logger("forecaster")
         self.data_dir = 'data'
         self.outputs_dir = 'outputs'
         if not os.path.isdir(self.outputs_dir):
@@ -535,10 +539,6 @@ class Aggregator:
     def redis_set_current_values(self):
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
-        # self.redis_client.hset("current_values", "reward_price", self.reward_price)
-
-        # self.all_rps[self.timestep] = self.action
-
         if self.case == "agg_mpc":
             self.redis_client.conn.hset("current_values", "iteration", self.iteration)
         elif self.case == "rl_agg":
@@ -560,20 +560,24 @@ class Aggregator:
         forecast_delta = self.forecast_load - self.agg_load
         prev_forecast_error = (self.agg_load - self.prev_forecast_load) / max(self.prev_forecast_load,0.001)
         time_of_day = self.timestep % 24
-        return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day]
+        agg_load = self.agg_load
+        return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day, agg_load]
 
     def _reward(self, x):
-        # sigma = 0.2
-        # mu = 0
-        # reward = 1/(np.sqrt(2*np.pi*sigma)) * np.exp(-0.5*(x[0]-mu)**2/(sigma**2))
-        # return reward
+        tol = 0.2
+        reward = 0
 
-        if self.state[0]**2 > self.next_state[0]**2:
-            return 1
-        elif self.state[0]**2 < self.next_state[0]**2:
-            return -1
-        else:
-            return 0
+        if self.state[0] < 0.1: # within 10% of the target agg_setpoint
+            return 5
+
+        if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
+            reward += 1
+        elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
+            reward += -1
+
+        if abs((self.state[6] - self.next_state[6]) /  self.state[6]) < 0.2: # moves slowly
+            reward += 5
+        return reward
 
     def _q(self, state, action):
         return self.theta @ self._phi(state, action)
@@ -594,24 +598,16 @@ class Aggregator:
         sigma = 0.1
         normalized = 1/(sigma*np.sqrt(2*np.pi))
 
-        action_basis = np.array([action, action**2])
-        current_error_basis = np.array([np.exp(-1*(curr_error**2)/(2*sigma**2)), action*np.exp(-1*(curr_error**2)/(2*sigma**2)), action**2*np.exp(-1*(curr_error**2)/(2*sigma**2))])
-        persistence_error_basis = np.array([np.exp(-1*(persistence_error**2)/(2*sigma**2)), action*np.exp(-1*(persistence_error**2)/(2*sigma**2)), action**2*np.exp(-1*(persistence_error**2)/(2*sigma**2))])
-        forecast_error_basis = np.array([np.exp(-1*(forecast_error**2)/(2*sigma**2)), action*np.exp(-1*(forecast_error**2)/(2*sigma**2)), action**2*np.exp(-1*(forecast_error**2)/(2*sigma**2))])
-        prev_forecast_error_basis = np.array([np.exp(-1*(prev_forecast_error**2)/(2*sigma**2)), action*np.exp(-1*(prev_forecast_error**2)/(2*sigma**2)), action**2*np.exp(-1*(prev_forecast_error**2)/(2*sigma**2))])
-        delta_basis = np.array([np.exp(-1*(forecast_delta**2)/(2*sigma**2)), action*np.exp(-1*(forecast_delta**2)/(2*sigma**2)), action**2*np.exp(-1*(forecast_delta**2)/(2*sigma**2))])
-        time_basis = np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)])
+        action_basis = np.array([1, action, rbf(action, sigma, mu=0), rbf(action, sigma, mu=-0.04), rbf(action, sigma, mu=0.04)])
 
-        # action_basis = self.pb(action)
-        # current_error_basis = self.pb(curr_error)
-        # persistence_error_basis = self.pb(persistence_error)
-        # forecast_error_basis = self.pb(forecast_error)
-        # delta_basis = self.pb(forecast_delta)
-        # time_basis = np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)])
+        current_error_basis = rbf(curr_error, sigma) * action_basis
+        persistence_error_basis = rbf(curr_error, sigma) * action_basis
+        forecast_error_basis = rbf(curr_error, sigma) * action_basis
+        prev_forecast_error_basis = rbf(curr_error, sigma) * action_basis
+        delta_basis = rbf(curr_error, sigma) * action_basis
+        time_basis = np.outer(np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)]), action_basis).flatten()
 
-        n = time_basis[0] * action_basis
-        m = time_basis[1] * action_basis
-        phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, prev_forecast_error_basis, delta_basis, n, m))
+        phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, prev_forecast_error_basis, delta_basis, time_basis))
 
         return phi
 
@@ -649,31 +645,29 @@ class Aggregator:
             temp_theta = self.theta
         return temp_theta
 
-    # def update_qfunction(self, temp_theta, theta):
-    #     self.phi_k = self._phi(self.state, self.action)
-    #     # next_action = self._get_greedyaction(self.next_state)
-    #     next_action = self.next_action
-    #     self.phi_k1 = self._phi(self.next_state, next_action) # phi_bar according to Maei & Sutton notation
-    #     self.q_predicted = self.theta @ self.phi_k
-    #     self.q_observed = self._reward(self.state) + self.beta * (temp_theta @ self.phi_k1)
-    #
-    #     if self.timestep >= 0: #optional delay on learning
-    #         # if self.is_greedy:
-    #         #     learning_policy = 1 # pi (policy)
-    #         #     behavior_policy = (1-self.epsilon) + self.epsilon / self.nActions # b (policy), using stochastic probabilities
-    #         # else:
-    #         #     learning_policy = 0
-    #         #     behavior_policy = self.epsilon / self.nActions
-    #         # responsibility = learning_policy / behavior_policy # rho
-    #         #
-    #         # self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
-    #         # self.q_predicted = np.clip(self.q_predicted, 0, 1)
-    #         self.delta = self.q_observed - self.q_predicted
-    #         self.delta = np.clip(self.delta, -2, 2)
-    #         # self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
-    #         # k = (1 - self.beta) * (1 - self.lam)
-    #         # self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
-    #         self.theta = self.theta - self.alpha * (self.delta)*np.transpose(self.phi_k - self.phi_k1) # weight vector update
+    def update_qfunction_greedygq(self, temp_theta, theta):
+        self.phi_k = self._phi(self.state, self.action)
+        # next_action = self._get_greedyaction(self.next_state)
+        next_action = self.next_action
+        self.phi_k1 = self._phi(self.next_state, next_action) # phi_bar according to Maei & Sutton notation
+        self.q_predicted = self.theta @ self.phi_k
+        self.q_observed = self._reward(self.state) + self.beta * (temp_theta @ self.phi_k1)
+
+        if self.timestep >= 0: #optional delay on learning
+            if self.is_greedy:
+                learning_policy = 1 # pi (policy)
+                behavior_policy = (1-self.epsilon) + self.epsilon / self.nActions # b (policy), using stochastic probabilities
+            else:
+                learning_policy = 0
+                behavior_policy = self.epsilon / self.nActions
+            responsibility = learning_policy / behavior_policy # rho
+
+            self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
+            self.delta = self.q_observed - self.q_predicted
+            self.delta = np.clip(self.delta, -2, 2)
+            self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
+            k = (1 - self.beta) * (1 - self.lam)
+            self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
 
     def update_qfunction(self, temp_theta, theta):
         self.phi_k = self._phi(self.state, self.action)
@@ -718,7 +712,7 @@ class Aggregator:
             u_k = self._get_greedyaction(state)
             self.is_greedy = True
         else: # exploration
-            u_k = random.uniform(self.actionspace[0], self.actionspace[1])
+            u_k = random.uniform(max(self.actionspace[0],-0.02), min(self.actionspace[1], 0.02))
             self.is_greedy = False
 
         action = u_k
@@ -769,6 +763,17 @@ class Aggregator:
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
 
+    def collect_forecast_data(self):
+        agg_load = 0
+        for home in self.all_homes:
+            if self.check_type == 'all' or home["type"] == self.check_type:
+                key = home["name"]
+                key += "-forecast"
+                vals = self.redis_client.conn.hgetall(key)
+                # print(vals)
+                agg_load += float(vals["p_grid_opt"])
+        return agg_load
+
     def collect_fake_data(self):
         self.baseline_agg_load_list.append(self.agg_load)
 
@@ -810,6 +815,9 @@ class Aggregator:
         self.rl_q_data["state"].append(self.state)
         self.rl_q_data["is_greedy"].append(self.is_greedy)
         self.rl_q_data["q_tables"].append(self.q_lookup.tolist())
+        self.rl_q_data["average_reward"].append(self.average_reward)
+        self.rl_q_data["cumulative_reward"].append(self.cumulative_reward)
+        self.rl_q_data["reward"].append(self.reward)
 
     def run_baseline(self, horizon=1):
         self.agg_log.logger.info(f"Performing baseline run for horizon: {horizon}")
@@ -967,6 +975,9 @@ class Aggregator:
         temp["state"] = []
         temp["is_greedy"] = []
         temp["q_tables"] = []
+        temp["average_reward"] = []
+        temp["cumulative_reward"] = []
+        temp["reward"] = []
         return temp
 
     def rl_initialize_forecast(self):
@@ -990,26 +1001,27 @@ class Aggregator:
         return forecast_data
 
     def _gen_forecast(self):
-        try:
-            return self.forecast_data[self.timestep + 1]
-        except:
-            return 50
+        for home in self.all_homes: # uncomment these for the actual model response
+             if self.check_type == "all" or home["type"] == self.check_type:
+                 self.queue.put(home)
+
+        forecast_horizon = 1
+        forecast = np.empty(forecast_horizon)
+        for t in range(forecast_horizon):
+            worker = MPCCalc(self.queue, 8, self.dt, self.redis_client, self.forecast_log)
+            worker.forecast()
+            forecast[t] = self.collect_forecast_data()
+        return forecast[0]
 
     def _gen_setpoint(self, time):
-        # min_p_grid = 10
-        # max_p_grid = 60
-        # daily_offset = 6
-        # sp = (max_p_grid - min_p_grid)*np.sin((self.timestep-6) * 3.14/12) + (min_p_grid + max_p_grid)/2
+        # i = time % 24
+        # if i >= 2 and i <= 14:
+        #     sp = 60
+        # else:
+        #     sp = 10
+        #
         # return sp
-
-        i = time % 24
-        if i >= 2 and i <= 14:
-            sp = 60
-        else:
-            sp = 10
-
-        # sp = 20
-        return sp
+        return 40
 
     def test_response(self):
         c = 0.8
@@ -1024,24 +1036,25 @@ class Aggregator:
         self.start_time = datetime.now()
         self.rl_agg_data = self.set_rl_agg_initial_vals()
         self.rl_q_data = self.set_rl_q_initial_vals()
-        self.forecast_data = self.rl_initialize_forecast()
+        # self.forecast_data = self.rl_initialize_forecast()
         self.baseline_agg_load_list = [0]
 
 
-        self.timestep = -1
+        self.timestep = 0
         self.forecast_load = self._gen_forecast()
         self.prev_forecast_load = self.forecast_load
-        self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
-        self.agg_load = self._gen_forecast() # approximate load for initial timestep
+        self.forecast_setpoint = self._gen_setpoint(self.timestep)
+        self.agg_load = self.forecast_load # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
         self.state = self._calc_state()
-        self.timestep += 1
+        # self.timestep += 1
 
         self.action = 0
         self.lam = 0.9
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
-        self.theta = np.ones(n) # theta initialization
+        self.theta = np.zeros(n) # theta initialization
+        self.cumulative_reward = 0
         self.average_reward = 0
         self.e = np.zeros(n)
         self.w = np.zeros(n)
@@ -1066,7 +1079,7 @@ class Aggregator:
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
             self.reward = self._reward(self.next_state)
-            # self.cumulative_reward += self.reward
+            self.cumulative_reward += self.reward
             self._experience()
 
             temp_theta = self.experience_replay()
@@ -1142,20 +1155,20 @@ class Aggregator:
             epsilons = self.config["agg_exploration_rate"]
             alphas = self.config["agg_learning_rate"]
             betas = self.config["rl_agg_discount_factor"]
-            rl_agg_horizons = self.config["rl_agg_time_horizon"]
+            rl_agg_horizons = self.config["rl_agg_action_horizon"]
             batch_sizes = self.config["batch_size"]
 
-            for alpha in alphas:
-                self.alpha = float(alpha)
-                for beta in betas:
-                    self.beta = float(beta)
-                    for epsilon in epsilons:
-                        self.epsilon_init = float(epsilon)
+            for a in alphas:
+                self.alpha = float(a)
+                for b in betas:
+                    self.beta = float(b)
+                    for e in epsilons:
+                        self.epsilon_init = float(e)
                         self.epsilon = self.epsilon_init
                         for h in rl_agg_horizons:
                             self.rl_agg_horizon = int(h)
-                            for b in batch_sizes:
-                                self.batch_size = int(b)
+                            for bs in batch_sizes:
+                                self.batch_size = int(bs)
 
                                 self.flush_redis()
                                 self.redis_set_initial_values()
