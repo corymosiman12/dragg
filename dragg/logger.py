@@ -1,6 +1,13 @@
 import logging
 import os
 
+progress_lvl = 25
+logging.addLevelName(progress_lvl, "PROG")
+
+def progress(self, message, *args, **kws):
+    if self.isEnabledFor(progress_lvl):
+        # Yes, logger takes its '*args' as 'args'.
+        self._log(progress_lvl, message, args, **kws)
 
 class Logger:
     """A logger for simulation outputs"""
