@@ -34,7 +34,7 @@ class Reformat:
         self.files_to_reformat = files
         self.data = self._import_data()
         self.summary_data = self._config_summary()
-        self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_time_horizon"])*self.timesteps)]
+        self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_action_horizon"])*self.timesteps)]
         self.baselines = []
         self.parametrics = []
         self.parametric_qs = []
@@ -174,7 +174,7 @@ class Reformat:
                 fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(self.summary_data[n]["TOU"][0:self.timesteps], self.summary_data[n]["RP"][0:self.timesteps]), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
             except:
                 pass
-                
+
             case = self.summary_data[n]["case"]
             fig.update_xaxes(title_text="Time of Day (hour)")
             fig.update_layout(title_text=f"{case} - {name} - {type} type - horizon {horizon}")
@@ -247,16 +247,16 @@ class Reformat:
 
     def _show_greedy(self, fig, data):
         rtgs = {}
-        for i in range(max(self.config["rl_agg_time_horizon"])+1):
+        for i in range(max(self.config["rl_agg_action_horizon"])+1):
             rtgs[i] = []
 
-        is_greedy = [False]*(max(self.config["rl_agg_time_horizon"])-1)
+        is_greedy = [False]*(max(self.config["rl_agg_action_horizon"])-1)
         is_random = []
         for timestep in data:
             is_greedy.append(timestep['is_greedy'])
 
-        for t in range(self.hours):
-            rating = sum(is_greedy[t:t+max(self.config["rl_agg_time_horizon"])])
+        for t in range(self.timesteps):
+            rating = sum(is_greedy[t:t+max(self.config["rl_agg_action_horizon"])])
             rtgs[rating].append(t)
             if not is_greedy[t]:
                 is_random.append(t)
@@ -272,10 +272,13 @@ class Reformat:
             opacity = abs(i-4)/10
 
             times = rtgs[i]
-            fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(hours=t) for t in times], y=[1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
+            fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in times], y=[1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
+            fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in times], y=[-1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
 
-        fig.add_trace(go.Bar(name="Random Action - Current", x=[self.start_dt + timedelta(hours=t) for t in is_random], y=[1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
-        fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(hours=t-(max(self.config["rl_agg_time_horizon"])-1)) for t in is_random], y=[1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
+        fig.add_trace(go.Bar(name="Random Action - Current", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in is_random], y=[1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
+        fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(minutes=(t-(max(self.config["rl_agg_action_horizon"])-1)*self.dt)*self.dt_minutes) for t in is_random], y=[1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
+        fig.add_trace(go.Bar(name="Random Action - Current", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in is_random], y=[-1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
+        fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(minutes=(t-(max(self.config["rl_agg_action_horizon"])-1)*self.dt)*self.dt_minutes) for t in is_random], y=[-1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
         return fig
 
     def _show_baseline(self, fig):
@@ -300,18 +303,17 @@ class Reformat:
         return fig
 
     def _show_baseline_error(self, fig, rldata):
-        try:
-            file = self.baselines[0]
-            with open(file["path"]) as f:
-                data = json.load(f)
+        # try:
+        file = self.baselines[0]
+        with open(file["path"]) as f:
+            data = json.load(f)
 
-            baseline_load = data["Summary"]["p_grid_aggregate"]
-            baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
-            baseline_error = np.subtract(baseline_load, baseline_setpoint)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(baseline_error), name="Error - Baseline"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline"))
-        except:
-            pass
+        baseline_load = data["Summary"]["p_grid_aggregate"]
+        baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
+        baseline_error = np.subtract(baseline_load, baseline_setpoint)
+        fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(baseline_error), name="Error - Baseline"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline"))
+
         return fig
 
     def _show_parametric_error(self, fig):
@@ -327,19 +329,29 @@ class Reformat:
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Error - {name}"))
         return fig
 
-    def rl2baseline(self, rl_file, rl_qfile):
+    def _show_rewards(self, fig, data):
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name="Average Reward"), secondary_y=True)
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name="Cumulative Reward"), secondary_y=True)
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["reward"], name="Reward"), secondary_y=True)
+        return fig
+
+    def rl2baseline(self, rl_file, rl_iterfile, rl_qfile):
         with open(rl_file) as f:
             rldata = json.load(f)
+
+        with open(rl_iterfile) as f:
+            rl_iterdata = json.load(f)
 
         with open(rl_qfile) as f:
             rl_qdata = json.load(f)
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig = self._show_greedy(fig, rl_qdata)
+        fig = self._show_greedy(fig, rl_iterdata)
         fig = self._show_baseline(fig)
         fig = self._show_parametric(fig)
         fig = self._show_baseline_error(fig, rldata)
         fig = self._show_parametric_error(fig)
+        fig = self._show_rewards(fig, rl_qdata)
         fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
         fig.show()
 
@@ -547,7 +559,7 @@ if __name__ == "__main__":
     epsilons = config["agg_exploration_rate"]
     betas = config["rl_agg_discount_factor"]
 
-    rlHorizon = config["rl_agg_time_horizon"]
+    rlHorizon = config["rl_agg_action_horizon"]
 
     rl_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-results.json") # file used to plot house response
     rl_q_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-iter-results.json")
