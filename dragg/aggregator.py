@@ -568,15 +568,15 @@ class Aggregator:
         reward = 0
 
         if self.state[0] < 0.1: # within 10% of the target agg_setpoint
-            return 5
+            reward += 5
 
         if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
             reward += 1
         elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
             reward += -1
 
-        if abs((self.state[6] - self.next_state[6]) /  self.state[6]) < 0.2: # moves slowly
-            reward += 5
+        if abs((self.state[6] - self.next_state[6]) /  self.state[6]) > 0.2: # moves slowly
+            reward -= 5
         return reward
 
     def _q(self, state, action):
@@ -594,21 +594,28 @@ class Aggregator:
         forecast_delta = state[3]
         prev_forecast_error = state[4]
         time = state[5]
+        agg_load = state[6]
 
         sigma = 0.1
         normalized = 1/(sigma*np.sqrt(2*np.pi))
 
-        action_basis = np.array([1, action, rbf(action, sigma, mu=0), rbf(action, sigma, mu=-0.04), rbf(action, sigma, mu=0.04)])
+        action_basis = np.array([1, action])
+        for i in range(8):
+            np.append(action_basis, rbf(action, sigma, mu=0.01*(i-4)))
 
-        current_error_basis = rbf(curr_error, sigma) * action_basis
-        persistence_error_basis = rbf(curr_error, sigma) * action_basis
-        forecast_error_basis = rbf(curr_error, sigma) * action_basis
-        prev_forecast_error_basis = rbf(curr_error, sigma) * action_basis
-        delta_basis = rbf(curr_error, sigma) * action_basis
+        current_error_basis = np.array([1])
+        for i in range(10):
+            np.append(current_error_basis, rbf(curr_error, sigma, mu=0.1*i))
+        current_error_basis = np.outer(current_error_basis, action_basis).flatten()
+        # persistence_error_basis = rbf(curr_error, sigma) * action_basis
+        # forecast_error_basis = rbf(curr_error, sigma) * action_basis
+        # prev_forecast_error_basis = rbf(curr_error, sigma) * action_basis
+        # delta_basis = rbf(curr_error, sigma) * action_basis
+        # agg_load_basis = rbf(agg_load, sigma) * action_basis[:2]
         time_basis = np.outer(np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)]), action_basis).flatten()
 
-        phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, prev_forecast_error_basis, delta_basis, time_basis))
-
+        # phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, prev_forecast_error_basis, delta_basis, agg_load_basis, time_basis))
+        phi = np.concatenate((action_basis, current_error_basis, time_basis))
         return phi
 
     def _qvalue(self):
@@ -677,7 +684,8 @@ class Aggregator:
         self.q_observed = self.reward + self.theta @ self.phi_k1
         self.delta = self.q_observed - self.q_predicted
         self.delta = np.clip(self.delta, -1, 1)
-        self.average_reward = self.average_reward + self.alpha*self.delta
+        # self.average_reward = self.average_reward + self.alpha*self.delta
+        self.average_reward = self.cumulative_reward / (self.timestep + 1)
         self.theta = self.theta - self.alpha * self.delta * np.transpose(self.phi_k - self.phi_k1)
 
     def update_theta(self, theta, exp):
@@ -706,8 +714,8 @@ class Aggregator:
             avg_rp = self.reward_price[0]
         self.actionspace = self.config["action_space"] - avg_rp
          # update epsilon
-        if ((self.timestep+201) % 200) == 0: # every 200 timesteps
-            self.epsilon = self.epsilon/2 # decrease exploration rate
+        # if ((self.timestep+201) % 200) == 0: # every 200 timesteps
+        #     self.epsilon = self.epsilon/2 # decrease exploration rate
         if np.random.uniform(0,1) >= self.epsilon: # the greedy action
             u_k = self._get_greedyaction(state)
             self.is_greedy = True
@@ -868,11 +876,11 @@ class Aggregator:
     def write_outputs(self, horizon):
         # Write values for baseline run to file
 
-        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}_{self.dt_interval}Minutes")
+        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
         if not os.path.isdir(date_output):
             os.makedirs(date_output)
 
-        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}")
+        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-interval_{self.dt_interval}")
         if not os.path.isdir(mpc_output):
             os.makedirs(mpc_output)
 
@@ -1053,7 +1061,7 @@ class Aggregator:
         self.lam = 0.9
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
-        self.theta = np.zeros(n) # theta initialization
+        self.theta = 0.5*np.ones(n) # theta initialization
         self.cumulative_reward = 0
         self.average_reward = 0
         self.e = np.zeros(n)
