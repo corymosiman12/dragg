@@ -1,7 +1,7 @@
 [
     {
         "name": "Crystal-RXXFA",
-        "type": "pv_battery",
+        "type": "base",
         "alpha": 2.7343091644849835,
         "beta": 2.5568267271875516,
         "hvac": {
@@ -14,24 +14,11 @@
             "r": 22.9067442679304,
             "c": 4.827825470364611,
             "p": 2.5
-        },
-        "battery": {
-            "max_rate": 5,
-            "capacity": 13.5,
-            "capacity_lower": 2.025,
-            "capacity_upper": 11.475,
-            "ch_eff": 0.95,
-            "disch_eff": 0.99,
-            "batt_cons": 0.005
-        },
-        "pv": {
-            "area": 32,
-            "eff": 0.2
         }
     },
     {
         "name": "Myles-XQ5IA",
-        "type": "pv_battery",
+        "type": "base",
         "alpha": 2.6867912756185066,
         "beta": 2.55919635636967,
         "hvac": {
@@ -44,24 +31,11 @@
             "r": 24.392270071164262,
             "c": 5.143612841430359,
             "p": 2.5
-        },
-        "battery": {
-            "max_rate": 5,
-            "capacity": 13.5,
-            "capacity_lower": 2.025,
-            "capacity_upper": 11.475,
-            "ch_eff": 0.95,
-            "disch_eff": 0.99,
-            "batt_cons": 0.005
-        },
-        "pv": {
-            "area": 32,
-            "eff": 0.2
         }
     },
     {
         "name": "Lillie-NMHUH",
-        "type": "pv_battery",
+        "type": "base",
         "alpha": 2.706391997085412,
         "beta": 2.256676711095623,
         "hvac": {
@@ -74,24 +48,11 @@
             "r": 24.914808901441738,
             "c": 5.166210583256614,
             "p": 2.5
-        },
-        "battery": {
-            "max_rate": 5,
-            "capacity": 13.5,
-            "capacity_lower": 2.025,
-            "capacity_upper": 11.475,
-            "ch_eff": 0.95,
-            "disch_eff": 0.99,
-            "batt_cons": 0.005
-        },
-        "pv": {
-            "area": 32,
-            "eff": 0.2
         }
     },
     {
         "name": "Robert-2D73X",
-        "type": "pv_battery",
+        "type": "base",
         "alpha": 2.334949130465943,
         "beta": 2.5372163974135344,
         "hvac": {
@@ -104,24 +65,11 @@
             "r": 21.641138552510128,
             "c": 5.149428782596006,
             "p": 2.5
-        },
-        "battery": {
-            "max_rate": 5,
-            "capacity": 13.5,
-            "capacity_lower": 2.025,
-            "capacity_upper": 11.475,
-            "ch_eff": 0.95,
-            "disch_eff": 0.99,
-            "batt_cons": 0.005
-        },
-        "pv": {
-            "area": 32,
-            "eff": 0.2
         }
     },
     {
         "name": "Serena-98EPE",
-        "type": "pv_only",
+        "type": "base",
         "alpha": 2.4084039503445225,
         "beta": 2.638839726039811,
         "hvac": {
@@ -134,15 +82,11 @@
             "r": 23.121720374075984,
             "c": 4.7184259952648775,
             "p": 2.5
-        },
-        "pv": {
-            "area": 32,
-            "eff": 0.2
         }
     },
     {
         "name": "Gary-U95TS",
-        "type": "pv_only",
+        "type": "base",
         "alpha": 2.3708901178570314,
         "beta": 2.724941038568875,
         "hvac": {
@@ -155,15 +99,11 @@
             "r": 24.800582617571145,
             "c": 4.354810512144632,
             "p": 2.5
-        },
-        "pv": {
-            "area": 32,
-            "eff": 0.2
         }
     },
     {
         "name": "Bruno-PVRNB",
-        "type": "pv_only",
+        "type": "base",
         "alpha": 2.4954774849124917,
         "beta": 2.6014910865500056,
         "hvac": {
@@ -176,15 +116,11 @@
             "r": 22.788194880667128,
             "c": 5.451101351323292,
             "p": 2.5
-        },
-        "pv": {
-            "area": 32,
-            "eff": 0.2
         }
     },
     {
         "name": "Dorothy-9XMNY",
-        "type": "pv_only",
+        "type": "base",
         "alpha": 2.521971704784257,
         "beta": 2.3081028667239125,
         "hvac": {
@@ -197,15 +133,11 @@
             "r": 20.829065835878172,
             "c": 5.6171510751999785,
             "p": 2.5
-        },
-        "pv": {
-            "area": 32,
-            "eff": 0.2
         }
     },
     {
         "name": "Jason-INS3S",
-        "type": "battery_only",
+        "type": "base",
         "alpha": 2.452727193542505,
         "beta": 2.3733007390615457,
         "hvac": {
@@ -218,20 +150,11 @@
             "r": 20.808543652161635,
             "c": 4.542011943563805,
             "p": 2.5
-        },
-        "battery": {
-            "max_rate": 5,
-            "capacity": 13.5,
-            "capacity_lower": 2.025,
-            "capacity_upper": 11.475,
-            "ch_eff": 0.95,
-            "disch_eff": 0.99,
-            "batt_cons": 0.005
         }
     },
     {
         "name": "Alvin-4BAYB",
-        "type": "battery_only",
+        "type": "base",
         "alpha": 2.6212051565883967,
         "beta": 2.4594693403587864,
         "hvac": {
@@ -244,20 +167,11 @@
             "r": 20.623614121043907,
             "c": 4.565911458279325,
             "p": 2.5
-        },
-        "battery": {
-            "max_rate": 5,
-            "capacity": 13.5,
-            "capacity_lower": 2.025,
-            "capacity_upper": 11.475,
-            "ch_eff": 0.95,
-            "disch_eff": 0.99,
-            "batt_cons": 0.005
         }
     },
     {
         "name": "Edna-DTGZB",
-        "type": "battery_only",
+        "type": "base",
         "alpha": 2.5718665078826013,
         "beta": 2.56601577335692,
         "hvac": {
@@ -270,20 +184,11 @@
             "r": 25.018954996677778,
             "c": 4.8161611735409675,
             "p": 2.5
-        },
-        "battery": {
-            "max_rate": 5,
-            "capacity": 13.5,
-            "capacity_lower": 2.025,
-            "capacity_upper": 11.475,
-            "ch_eff": 0.95,
-            "disch_eff": 0.99,
-            "batt_cons": 0.005
         }
     },
     {
         "name": "Emily-V0SNM",
-        "type": "battery_only",
+        "type": "base",
         "alpha": 2.579671675357335,
         "beta": 2.2977351267324355,
         "hvac": {
@@ -296,15 +201,6 @@
             "r": 21.379325063533642,
             "c": 4.85427081525901,
             "p": 2.5
-        },
-        "battery": {
-            "max_rate": 5,
-            "capacity": 13.5,
-            "capacity_lower": 2.025,
-            "capacity_upper": 11.475,
-            "ch_eff": 0.95,
-            "disch_eff": 0.99,
-            "batt_cons": 0.005
         }
     },
     {
