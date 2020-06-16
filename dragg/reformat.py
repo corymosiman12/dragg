@@ -3,7 +3,8 @@ import sys
 import json
 from datetime import datetime, timedelta
 import numpy as np
-
+import itertools as it
+import random
 
 import plotly.graph_objects as go
 import plotly.express as px
@@ -13,31 +14,114 @@ from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, files, log=Logger("reformat")):
+    def __init__(self, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = 'data'
         self.outputs_dir = 'outputs'
         if not os.path.isdir(self.outputs_dir):
-            os.makedirs(self.outputs_dir)
+            self.ref_log.error("Outputs directory does not exist.")
+            quit()
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.json'))
         self.config = self._import_config()
-        self.num_homes = self.config["total_number_homes"]
-        self.check_type = self.config["check_type"]
+        # self.num_homes = self.config["total_number_homes"]
+        # self.check_type = self.config["check_type"]
         self.pred_horizons = self.config["prediction_horizons"]
         self.start_dt = datetime.strptime(self.config["start_datetime"], '%Y-%m-%d %H')
         self.end_dt = datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')
+        self.date_folder = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
+        self.agg_params = self._setup_agg_params()
+        self.mpc_params = self._setup_mpc_params()
         self.hours = self.end_dt - self.start_dt
         self.hours = int(self.hours.total_seconds() / 3600)
         self.dt = self.config["mpc_hourly_steps"]
         self.timesteps = self.hours * self.dt
         self.dt_minutes = 60 // self.dt
-        self.files_to_reformat = files
+        self.files_to_reformat = []
         self.data = self._import_data()
         self.summary_data = self._config_summary()
         self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_action_horizon"])*self.timesteps)]
-        self.baselines = []
-        self.parametrics = []
-        self.parametric_qs = []
+        self.mpc_folders, self.baselines = None, None
+        self.parametrics = None
+
+    def _setup_agg_params(self):
+        alphas = self.config["agg_learning_rate"]
+        epsilons = self.config["agg_exploration_rate"]
+        betas = self.config["rl_agg_discount_factor"]
+        batch_sizes = self.config["batch_size"]
+        rl_horizons = self.config["rl_agg_action_horizon"]
+        temp = {"alpha": set(alphas), "epsilon": set(epsilons), "beta": set(betas), "batch_size": set(batch_sizes), "rl_horizon": set(rl_horizons)}
+        return temp
+
+    def _setup_mpc_params(self):
+        n_houses = self.config["total_number_homes"]
+        mpc_horizon = self.config["agg_mpc_horizon"]
+        dt = self.config["mpc_hourly_steps"]
+        interval_minutes = 60 // dt
+        check_type = self.config["check_type"]
+        temp = {"n_houses": set([n_houses]), "mpc_horizon": set([mpc_horizon]), "dt": set([dt]), "interval_minutes": set([interval_minutes]), "check_type": set([check_type])}
+        return temp
+
+    def _set_base_files(self):
+        base_folders = []
+        base_files = []
+        keys, values = zip(*self.mpc_params.items())
+        permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+        for i in permutations:
+            mpc_folder = f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_horizon']}-interval_{i['interval_minutes']}"
+            if os.path.isdir(os.path.join(self.date_folder, mpc_folder)):
+                base_folders.append(mpc_folder)
+                file = os.path.join(mpc_folder, "baseline", "baseline-results.json")
+                if os.path.isfile(file):
+                    temp = {"results": file, "name": "baseline"}
+                    base_files.append(file)
+        self.mpc_folders = base_folders
+        self.baselines = base_files
+        return [base_folders, base_files]
+
+    def _set_rl_files(self):
+        temp = []
+        for i in self.mpc_folders:
+            rl_agg_folder = os.path.join(self.date_folder, i, "rl_agg")
+            keys, values = zip(*self.agg_params.items())
+            permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+            for j in permutations:
+                if os.path.isdir(rl_agg_folder):
+                    rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}"
+                    results_file = rl_agg_path + "-results.json"
+                    rl_agg_file = os.path.join(rl_agg_folder, results_file)
+                    if os.path.isfile(rl_agg_file):
+                        iter_results = rl_agg_path + "-iter-results.json"
+                        iter_file = os.path.join(rl_agg_folder, iter_results)
+                        q_results = rl_agg_path + "-q-results.json"
+                        q_file = os.path.join(rl_agg_folder, q_results)
+                        name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}"
+                        set = {"results": rl_agg_file, "q_results": q_file, "iter_results": iter_file, "name": name}
+                        temp.append(set)
+        self.parametrics = temp
+        return temp
+
+    def _type_list(self, type):
+        type_list = set([])
+        i = 0
+        for file in (self.baselines + self.parametrics):
+            with open(file["results"]) as f:
+                data = json.load(f)
+
+            temp = set([])
+            for name, house in data.items():
+                print(house.keys())
+                try:
+                    if house["type"] == type:
+                        temp.add(name)
+                except:
+                    pass
+
+            if i < 1:
+                type_list = temp
+            else:
+                type_list = type_list.intersection(temp)
+
+        return type_list
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -61,15 +145,6 @@ class Reformat:
         for d in self.data:
             s.append(d["Summary"])
         return s
-
-    def add_baseline(self, path, name):
-        self.baselines.append({"path":path, "name":name})
-
-    def add_parametric(self, path, name):
-        self.parametrics.append({"path":path, "name":name})
-
-    def add_qfile(self, path, name):
-        self.parametric_qs.append({"path":path, "name":name})
 
     def plot_baseline_summary(self):
         fig = make_subplots(rows=1, cols=2)
@@ -151,43 +226,79 @@ class Reformat:
         elif type == "pv_battery":
             self.plot_single_home_pv_battery(h, name)
 
-    def plot_single_home2(self, name):
-        for n, d in enumerate(self.data):
-            h = d.get(name, None)
-            if h is None:
+    def plot_environmental_values(self, fig, summary):
+        fig.add_trace(go.Scatter(x=self.x_lims, y=summary["OAT"][0:self.timesteps], name=f"OAT (C)"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=summary["GHI"][0:self.timesteps], name=f"GHI (W/m2)"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=summary["TOU"][0:self.timesteps], name=f"TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
+        return fig
+
+    def plot_single_home_base(self, name, fig, data, summary, fname):
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["temp_in_opt"][0:self.timesteps], name=f"Tin (C) - {fname}"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["temp_wh_opt"][0:self.timesteps], name=f"Twh (C) - {fname}"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["p_grid_opt"][0:self.timesteps], name=f"Pgrid (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["p_load_opt"][0:self.timesteps], name=f"Pload (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["hvac_cool_on_opt"][0:self.timesteps], name=f"HVAC Cool Cmd - {fname}", line_shape='hv'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["hvac_heat_on_opt"][0:self.timesteps], name=f"HVAC Heat Cmd - {fname}", line_shape='hv'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["wh_heat_on_opt"][0:self.timesteps], name=f"WH Heat Cmd - {fname}", line_shape='hv'), secondary_y=True)
+        try: # only for aggregator files
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(summary["TOU"][0:self.timesteps], summary["RP"][0:self.timesteps]), name=f"Actual Price ($/kWh) - {fname}", line_shape='hv'), secondary_y=True)
+        except:
+            pass
+        return fig
+
+    def plot_single_home_pv(self, name, fig, data, fname):
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["p_pv_opt"][0:self.timesteps], name=f"Ppv (kW) - {fname}", line_shape='hv'))
+        return fig
+
+    def plot_single_home_battery(self, name, fig, data, fname):
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["e_batt_opt"][0:self.timesteps], name=f"SOC (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["p_batt_ch"][0:self.timesteps], name=f"Pch (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["p_batt_disch"][0:self.timesteps], name=f"Pdis (kW) - {fname}", line_shape='hv'))
+        return fig
+
+    def plot_single_home2(self, name=None, type=None):
+        if name is None:
+            if type is None:
+                type = "base"
+                self.ref_log.logger.warning("Specify a home type or name. Proceeding with home of type: \"base\".")
+
+            type_list = self._type_list(type)
+            name = random.sample(type_list, 1)[0]
+            self.ref_log.logger.info(f"Proceeding with home: {name}")
+
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        flag = False
+        for file in (self.baselines + self.parametrics):
+            with open(file["results"]) as f:
+                comm_data = json.load(f)
+
+            try:
+                data = comm_data[name]
+            except:
                 self.ref_log.logger.error(f"No home with name: {name}")
                 return
-            type = h["type"]
-            horizon = d["Summary"]["horizon"]
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["temp_in_opt"][0:self.timesteps], name="Tin (C)"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["temp_wh_opt"][0:self.timesteps], name="Twh (C)"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["OAT"][0:self.timesteps], name="OAT (C)"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["GHI"][0:self.timesteps], name="GHI (W/m2)"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_grid_opt"][0:self.timesteps], name="Pgrid (kW)", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_load_opt"][0:self.timesteps], name="Pload (kW)", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["hvac_cool_on_opt"][0:self.timesteps], name="HVAC Cool Cmd", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["hvac_heat_on_opt"][0:self.timesteps], name="HVAC Heat Cmd", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=h["wh_heat_on_opt"][0:self.timesteps], name="WH Heat Cmd", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary_data[n]["TOU"][0:self.timesteps], name="TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
-            try:
-                fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(self.summary_data[n]["TOU"][0:self.timesteps], self.summary_data[n]["RP"][0:self.timesteps]), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
-            except:
-                pass
 
-            case = self.summary_data[n]["case"]
+            type = data["type"]
+            summary = comm_data["Summary"]
+            horizon = summary["horizon"]
+
+            if not flag:
+                fig = self.plot_environmental_values(fig, summary)
+                flag = True
+
+            fig = self.plot_single_home_base(name, fig, data, summary, file["name"])
+
+            case = summary["case"]
             fig.update_xaxes(title_text="Time of Day (hour)")
-            fig.update_layout(title_text=f"{case} - {name} - {type} type - horizon {horizon}")
+            fig.update_layout(title_text=f"{name} - {type} type")
 
             if 'pv' in type:
-                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_pv_opt"][0:self.timesteps], name="Ppv (kW)", line_shape='hv'))
+                fig = self.plot_single_home_pv(name, fig, data, file["name"])
 
             if 'battery' in type:
-                fig.add_trace(go.Scatter(x=self.x_lims, y=h["e_batt_opt"][0:self.timesteps], name="SOC (kW)", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_batt_ch"][0:self.timesteps], name="Pch (kW)", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_batt_disch"][0:self.timesteps], name="Pdis (kW)", line_shape='hv'))
+                fig = self.plot_single_home_battery(name, fig, data, file["name"])
 
-            fig.show()
+        fig.show()
 
     def compare_agg_between_runs(self, n_homes):
         fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -245,54 +356,58 @@ class Reformat:
         fig.update_layout(title_text=f"Baseline - {n_homes} homes")
         fig.show()
 
-    def _show_greedy(self, fig, data):
-        rtgs = {}
-        for i in range(max(self.config["rl_agg_action_horizon"])+1):
-            rtgs[i] = []
+    def plot_greedy(self, fig):
+        flag = True
+        for file in self.parametrics:
+            if flag:
+                with open(file['iter_results']) as f:
+                    data = json.load(f)
 
-        is_greedy = [False]*(max(self.config["rl_agg_action_horizon"])-1)
-        is_random = []
-        for timestep in data:
-            is_greedy.append(timestep['is_greedy'])
+                rtgs = {}
+                for i in range(max(self.config["rl_agg_action_horizon"])+1):
+                    rtgs[i] = []
 
-        for t in range(self.timesteps):
-            rating = sum(is_greedy[t:t+max(self.config["rl_agg_action_horizon"])])
-            rtgs[rating].append(t)
-            if not is_greedy[t]:
-                is_random.append(t)
+                is_greedy = [False]*(max(self.config["rl_agg_action_horizon"])-1)
+                is_random = []
+                for timestep in data:
+                    is_greedy.append(timestep['is_greedy'])
 
-        for i in rtgs:
-            if i > 6:
-                color = 'green'
-            elif i > 4:
-                color = 'yellow'
-            else:
-                color = 'red'
+                for t in range(self.timesteps):
+                    rating = sum(is_greedy[t:t+max(self.config["rl_agg_action_horizon"])])
+                    rtgs[rating].append(t)
+                    if not is_greedy[t]:
+                        is_random.append(t)
 
-            opacity = abs(i-4)/10
+                for i in rtgs:
+                    if i > 6:
+                        color = 'green'
+                    elif i > 4:
+                        color = 'yellow'
+                    else:
+                        color = 'red'
 
-            times = rtgs[i]
-            fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in times], y=[1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
-            fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in times], y=[-1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
+                    opacity = abs(i-4)/10
 
-        fig.add_trace(go.Bar(name="Random Action - Current", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in is_random], y=[1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
-        fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(minutes=(t-(max(self.config["rl_agg_action_horizon"])-1)*self.dt)*self.dt_minutes) for t in is_random], y=[1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
-        fig.add_trace(go.Bar(name="Random Action - Current", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in is_random], y=[-1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
-        fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(minutes=(t-(max(self.config["rl_agg_action_horizon"])-1)*self.dt)*self.dt_minutes) for t in is_random], y=[-1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
+                    times = rtgs[i]
+                    fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in times], y=[1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
+
+                fig.add_trace(go.Bar(name="Random Action - Current", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in is_random], y=[1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
+                fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(minutes=(t-(max(self.config["rl_agg_action_horizon"])-1)*self.dt)*self.dt_minutes) for t in is_random], y=[1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
+            flag = False
         return fig
 
-    def _show_baseline(self, fig):
+    def plot_baseline(self, fig):
         for file in self.baselines:
-            with open(file["path"]) as f:
+            with open(file["results"]) as f:
                 data = json.load(f)
 
             name = file["name"]
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - Baseline - {name}"))
         return fig
 
-    def _show_parametric(self, fig):
+    def plot_parametric(self, fig):
         for file in self.parametrics:
-            with open(file["path"]) as f:
+            with open(file["results"]) as f:
                 data = json.load(f)
 
             name = file["name"]
@@ -302,23 +417,31 @@ class Reformat:
 
         return fig
 
-    def _show_baseline_error(self, fig, rldata):
-        # try:
-        file = self.baselines[0]
-        with open(file["path"]) as f:
-            data = json.load(f)
+    def plot_baseline_error(self, fig):
+        flag = True
+        for file in self.parametrics:
+            if True:
+                with open(file["results"]) as f:
+                    rldata = json.load(f)
 
-        baseline_load = data["Summary"]["p_grid_aggregate"]
-        baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
-        baseline_error = np.subtract(baseline_load, baseline_setpoint)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(baseline_error), name="Error - Baseline"))
-        fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline"))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
+
+            for file in self.baselines:
+                with open(file["results"]) as f:
+                    data = json.load(f)
+
+                baseline_load = data["Summary"]["p_grid_aggregate"]
+                baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
+                baseline_error = np.subtract(baseline_load, baseline_setpoint)
+                fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(baseline_error), name="Error - Baseline"))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline"))
+            flag = False
 
         return fig
 
-    def _show_parametric_error(self, fig):
+    def plot_parametric_error(self, fig):
         for file in self.parametrics:
-            with open(file["path"]) as f:
+            with open(file["results"]) as f:
                 data = json.load(f)
 
             name = file["name"]
@@ -329,30 +452,25 @@ class Reformat:
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Error - {name}"))
         return fig
 
-    def _show_rewards(self, fig, data):
-        fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name="Average Reward"), secondary_y=True)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name="Cumulative Reward"), secondary_y=True)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=data["reward"], name="Reward"), secondary_y=True)
+    def plot_rewards(self, fig):
+        for file in self.parametrics:
+            with open(file["q_results"]) as f:
+                data = json.load(f)
+
+            name = file["name"]
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name=f"Average Reward - {name}"), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name=f"Cumulative Reward - {name}"), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["reward"], name=f"Reward - {name}"), secondary_y=True)
         return fig
 
-    def rl2baseline(self, rl_file, rl_iterfile, rl_qfile):
-        with open(rl_file) as f:
-            rldata = json.load(f)
-
-        with open(rl_iterfile) as f:
-            rl_iterdata = json.load(f)
-
-        with open(rl_qfile) as f:
-            rl_qdata = json.load(f)
-
+    def rl2baseline(self):
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig = self._show_greedy(fig, rl_iterdata)
-        fig = self._show_baseline(fig)
-        fig = self._show_parametric(fig)
-        fig = self._show_baseline_error(fig, rldata)
-        fig = self._show_parametric_error(fig)
-        fig = self._show_rewards(fig, rl_qdata)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
+        fig = self.plot_baseline(fig)
+        fig = self.plot_greedy(fig)
+        fig = self.plot_parametric(fig)
+        fig = self.plot_baseline_error(fig)
+        fig = self.plot_parametric_error(fig)
+        fig = self.plot_rewards(fig)
         fig.show()
 
     def rl_qtables(self, rl_q_file):
@@ -388,19 +506,20 @@ class Reformat:
         fig.add_trace(go.Scatter3d(x=x2, y=data["action"], z=data["q_obs"], mode="markers"))
         fig.show()
 
-    def rl_thetas(self, rl_q_file):
-        with open(rl_q_file) as f:
-            data = json.load(f)
-
-        theta = data["theta"]
-
+    def rl_thetas(self):
         fig = make_subplots()
-        x = np.arange(self.hours)
-        for i in range(len(data["theta"][0])):
-            y = []
-            for j in range(self.hours):
-                y.append(theta[j][i])
-            fig.add_trace(go.Scatter(x=x, y=y, name=f"Theta_{i}"))
+        for file in self.parametrics:
+            with open(file["q_results"]) as f:
+                data = json.load(f)
+
+            theta = data["theta"]
+
+            x = np.arange(self.hours)
+            for i in range(len(data["theta"][0])):
+                y = []
+                for j in range(self.hours):
+                    y.append(theta[j][i])
+                fig.add_trace(go.Scatter(x=x, y=y, name=f"Theta_{i} - {file['name']}", legendgroup=file['name']))
 
         fig.show()
 
@@ -542,44 +661,15 @@ class Reformat:
         fig.update_layout(title_text=f"Comparison of Aggregate Loads")
         fig.show()
 
+def main():
+    r = Reformat()
+    r._setup_mpc_params()
+    r._setup_agg_params()
+    r._set_base_files()
+    r._set_rl_file()
+
+    r.rl2baseline()
+    r.rl_thetas()
 
 if __name__ == "__main__":
-    # plots using whatever datetime cycle is in the config file
-    config_file = os.path.join("data", os.environ.get('CONFIG_FILE', 'config.json'))
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-    start_dt = datetime.strptime(config["start_datetime"], '%Y-%m-%d %H')
-    end_dt = datetime.strptime(config["end_datetime"], '%Y-%m-%d %H')
-
-    nHouses = config["total_number_homes"]
-    mpcHorizon = config["agg_mpc_horizon"]
-    mpc_folder = f"all-homes_{nHouses}-horizon_{mpcHorizon}"
-
-    alphas = config["agg_learning_rate"]
-    epsilons = config["agg_exploration_rate"]
-    betas = config["rl_agg_discount_factor"]
-
-    rlHorizon = config["rl_agg_action_horizon"]
-
-    rl_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-results.json") # file used to plot house response
-    rl_q_file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alphas[0]}-epsilon_{epsilons[0]}-beta_{betas[0]}-iter-results.json")
-
-    r = Reformat([rl_file])
-
-    for alpha in alphas:
-        for epsilon in epsilons:
-            for beta in betas:
-                file = os.path.join("outputs", date_folder, mpc_folder, "rl_agg", f"agg_horizon_{rlHorizon}-alpha_{alpha}-epsilon_{epsilon}-beta_{beta}-results.json")
-                name = f"alpha={alpha}, beta={beta}, epsilon={epsilon}"
-                r.add_parametric(file, name)
-
-    base_file = os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json")
-    if os.path.isfile(base_file):
-        r.add_baseline(os.path.join("outputs", date_folder, mpc_folder, "baseline", "baseline-results.json"), "baseline")
-
-    r.rl2baseline(rl_file, rl_q_file)
-
-    r.plot_single_home2("Ruth-1HV86") # base
-    r.plot_single_home2("Crystal-RXXFA") # pv_battery
-    r.plot_single_home2("Bruno-PVRNB") # pv_only
-    r.plot_single_home2("Jason-INS3S") # battery_only
+    main()
