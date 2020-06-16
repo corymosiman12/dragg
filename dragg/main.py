@@ -7,8 +7,8 @@ import os
 import sys
 
 if __name__ == "__main__":
-    # a = Aggregator()
-    # a.run()
+    a = Aggregator()
+    a.run()
 
     r = Reformat()
     r.agg_params["alpha"] |= set([0.9])
