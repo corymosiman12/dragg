@@ -705,14 +705,17 @@ class Aggregator:
 
         self.reward_price[:-1] = self.reward_price[1:]
         self.reward_price[-1] = np.round(avg_rp + self.action,2)
-        # self.reward_price[-1] = np.round(self.action, 2)
+
+    def simplified_update_reward_price(self):
+        self.reward_price[:-1] = self.reward_price[1:]
+        self.reward_price[-1] = np.round(self.action, 2)
 
     def _get_action(self, state): # action is the change in RP from the average RP in the last h timesteps
         if self.rl_agg_horizon > 1:
             avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
         else:
             avg_rp = self.reward_price[0]
-        self.actionspace = self.config["action_space"] - avg_rp
+        # self.actionspace = self.config["action_space"] - avg_rp
          # update epsilon
         # if ((self.timestep+201) % 200) == 0: # every 200 timesteps
         #     self.epsilon = self.epsilon/2 # decrease exploration rate
@@ -1163,7 +1166,7 @@ class Aggregator:
             self.forecast_load = self.agg_load # forecast current load at next timestep
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
 
-            self.rl_update_reward_price()
+            self.simplified_update_reward_price()
             self.redis_set_current_values() # broadcast rl price to community
             self.test_response()
             self.collect_fake_data()
