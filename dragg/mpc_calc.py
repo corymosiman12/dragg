@@ -119,10 +119,11 @@ class MPCCalc:
         # Home temperature constraints
         self.temp_in_min = cp.Constant(float(self.initial_values["temp_in_min"]))
         self.temp_in_max = cp.Constant(float(self.initial_values["temp_in_max"]))
+        self.temp_in_sp = cp.Constant((float(self.initial_values["temp_in_min"]) + float(self.initial_values["temp_in_max"])) / 2)
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
-        self.discomfort = sum(self.total_price) /self.horizon / self.dt
+        self.discomfort = 0 # hard constraints on temp when discomfort is 0
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -161,15 +162,12 @@ class MPCCalc:
             self.temp_wh[0] == self.temp_wh_init,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
             self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
-            # self.temp_in[1:self.h_plus] >= self.temp_in_min,
-            # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
-
-            self.temp_in[1:self.h_plus] >= 16,
-            self.temp_wh[1:self.h_plus] >= 42,
+            self.temp_in[1:self.h_plus] >= self.temp_in_min,
+            self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
-            # self.temp_in[1:self.h_plus] <= self.temp_in_max,
-            # self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
+            self.temp_in[1:self.h_plus] <= self.temp_in_max,
+            self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
 
             self.temp_in[1:self.h_plus] <= 21,
             self.temp_wh[1:self.h_plus] <= 48,
@@ -180,17 +178,17 @@ class MPCCalc:
             self.hvac_heat_on >= 0,
             self.wh_heat_on <= 1,
             self.wh_heat_on >= 0,
-            self.p_grid >= 0
+            self.p_grid >= 0,
         ]
 
         # set constraints on HVAC by season
         if max(self.oat_current) <= 26: # "winter"
             self.constraints += [self.hvac_cool_on == 0]
-            self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_min"]))
+            # self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_min"]))
 
         if min(self.oat_current) >= 15: # "summer"
             self.constraints += [self.hvac_heat_on == 0]
-            self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_max"]))
+            # self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_max"]))
 
     def add_battery_constraints(self):
         self.constraints += [
@@ -250,7 +248,7 @@ class MPCCalc:
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch - self.p_pv
         ]
         self.wf_wh = 1.5 * self.wf_wh
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.sum(cp.norm(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp)))) # i think this was previously adding the current negotiated reward price to every timestep
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.sum(cp.norm(self.e_batt / self.batt_cap_total - 0.5)) + self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
 
     def solve_mpc(self):
         # self.obj = cp.Minimize(cp.sum((self.total_price) * self.p_grid[0:self.horizon]))
@@ -275,11 +273,11 @@ class MPCCalc:
                 "cost_opt": (self.total_price.value[0] * self.p_grid.value[0]), # don't get why this was only spp * p_grid -- shoudln't this be some base price + the reward price
             }
             if 'pv' in self.type:
-                # self.mpc_log.logger.info("Adding pv optimal vals.")
+                self.mpc_log.logger.debug("Adding pv optimal vals.")
                 self.optimal_vals["p_pv_opt"] = self.p_pv.value[0]
                 self.optimal_vals["u_pv_curt_opt"] = self.u_pv_curt.value[0]
             if 'battery' in self.type:
-                # self.mpc_log.logger.info("Adding battery optimal vals.")
+                self.mpc_log.logger.debug("Adding battery optimal vals.")
                 self.optimal_vals["e_batt_opt"] = self.e_batt.value[1]
                 self.optimal_vals["p_batt_ch"] = self.p_batt_ch.value[0]
                 self.optimal_vals["p_batt_disch"] = self.p_batt_disch.value[0]
@@ -287,8 +285,6 @@ class MPCCalc:
             self.redis_write_optimal_vals()
 
     def mpc_base(self):
-        # Sanity check on one home
-        # self.mpc_log.logger.info(f"Home: {self.home['name']}; ts: {self.timestep}; iter: {self.iteration}; GHI: {self.ghi_current}; OAT: {self.oat_current}; SPP: {self.spp_current}")
         self.setup_base_problem()
         self.add_base_constraints()
         self.set_base_p_grid()
@@ -296,9 +292,6 @@ class MPCCalc:
         self.cleanup_and_finish()
 
     def mpc_battery(self):
-        # Sanity check on one home
-        # if self.home["name"] == "David-JONNO":
-        # self.mpc_log.logger.info(f"Home: {self.home['name']}; ts: {self.timestep}; iter: {self.iteration}; GHI: {self.ghi_current}; OAT: {self.oat_current}; SPP: {self.spp_current}")
         self.setup_base_problem()
         self.setup_battery_problem()
         self.add_base_constraints()
@@ -308,9 +301,6 @@ class MPCCalc:
         self.cleanup_and_finish()
 
     def mpc_pv(self):
-        # Sanity check on one home
-        # if self.home["name"] == "Dawn-L23XI":
-        #     self.mpc_log.logger.info(f"Home: {self.home['name']}; ts: {self.timestep}; iter: {self.iteration}; GHI: {self.ghi_current}; OAT: {self.oat_current}; SPP: {self.spp_current}")
         self.setup_base_problem()
         self.setup_pv_problem()
         self.add_base_constraints()
@@ -320,8 +310,6 @@ class MPCCalc:
         self.cleanup_and_finish()
 
     def mpc_pv_battery(self):
-        # Sanity check on one home
-        # if self.home["name"] == "Myles-XQ5IA":
         self.setup_base_problem()
         self.setup_battery_problem()
         self.setup_pv_problem()
@@ -342,30 +330,6 @@ class MPCCalc:
         self.all_spp = self.redis_client.conn.lrange('SPP', 0, -1)
         self.all_tou = self.redis_client.conn.lrange('tou', 0, -1)
 
-    # def cast_redis_vals(self):
-    #     self.start_hour_index = int(float(self.start_hour_index))
-    #     self.t_in_init = float(self.initial_values["temp_in_init"])
-    #     self.t_wh_init = float(self.initial_values["temp_wh_init"])
-    #     self.e_b_init = float(self.initial_values["e_batt_init"])
-    #     # self.min_runtime = int(float(self.initial_values["min_runtime_mins"]))
-    #     # self.min_runtime_fraction = self.min_runtime / 60  # proportion of an hour
-    #     # self.min_runtime_fraction_inv = 1 / self.min_runtime_fraction
-    #     self.all_ghi = [float(i) for i in self.all_ghi]
-    #     self.all_oat = [float(i) for i in self.all_oat]
-    #     self.all_spp = [float(i) for i in self.all_spp]
-    #     self.timestep = int(self.current_values["timestep"])
-    #     # self.current_rp = float(self.current_values["reward_price"])
-    #     rp = self.redis_client.conn.lrange('reward_price', 0, -1)
-    #     self.reward_price[:min(len(rp), self.horizon)] = rp[:min(len(rp), self.horizon)]
-    #     try:
-    #         self.iteration = int(self.current_values["iteration"])
-    #     except:
-    #         if self.timestep == 0:
-    #             self.mpc_log.logger.debug("Running a non-iterative aggregator agent. Convergence not guarantueed.")
-    #         else:
-    #             pass
-    #     self.mpc_log.logger.info(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
-
     def cast_redis_init_vals(self):
         self.start_hour_index = int(float(self.start_hour_index))
         self.t_in_init = float(self.initial_values["temp_in_init"])
@@ -383,18 +347,21 @@ class MPCCalc:
             self.iteration = int(self.current_values["iteration"])
         except:
             if self.timestep == 0:
-                self.mpc_log.logger.debug("Running a non-iterative aggregator agent. Convergence not guarantueed.")
+                self.mpc_log.logger.debug("Running a non-iterative aggregator agent. Convergence to maximum allowable load not guarantueed.")
             else:
                 pass
         self.mpc_log.logger.info(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
 
     def cast_redis_forecast_vals(self):
         self.timestep = int(self.current_values["timestep"])
+        rp = self.redis_client.conn.lrange('reward_price', 1, -1)
+        rp.append(self.forecast_rp)
+        self.reward_price[:min(len(rp), self.horizon)] = rp[:min(len(rp), self.horizon)]
 
     def set_vals_for_current_run(self):
         start_slice = self.start_hour_index + self.timestep
 
-        # Need to extend 1 hr past horizon for OAT slice
+        # Need to extend 1 timestep past horizon for OAT slice
         end_slice = start_slice + self.horizon + 1
         self.ghi_current = self.all_ghi[start_slice:end_slice]
         self.oat_current = self.all_oat[start_slice:end_slice]
@@ -408,7 +375,7 @@ class MPCCalc:
         self.set_vals_for_current_run()
         while not self.q.empty():
             self.home = self.q.get()
-            self.mpc_log.logger.info(f"Home: {self.home['name']}; ts: {self.timestep}; iter: {self.iteration}; GHI: {self.ghi_current}; OAT: {self.oat_current}; SPP: {self.spp_current}")
+            self.mpc_log.logger.debug(f"Home: {self.home['name']}; ts: {self.timestep}; iter: {self.iteration}; GHI: {self.ghi_current}; OAT: {self.oat_current}; RP: {self.reward_price}")
             if self.timestep > 0:
                 self.redis_get_prev_optimal_vals()
             if self.home is None:
@@ -424,17 +391,17 @@ class MPCCalc:
                 self.mpc_pv_battery()
             self.q.task_done()
         self.mpc_log.logger.info(f"Queue Empty.  ts: {self.timestep}; iteration: {self.iteration}; horizon: {self.horizon}")
-        # self.redis_pool.disconnect()
 
-    def forecast(self):
+    def forecast(self, forecast_action=0):
         self.mode = "forecast"
+        self.forecast_rp = forecast_action
         self.redis_get_initial_values()
         self.cast_redis_init_vals()
         self.cast_redis_forecast_vals()
         self.set_vals_for_current_run()
         while not self.q.empty():
             self.home = self.q.get()
-            self.mpc_log.logger.info(f"Home: {self.home['name']}; ts: {self.timestep}; iter: {self.iteration}; GHI: {self.ghi_current}; OAT: {self.oat_current}; SPP: {self.spp_current}")
+            self.mpc_log.logger.debug(f"Home: {self.home['name']}; ts: {self.timestep}; iter: {self.iteration}; GHI: {self.ghi_current}; OAT: {self.oat_current}; RP: {self.reward_price}")
             if self.timestep > 0:
                 self.redis_get_prev_optimal_vals()
             if self.home is None:
