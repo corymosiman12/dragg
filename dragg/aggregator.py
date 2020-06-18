@@ -502,7 +502,7 @@ class Aggregator:
             self.redis_client.conn.hset("current_values", "iteration", self.iteration)
             self.redis_client.conn.hset("current_values", "reward_price", self.reward_price.tolist())
 
-        if self.case == "rl_agg":
+        if self.case == "rl_agg" or self.case == "simplified":
             self.reward_price = np.zeros(self.rl_agg_horizon)
             for val in self.reward_price.tolist():
                 self.redis_client.conn.rpush("reward_price", val)
@@ -567,15 +567,14 @@ class Aggregator:
         tol = 0.2
         reward = 0
 
-        if self.state[0] < 0.1: # within 10% of the target agg_setpoint
-            reward += 5
+        reward += 1/self.state[0]
 
         if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
             reward += 1
         elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
             reward += -1
 
-        if abs((self.state[6] - self.next_state[6]) /  self.state[6]) > 0.2: # moves slowly
+        if abs((self.state[6] - self.next_state[6]) /  max(self.state[6],0.1)) > 0.2: # moves slowly
             reward -= 5
         return reward
 
@@ -706,6 +705,7 @@ class Aggregator:
 
         self.reward_price[:-1] = self.reward_price[1:]
         self.reward_price[-1] = np.round(avg_rp + self.action,2)
+        # self.reward_price[-1] = np.round(self.action, 2)
 
     def _get_action(self, state): # action is the change in RP from the average RP in the last h timesteps
         if self.rl_agg_horizon > 1:
@@ -720,7 +720,7 @@ class Aggregator:
             u_k = self._get_greedyaction(state)
             self.is_greedy = True
         else: # exploration
-            u_k = random.uniform(max(self.actionspace[0],-0.02), min(self.actionspace[1], 0.02))
+            u_k = random.uniform(self.actionspace[0], self.actionspace[1])
             self.is_greedy = False
 
         action = u_k
@@ -820,6 +820,10 @@ class Aggregator:
         self.rl_q_data["q_obs"].append(self.q_observed)
         self.rl_q_data["q_pred"].append(self.q_predicted)
         self.rl_q_data["action"].append(self.action)
+        # self.rl_q_data["best_action"].append(self.best_action)
+        # self.rl_q_data["second"].append(self.second)
+        # self.rl_q_data["third"].append(self.third)
+        # self.rl_q_data["fourth"].append(self.fourth)
         self.rl_q_data["state"].append(self.state)
         self.rl_q_data["is_greedy"].append(self.is_greedy)
         self.rl_q_data["q_tables"].append(self.q_lookup.tolist())
@@ -980,6 +984,10 @@ class Aggregator:
         temp["q_obs"] = []
         temp["q_pred"] = []
         temp["action"] = []
+        temp["best_action"] = []
+        temp["second"] = []
+        temp["third"] = []
+        temp["fourth"] = []
         temp["state"] = []
         temp["is_greedy"] = []
         temp["q_tables"] = []
@@ -1008,8 +1016,8 @@ class Aggregator:
         forecast_data = data["Summary"]["p_grid_aggregate"]
         return forecast_data
 
-    def _gen_forecast(self):
-        for home in self.all_homes: # uncomment these for the actual model response
+    def _gen_forecast(self, action=0):
+        for home in self.all_homes:
              if self.check_type == "all" or home["type"] == self.check_type:
                  self.queue.put(home)
 
@@ -1017,9 +1025,24 @@ class Aggregator:
         forecast = np.empty(forecast_horizon)
         for t in range(forecast_horizon):
             worker = MPCCalc(self.queue, 8, self.dt, self.redis_client, self.forecast_log)
-            worker.forecast()
+            worker.forecast(forecast_action=action)
             forecast[t] = self.collect_forecast_data()
         return forecast[0]
+
+    def get_best_action(self):
+        results = []
+        actions = np.arange(-0.02, 0.02, 0.01)
+        for action in actions:
+            result = abs(self._gen_forecast(action=action) - self.setpoint)
+            results.append(result)
+
+        results = np.array([results, actions])
+        ind = results[0,:].argsort()
+        self.best_action = results[1,ind[0]]
+        self.second = results[1,ind[1]]
+        self.third = results[1,ind[2]]
+        self.fourth = results[1,ind[3]]
+        return self.best_action
 
     def _gen_setpoint(self, time):
         # i = time % 24
@@ -1029,7 +1052,7 @@ class Aggregator:
         #     sp = 10
         #
         # return sp
-        return 40
+        return 3
 
     def test_response(self):
         c = 0.8
@@ -1037,7 +1060,7 @@ class Aggregator:
             self.agg_load = self.agg_setpoint #+ np.random.rand()*self.agg_setpoint
         self.agg_load = max(0, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
         #self.agg_load = max(200,self.agg_load) # can't go above 200
-        self.agg_cost = self.agg_load * self.reward_price
+        self.agg_cost = self.agg_load * self.reward_price[0]
 
     def run_rl_agg(self, horizon):
         self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.rl_agg_horizon}, learning rate: {self.alpha}, discount factor: {self.beta}, exploration rate: {self.epsilon}) with MPC HEMS for horizon: {self.horizon}")
@@ -1047,8 +1070,11 @@ class Aggregator:
         # self.forecast_data = self.rl_initialize_forecast()
         self.baseline_agg_load_list = [0]
 
-
-        self.timestep = 0
+        # self.best_action = 0
+        # self.second = 0
+        # self.third = 0
+        # self.fourth = 0
+        # self.timestep = 0
         self.forecast_load = self._gen_forecast()
         self.prev_forecast_load = self.forecast_load
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
@@ -1057,6 +1083,7 @@ class Aggregator:
         self.state = self._calc_state()
         # self.timestep += 1
 
+        self.actionspace = [-0.02,0.02]
         self.action = 0
         self.lam = 0.9
         self.is_greedy=True
@@ -1081,8 +1108,6 @@ class Aggregator:
                      self.queue.put(home)
             self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
             self.collect_data()
-            # self.test_response() # uncomment these for simplified
-            # self.collect_fake_data()
 
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
@@ -1092,7 +1117,7 @@ class Aggregator:
 
             temp_theta = self.experience_replay()
 
-
+            # self.next_action = self.get_best_action()
             self.next_action = self._get_action(self.next_state) # necessary for SARSA learning
             self.update_qfunction(temp_theta, self.theta)
             self.record_rl_q_data()
@@ -1104,6 +1129,70 @@ class Aggregator:
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
         self.agg_log.logger.info(f"Horizon: {horizon}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+
+    def run_rl_agg_simplified(self):
+        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.rl_agg_horizon}, learning rate: {self.alpha}, discount factor: {self.beta}, exploration rate: {self.epsilon}) with simplified community model.")
+        self.start_time = datetime.now()
+        self.rl_agg_data = self.set_rl_agg_initial_vals()
+        self.rl_q_data = self.set_rl_q_initial_vals()
+        # self.forecast_data = self.rl_initialize_forecast()
+        self.baseline_agg_load_list = [0]
+
+        # self.best_action = 0
+        # self.second = 0
+        # self.third = 0
+        # self.fourth = 0
+        # self.timestep = 0
+        self.forecast_load = self._gen_forecast()
+        self.prev_forecast_load = self.forecast_load
+        self.forecast_setpoint = self._gen_setpoint(self.timestep)
+        self.agg_load = self.forecast_load # approximate load for initial timestep
+        self.agg_setpoint = self._gen_setpoint(self.timestep)
+        self.state = self._calc_state()
+        # self.timestep += 1
+
+        self.actionspace = [-0.02,0.02]
+        self.action = 0
+        self.lam = 0.9
+        self.is_greedy=True
+        n = len(self._phi(self.state, self.action))
+        self.theta = 0.5*np.ones(n) # theta initialization
+        self.cumulative_reward = 0
+        self.average_reward = 0
+        self.e = np.zeros(n)
+        self.w = np.zeros(n)
+
+        for t in range(self.num_timesteps):
+            self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
+            self.prev_forecast_load = self.forecast_load
+            self.forecast_load = self.agg_load # forecast current load at next timestep
+            self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
+
+            self.rl_update_reward_price()
+            self.redis_set_current_values() # broadcast rl price to community
+
+            self.test_response()
+            self.collect_fake_data()
+
+            self.record_rl_agg_data() # record response to the broadcasted price
+            self.next_state = self._calc_state() # this is the state at t = k+1
+            self.reward = self._reward(self.next_state)
+            self.cumulative_reward += self.reward
+            self._experience()
+
+            temp_theta = self.experience_replay()
+
+            self.next_action = self._get_action(self.next_state) # necessary for SARSA learning
+            self.update_qfunction(temp_theta, self.theta)
+            self.record_rl_q_data()
+
+            self.timestep += 1
+            self.state = self.next_state
+            self.action = self.next_action
+
+        self.end_time = datetime.now()
+        self.t_diff = self.end_time - self.start_time
+        self.agg_log.logger.info(f"Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
     def flush_redis(self):
         self.redis_client.conn.flushall()
@@ -1183,5 +1272,35 @@ class Aggregator:
                                 self.reset_baseline_data()
                                 self.set_baseline_initial_vals()
                                 self.run_rl_agg(self.horizon)
+                                self.summarize_baseline(self.horizon)
+                                self.write_outputs(self.horizon)
+
+        if self.config["run_simplified"]:
+            self.case = "simplified"
+            self.horizon = 0
+
+            epsilons = self.config["agg_exploration_rate"]
+            alphas = self.config["agg_learning_rate"]
+            betas = self.config["rl_agg_discount_factor"]
+            rl_agg_horizons = self.config["rl_agg_action_horizon"]
+            batch_sizes = self.config["batch_size"]
+
+            for a in alphas:
+                self.alpha = float(a)
+                for b in betas:
+                    self.beta = float(b)
+                    for e in epsilons:
+                        self.epsilon_init = float(e)
+                        self.epsilon = self.epsilon_init
+                        for h in rl_agg_horizons:
+                            self.rl_agg_horizon = int(h)
+                            for bs in batch_sizes:
+                                self.batch_size = int(bs)
+
+                                self.flush_redis()
+                                self.redis_set_initial_values()
+                                self.reset_baseline_data()
+                                self.set_baseline_initial_vals()
+                                self.run_rl_agg_simplified()
                                 self.summarize_baseline(self.horizon)
                                 self.write_outputs(self.horizon)
