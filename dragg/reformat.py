@@ -23,8 +23,6 @@ class Reformat:
             quit()
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.json'))
         self.config = self._import_config()
-        # self.num_homes = self.config["total_number_homes"]
-        # self.check_type = self.config["check_type"]
         self.pred_horizons = self.config["prediction_horizons"]
         self.start_dt = datetime.strptime(self.config["start_datetime"], '%Y-%m-%d %H')
         self.end_dt = datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')
@@ -40,8 +38,9 @@ class Reformat:
         self.data = self._import_data()
         self.summary_data = self._config_summary()
         self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_action_horizon"])*self.timesteps)]
-        self.mpc_folders, self.baselines = None, None
-        self.parametrics = None
+        self.mpc_folders, self.baselines = [], []
+        self.parametrics = []
+        np.random.seed(self.config["random_seed"])
 
     def _setup_agg_params(self):
         alphas = self.config["agg_learning_rate"]
@@ -61,27 +60,27 @@ class Reformat:
         temp = {"n_houses": set([n_houses]), "mpc_horizon": set([mpc_horizon]), "dt": set([dt]), "interval_minutes": set([interval_minutes]), "check_type": set([check_type])}
         return temp
 
-    def _set_base_files(self):
-        base_folders = []
-        base_files = []
+    def set_mpc_folders(self):
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         for i in permutations:
-            mpc_folder = f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_horizon']}-interval_{i['interval_minutes']}"
-            if os.path.isdir(os.path.join(self.date_folder, mpc_folder)):
-                base_folders.append(mpc_folder)
-                file = os.path.join(mpc_folder, "baseline", "baseline-results.json")
-                if os.path.isfile(file):
-                    temp = {"results": file, "name": "baseline"}
-                    base_files.append(file)
-        self.mpc_folders = base_folders
-        self.baselines = base_files
-        return [base_folders, base_files]
+            mpc_folder = os.path.join(self.date_folder, f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_horizon']}-interval_{i['interval_minutes']}")
+            if os.path.isdir(os.path.join(mpc_folder)):
+                self.mpc_folders.append(mpc_folder)
 
-    def _set_rl_files(self):
+    def set_base_files(self):
+        keys, values = zip(*self.mpc_params.items())
+        permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+        for j in self.mpc_folders:
+            file = os.path.join(j, "baseline", "baseline-results.json")
+            if os.path.isfile(file):
+                temp = {"results": file, "name": "baseline"}
+                self.baselines.append(temp)
+
+    def set_rl_files(self):
         temp = []
         for i in self.mpc_folders:
-            rl_agg_folder = os.path.join(self.date_folder, i, "rl_agg")
+            rl_agg_folder = os.path.join(i, "rl_agg")
             keys, values = zip(*self.agg_params.items())
             permutations = [dict(zip(keys, v)) for v in it.product(*values)]
             for j in permutations:
@@ -100,6 +99,29 @@ class Reformat:
         self.parametrics = temp
         return temp
 
+    def set_simplified_files(self):
+        temp = []
+        for i in self.mpc_folders:
+            simplified_folder = os.path.join(i, "simplified")
+            keys, values = zip(*self.agg_params.items())
+            permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+            for j in permutations:
+                if os.path.isdir(simplified_folder):
+                    simplified_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}"
+                    results_file = simplified_path + "-results.json"
+                    simplified_file = os.path.join(simplified_folder, results_file)
+                    if os.path.isfile(simplified_file):
+                        iter_results = simplified_path + "-iter-results.json"
+                        iter_file = os.path.join(simplified_folder, iter_results)
+                        q_results = simplified_path + "-q-results.json"
+                        q_file = os.path.join(simplified_folder, q_results)
+                        name = f"Simplified Response - horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}"
+                        set = {"results": simplified_file, "q_results": q_file, "iter_results": iter_file, "name": name}
+                        self.parametrics.append(set)
+
+    def set_other_files(self, otherfile):
+        self.parametrics.append(otherfile)
+
     def _type_list(self, type):
         type_list = set([])
         i = 0
@@ -109,7 +131,6 @@ class Reformat:
 
             temp = set([])
             for name, house in data.items():
-                print(house.keys())
                 try:
                     if house["type"] == type:
                         temp.add(name)
@@ -263,7 +284,7 @@ class Reformat:
                 self.ref_log.logger.warning("Specify a home type or name. Proceeding with home of type: \"base\".")
 
             type_list = self._type_list(type)
-            name = random.sample(type_list, 1)[0]
+            name = random.sample(type_list,1)[0]
             self.ref_log.logger.info(f"Proceeding with home: {name}")
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
@@ -360,6 +381,7 @@ class Reformat:
         flag = True
         for file in self.parametrics:
             if flag:
+                print(file['iter_results'])
                 with open(file['iter_results']) as f:
                     data = json.load(f)
 
@@ -433,8 +455,11 @@ class Reformat:
                 baseline_load = data["Summary"]["p_grid_aggregate"]
                 baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
                 baseline_error = np.subtract(baseline_load, baseline_setpoint)
-                fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(baseline_error), name="Error - Baseline"))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline"))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=(baseline_error), name="Error - Baseline", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(baseline_error), name="Cummulative Error - Baseline", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(baseline_error),np.arange(self.timesteps) + 1), name=f"Average Error - Baseline", line_shape='hv'))
+
             flag = False
 
         return fig
@@ -448,8 +473,11 @@ class Reformat:
             rl_load = data["Summary"]["p_grid_aggregate"][1:]
             rl_setpoint = data["Summary"]["p_grid_setpoint"]
             rl_error = np.subtract(rl_load, rl_setpoint)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.abs(rl_error), name=f"Error - {name}"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Error - {name}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=(rl_error), name=f"Error - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Abs Error - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(rl_error), name=f"Cummulative Error - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(rl_error),np.arange(self.timesteps) + 1), name=f"Average Error - {name}", line_shape='hv'))
+
         return fig
 
     def plot_rewards(self, fig):
@@ -458,9 +486,16 @@ class Reformat:
                 data = json.load(f)
 
             name = file["name"]
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name=f"Average Reward - {name}"), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name=f"Cumulative Reward - {name}"), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["reward"], name=f"Reward - {name}"), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name=f"Average Reward - {name}", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name=f"Cumulative Reward - {name}", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["reward"], name=f"Reward - {name}", line_shape='hv'), secondary_y=True)
+            try:
+                fig.add_trace(go.Scatter(x=self.x_lims, y=data["best_action"], name="Best Action", line_shape='hv'), secondary_y=True)
+                fig.add_trace(go.Scatter(x=self.x_lims, y=data["second"], name="second Action", line_shape='hv'), secondary_y=True)
+                fig.add_trace(go.Scatter(x=self.x_lims, y=data["third"], name="third Action", line_shape='hv'), secondary_y=True)
+                fig.add_trace(go.Scatter(x=self.x_lims, y=data["fourth"], name="fourth Action", line_shape='hv'), secondary_y=True)
+            except:
+                pass
         return fig
 
     def rl2baseline(self):
@@ -485,7 +520,6 @@ class Reformat:
             x.append(data[t][i][0])
             y.append(data[t][i][1])
 
-        print(x,y)
         fig.add_trace(go.Scatter(x=x, y=y))
 
         fig.show()
@@ -519,7 +553,7 @@ class Reformat:
                 y = []
                 for j in range(self.hours):
                     y.append(theta[j][i])
-                fig.add_trace(go.Scatter(x=x, y=y, name=f"Theta_{i} - {file['name']}", legendgroup=file['name']))
+                fig.add_trace(go.Scatter(x=x, y=y, name=f"Theta_{i} - {file['name']}"))
 
         fig.show()
 
@@ -663,13 +697,20 @@ class Reformat:
 
 def main():
     r = Reformat()
-    r._setup_mpc_params()
-    r._setup_agg_params()
-    r._set_base_files()
-    r._set_rl_file()
+    # r.agg_params["alpha"] |= set([0.01]) # add additional params from previous runs
+    # r.agg_params["beta"] |= set([0.54, 0.53])
+    # r.agg_params["rl_horizon"] |= set([1])
+
+    r.set_mpc_folders() # sets folders with additional mpc_params specified above
+    # r.set_base_files() # adds baseline files to list of things to plot
+    # r.set_rl_files() # adds rl_agg with actual community response to list of things to plot
+    r.set_simplified_files() # adds the rl_agg with a *SIMPLIFIED* community response to list of things to plot
 
     r.rl2baseline()
     r.rl_thetas()
+    if r.config["run_rl_agg"] or r.config["run_agg_mpc"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
+        # r.plot_single_home2("Crystal-RXXFA") # pv_battery
+        r.plot_single_home2(type="base")
 
 if __name__ == "__main__":
     main()
