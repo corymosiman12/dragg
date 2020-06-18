@@ -541,7 +541,7 @@ class Aggregator:
 
         if self.case == "agg_mpc":
             self.redis_client.conn.hset("current_values", "iteration", self.iteration)
-        elif self.case == "rl_agg":
+        elif self.case == "rl_agg" or self.case == "simplified":
             self.all_sps[self.timestep] = self.agg_setpoint
             self.all_rps[self.timestep] = self.reward_price[0]
             for val in self.reward_price.tolist():
@@ -778,7 +778,6 @@ class Aggregator:
                 key = home["name"]
                 key += "-forecast"
                 vals = self.redis_client.conn.hgetall(key)
-                # print(vals)
                 agg_load += float(vals["p_grid_opt"])
         return agg_load
 
@@ -1166,7 +1165,6 @@ class Aggregator:
 
             self.rl_update_reward_price()
             self.redis_set_current_values() # broadcast rl price to community
-
             self.test_response()
             self.collect_fake_data()
 
