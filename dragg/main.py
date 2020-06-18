@@ -11,17 +11,17 @@ if __name__ == "__main__":
     a.run()
 
     r = Reformat()
-    r.agg_params["alpha"] |= set([0.9])
-    r.agg_params["beta"] |= set([0.49, 0.51, 0.52])
-    r._setup_agg_params()
-    r._setup_mpc_params()
-    r._set_base_files()
-    r._set_rl_files()
+    # r.agg_params["alpha"] |= set([0.01]) # add additional params from previous runs
+    # r.agg_params["beta"] |= set([0.54, 0.53])
+    # r.agg_params["rl_horizon"] |= set([1])
 
-    # r.plot_single_home2("Ruth-1HV86") # base
-    # r.plot_single_home2("Crystal-RXXFA") # pv_battery
-    r.plot_single_home2(type="base")
-    # r.plot_single_home2("Bruno-PVRNB") # pv_only
-    # r.plot_single_home2("Jason-INS3S") # battery_only
+    r.set_mpc_folders() # sets folders with additional mpc_params specified above
+    # r.set_base_files() # adds baseline files to list of things to plot
+    # r.set_rl_files() # adds rl_agg with actual community response to list of things to plot
+    r.set_simplified_files() # adds the rl_agg with a *SIMPLIFIED* community response to list of things to plot
 
-    # r.rl_qtables(rl_q_file)
+    r.rl2baseline()
+    r.rl_thetas()
+    if r.config["run_rl_agg"] or r.config["run_agg_mpc"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
+        # r.plot_single_home2("Crystal-RXXFA") # pv_battery
+        r.plot_single_home2(type="base")
