@@ -985,10 +985,6 @@ class Aggregator:
         temp["q_pred"] = []
         temp["action"] = []
         temp["best_action"] = []
-        temp["second"] = []
-        temp["third"] = []
-        temp["fourth"] = []
-        temp["state"] = []
         temp["is_greedy"] = []
         temp["q_tables"] = []
         temp["average_reward"] = []
@@ -1039,12 +1035,10 @@ class Aggregator:
         results = np.array([results, actions])
         ind = results[0,:].argsort()
         self.best_action = results[1,ind[0]]
-        self.second = results[1,ind[1]]
-        self.third = results[1,ind[2]]
-        self.fourth = results[1,ind[3]]
         return self.best_action
 
     def _gen_setpoint(self, time):
+        """ @kyri: setpoint of community """
         # i = time % 24
         # if i >= 2 and i <= 14:
         #     sp = 60
@@ -1052,9 +1046,10 @@ class Aggregator:
         #     sp = 10
         #
         # return sp
-        return 3
+        return 3 # for a single house
 
     def test_response(self):
+        """ @kyri: to be changed for the response rate of the community """
         c = 0.8
         if self.timestep == 0:
             self.agg_load = self.agg_setpoint #+ np.random.rand()*self.agg_setpoint
