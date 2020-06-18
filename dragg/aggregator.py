@@ -984,6 +984,7 @@ class Aggregator:
         temp["q_obs"] = []
         temp["q_pred"] = []
         temp["action"] = []
+        temp["state"] = []
         temp["best_action"] = []
         temp["is_greedy"] = []
         temp["q_tables"] = []
