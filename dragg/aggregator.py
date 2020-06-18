@@ -1273,7 +1273,7 @@ class Aggregator:
 
         if self.config["run_simplified"]:
             self.case = "simplified"
-            self.horizon = 0
+            self.horizon = self.config["agg_mpc_horizon"]
 
             epsilons = self.config["agg_exploration_rate"]
             alphas = self.config["agg_learning_rate"]
