@@ -1,0 +1,98 @@
+[
+    {
+        "timestep": 0,
+        "reward_price": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "agg_cost": 4.9497708179980225e-08,
+        "agg_load": 9.899541635996044e-07,
+        "is_greedy": true
+    },
+    {
+        "timestep": 1,
+        "reward_price": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "agg_cost": 8.19891210985934e-08,
+        "agg_load": 1.6397824219718678e-06,
+        "is_greedy": true
+    },
+    {
+        "timestep": 2,
+        "reward_price": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "agg_cost": 0.050320940978341076,
+        "agg_load": 1.0064188195668207,
+        "is_greedy": true
+    },
+    {
+        "timestep": 3,
+        "reward_price": [
+            0.0,
+            0.0,
+            0.0,
+            -0.0
+        ],
+        "agg_cost": 1.1887360691919595,
+        "agg_load": 23.77472138383919,
+        "is_greedy": false
+    },
+    {
+        "timestep": 4,
+        "reward_price": [
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+        ],
+        "agg_cost": 2.5789099489535836,
+        "agg_load": 51.578198979071686,
+        "is_greedy": true
+    },
+    {
+        "timestep": 5,
+        "reward_price": [
+            0.0,
+            -0.0,
+            0.0,
+            0.0
+        ],
+        "agg_cost": 2.9325064549081032,
+        "agg_load": 58.650129098162054,
+        "is_greedy": false
+    },
+    {
+        "timestep": 6,
+        "reward_price": [
+            -0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "agg_cost": 2.9450731213861046,
+        "agg_load": 58.9014624277221,
+        "is_greedy": true
+    },
+    {
+        "timestep": 7,
+        "reward_price": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "agg_cost": 2.9450731225945357,
+        "agg_load": 58.9014624518907,
+        "is_greedy": true
+    }
+]

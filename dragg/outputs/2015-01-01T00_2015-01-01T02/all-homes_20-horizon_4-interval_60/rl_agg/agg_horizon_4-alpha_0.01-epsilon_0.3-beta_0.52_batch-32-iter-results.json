@@ -1,0 +1,26 @@
+[
+    {
+        "timestep": 0,
+        "reward_price": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "agg_cost": 5.824999999999998,
+        "agg_load": 116.5,
+        "is_greedy": true
+    },
+    {
+        "timestep": 1,
+        "reward_price": [
+            0.0,
+            0.0,
+            0.0,
+            0.03
+        ],
+        "agg_cost": 5.124999999999999,
+        "agg_load": 102.5,
+        "is_greedy": true
+    }
+]
