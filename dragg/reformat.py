@@ -435,6 +435,7 @@ class Reformat:
             name = file["name"]
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"][1:], name=f"Agg Load - RL - {name}"))
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["RP"], name=f"RP - RL - {name}", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["RP"]), np.arange(self.timesteps) + 1), name=f"Average RP"), secondary_y=True)
             # fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(data["Summary"]["TOU"], data["Summary"]["RP"]).tolist(), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
 
         return fig

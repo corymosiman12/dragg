@@ -11,7 +11,7 @@ if __name__ == "__main__":
     a.run()
 
     r = Reformat()
-    # r.agg_params["alpha"] |= set([0.01]) # add additional params from previous runs
+    r.agg_params["alpha"] |= set([0.1]) # add additional params from previous runs
     # r.agg_params["beta"] |= set([0.54, 0.53])
     # r.agg_params["rl_horizon"] |= set([1])
 

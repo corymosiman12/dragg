@@ -38,7 +38,7 @@
   "run_simplified": true,
   "mpc_hourly_steps": 4,
   "agg_mpc_horizon": 4,
-  "agg_learning_rate": [0.1],
+  "agg_learning_rate": [0.8],
   "agg_exploration_rate": [0.3],
   "rl_agg_discount_factor": [0.0],
   "shoulder_times": [9,21],
@@ -46,7 +46,7 @@
   "offpeak_price": 0.05,
   "shoulder_price": 0.05,
   "peak_price": 0.05,
-  "action_space": [-0.02, 0.02],
+  "action_space": [-0.5, 0.5],
   "rl_agg_action_horizon": [1],
   "rl_agg_forecast_horizon": 1,
   "batch_size": [32]

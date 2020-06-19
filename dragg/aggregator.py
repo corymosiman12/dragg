@@ -109,6 +109,7 @@ class Aggregator:
         self.q_tables = []
         self.memory = []
         self.memory_size = 1000
+        self.actionspace = self.config["action_space"]
 
         # self.batch_sizes = int(self.config["batch_size"])
 
@@ -567,7 +568,7 @@ class Aggregator:
         tol = 0.2
         reward = 0
 
-        reward += 1/self.state[0]
+        reward += abs(1/self.state[0])
 
         if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
             reward += 1
@@ -1056,7 +1057,7 @@ class Aggregator:
         c = 0.8
         if self.timestep == 0:
             self.agg_load = self.agg_setpoint #+ np.random.rand()*self.agg_setpoint
-        self.agg_load = max(0, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
+        self.agg_load = max(0.01, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
         #self.agg_load = max(200,self.agg_load) # can't go above 200
         self.agg_cost = self.agg_load * self.reward_price[0]
 
@@ -1081,7 +1082,6 @@ class Aggregator:
         self.state = self._calc_state()
         # self.timestep += 1
 
-        self.actionspace = [-0.02,0.02]
         self.action = 0
         self.lam = 0.9
         self.is_greedy=True
@@ -1149,7 +1149,6 @@ class Aggregator:
         self.state = self._calc_state()
         # self.timestep += 1
 
-        self.actionspace = [-0.02,0.02]
         self.action = 0
         self.lam = 0.9
         self.is_greedy=True
