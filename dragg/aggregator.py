@@ -565,18 +565,20 @@ class Aggregator:
         return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day, agg_load]
 
     def _reward(self, x):
+        """ @kyri: Reward "function" should encourage the RL agent to move towards a state with curr_error = 0
+        :return: float"""
         tol = 0.2
         reward = 0
 
         reward += abs(1/self.state[0])
 
-        if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
-            reward += 1
-        elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
-            reward += -1
-
-        if abs((self.state[6] - self.next_state[6]) /  max(self.state[6],0.1)) > 0.2: # moves slowly
-            reward -= 5
+        # if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
+        #     reward += 1
+        # elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
+        #     reward += -1
+        #
+        # if abs((self.state[6] - self.next_state[6]) /  max(self.state[6],0.1)) > 0.2: # moves slowly
+        #     reward -= 5
         return reward
 
     def _q(self, state, action):
@@ -588,34 +590,33 @@ class Aggregator:
         return experience
 
     def _phi(self, state, action):
+        """ @kyri: Phi = the basis functions for the Q-function, the values and length of phi is dynamic so any changes here should be fine.
+        :return: a 1-D numpy array of arbitrary length"""
         curr_error = state[0]
-        persistence_error = state[1]
-        forecast_error = state[2]
-        forecast_delta = state[3]
-        prev_forecast_error = state[4]
-        time = state[5]
-        agg_load = state[6]
-
-        sigma = 0.1
-        normalized = 1/(sigma*np.sqrt(2*np.pi))
-
-        action_basis = np.array([1, action])
-        for i in range(8):
-            np.append(action_basis, rbf(action, sigma, mu=0.01*(i-4)))
-
-        current_error_basis = np.array([1])
-        for i in range(10):
-            np.append(current_error_basis, rbf(curr_error, sigma, mu=0.1*i))
-        current_error_basis = np.outer(current_error_basis, action_basis).flatten()
-        # persistence_error_basis = rbf(curr_error, sigma) * action_basis
-        # forecast_error_basis = rbf(curr_error, sigma) * action_basis
-        # prev_forecast_error_basis = rbf(curr_error, sigma) * action_basis
-        # delta_basis = rbf(curr_error, sigma) * action_basis
-        # agg_load_basis = rbf(agg_load, sigma) * action_basis[:2]
-        time_basis = np.outer(np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)]), action_basis).flatten()
+        # persistence_error = state[1]
+        # forecast_error = state[2]
+        # forecast_delta = state[3]
+        # prev_forecast_error = state[4]
+        # time = state[5]
+        # agg_load = state[6]
+        #
+        # sigma = 0.1
+        # normalized = 1/(sigma*np.sqrt(2*np.pi))
+        #
+        action_basis = np.array([1, action, action**2])
+        curr_error_basis = np.array([1, curr_error, curr_error**2])
+        # for i in range(8):
+        #     np.append(action_basis, rbf(action, sigma, mu=0.01*(i-4)))
+        #
+        # current_error_basis = np.array([1])
+        # for i in range(10):
+        #     np.append(current_error_basis, rbf(curr_error, sigma, mu=0.1*i))
+        # current_error_basis = np.outer(current_error_basis, action_basis).flatten()
+        # time_basis = np.outer(np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)]), action_basis).flatten()
 
         # phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, prev_forecast_error_basis, delta_basis, agg_load_basis, time_basis))
-        phi = np.concatenate((action_basis, current_error_basis, time_basis))
+        # phi = np.concatenate((action_basis, current_error_basis, time_basis))
+        phi = np.outer(action_basis, curr_error_basis).flatten()
         return phi
 
     def _qvalue(self):
