@@ -14,7 +14,7 @@ from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, log=Logger("reformat")):
+    def __init__(self, agg_params={}, mpc_params={}, exclude_runs={}, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = 'data'
         self.outputs_dir = 'outputs'
@@ -27,28 +27,38 @@ class Reformat:
         self.start_dt = datetime.strptime(self.config["start_datetime"], '%Y-%m-%d %H')
         self.end_dt = datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')
         self.date_folder = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
-        self.agg_params = self._setup_agg_params()
-        self.mpc_params = self._setup_mpc_params()
         self.hours = self.end_dt - self.start_dt
         self.hours = int(self.hours.total_seconds() / 3600)
         self.dt = self.config["mpc_hourly_steps"]
         self.timesteps = self.hours * self.dt
         self.dt_minutes = 60 // self.dt
-        self.files_to_reformat = []
-        self.data = self._import_data()
-        self.summary_data = self._config_summary()
-        self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_action_horizon"])*self.timesteps)]
-        self.mpc_folders, self.baselines = [], []
+
+        self.add_mpc_params = mpc_params
+        self.mpc_params = self._setup_mpc_params()
+        self.mpc_folders = self.set_mpc_folders()
+        self.baselines = []
+        self.set_base_files()
+
+        self.add_agg_params = agg_params
+        self.agg_params = self._setup_agg_params()
+        self.exclude_runs = exclude_runs
         self.parametrics = []
+        self.set_parametric_files()
+
+        self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_action_horizon"])*self.timesteps)]
+
         np.random.seed(self.config["random_seed"])
 
     def _setup_agg_params(self):
-        alphas = self.config["agg_learning_rate"]
-        epsilons = self.config["agg_exploration_rate"]
-        betas = self.config["rl_agg_discount_factor"]
-        batch_sizes = self.config["batch_size"]
-        rl_horizons = self.config["rl_agg_action_horizon"]
-        temp = {"alpha": set(alphas), "epsilon": set(epsilons), "beta": set(betas), "batch_size": set(batch_sizes), "rl_horizon": set(rl_horizons)}
+        alphas = set(self.config["agg_learning_rate"])
+        epsilons = set(self.config["agg_exploration_rate"])
+        betas = set(self.config["rl_agg_discount_factor"])
+        batch_sizes = set(self.config["batch_size"])
+        rl_horizons = set(self.config["rl_agg_action_horizon"])
+        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons}
+        for key in temp:
+            if key in self.add_agg_params:
+                temp[key] |= set(self.add_agg_params[key])
         return temp
 
     def _setup_mpc_params(self):
@@ -58,15 +68,20 @@ class Reformat:
         interval_minutes = 60 // dt
         check_type = self.config["check_type"]
         temp = {"n_houses": set([n_houses]), "mpc_horizon": set([mpc_horizon]), "dt": set([dt]), "interval_minutes": set([interval_minutes]), "check_type": set([check_type])}
+        for key in temp:
+            if key in self.add_mpc_params:
+                temp[key] |= set(self.add_mpc_params[key])
         return temp
 
     def set_mpc_folders(self):
+        temp = []
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         for i in permutations:
             mpc_folder = os.path.join(self.date_folder, f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_horizon']}-interval_{i['interval_minutes']}")
             if os.path.isdir(os.path.join(mpc_folder)):
-                self.mpc_folders.append(mpc_folder)
+                temp.append(mpc_folder)
+        return temp
 
     def set_base_files(self):
         keys, values = zip(*self.mpc_params.items())
@@ -78,7 +93,6 @@ class Reformat:
                 self.baselines.append(temp)
 
     def set_rl_files(self):
-        temp = []
         for i in self.mpc_folders:
             rl_agg_folder = os.path.join(i, "rl_agg")
             keys, values = zip(*self.agg_params.items())
@@ -95,12 +109,9 @@ class Reformat:
                         q_file = os.path.join(rl_agg_folder, q_results)
                         name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}"
                         set = {"results": rl_agg_file, "q_results": q_file, "iter_results": iter_file, "name": name}
-                        temp.append(set)
-        self.parametrics = temp
-        return temp
+                        self.parametrics.append(set)
 
     def set_simplified_files(self):
-        temp = []
         for i in self.mpc_folders:
             simplified_folder = os.path.join(i, "simplified")
             keys, values = zip(*self.agg_params.items())
@@ -118,6 +129,14 @@ class Reformat:
                         name = f"Simplified Response - horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}"
                         set = {"results": simplified_file, "q_results": q_file, "iter_results": iter_file, "name": name}
                         self.parametrics.append(set)
+
+    def set_parametric_files(self):
+        if self.config["run_rl_agg"]:
+            if "rl_agg" not in self.exclude_runs:
+                self.set_rl_files()
+        if self.config["run_simplified"]:
+            if "simplified" not in self.exclude_runs:
+                self.set_simplified_files()
 
     def set_other_files(self, otherfile):
         self.parametrics.append(otherfile)
@@ -150,15 +169,6 @@ class Reformat:
             sys.exit(1)
         with open(self.config_file, 'r') as f:
             data = json.load(f)
-        return data
-
-    def _import_data(self):
-        data = []
-        for f in self.files_to_reformat:
-            with open(f, 'r') as fh:
-                d = json.load(fh)
-                data.append(d)
-
         return data
 
     def _config_summary(self):
@@ -211,41 +221,6 @@ class Reformat:
         fig.update_layout(title_text=f"Baseline - {self.num_homes} Homes")
 
         fig.show()
-
-    def plot_single_home(self, name):
-        h = self.baseline_data.get(name, None)
-        if h is None:
-            self.ref_log.logger.error(f"No home with name: {name}")
-            return
-        type = h["type"]
-        fig = make_subplots(rows=2, cols=2, specs=[[{"secondary_y": True}, {}],
-                                                   [{}, {}]])
-        fig.add_trace(go.Scatter(x=self.x_lims, y=h["temp_in_opt"][0:self.hours], name="Tin (C)"), row=1, col=1)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=h["temp_wh_opt"][0:self.hours], name="Twh (C)"), row=1, col=1)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary["OAT"][0:self.hours], name="OAT (C)"), row=1, col=1)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary["GHI"][0:self.hours], name="GHI (W/m2)"), row=1, col=1, secondary_y=True)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_grid_opt"][0:self.hours], name="Pgrid (kW)"), row=1, col=2)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=h["p_load_opt"][0:self.hours], name="Pload (kW)"), row=1, col=2)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=h["hvac_cool_on_opt"][0:self.hours], name="HVAC Cool Cmd", line_shape='hv'), row=2, col=1)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=h["hvac_heat_on_opt"][0:self.hours], name="HVAC Heat Cmd", line_shape='hv'), row=2, col=1)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=h["wh_heat_on_opt"][0:self.hours], name="WH Heat Cmd", line_shape='hv'), row=2, col=1)
-        fig.add_trace(go.Scatter(x=self.x_lims, y=self.summary["SPP"][0:self.hours], name="TOU Price ($/kWh"), row=2, col=2)
-
-        fig.update_yaxes(title_text="Temperature (C)", row=1, col=1)
-        fig.update_yaxes(title_text="GHI (W/m2)", row=1, col=1, secondary_y=True)
-        fig.update_yaxes(title_text="Power (kW)", row=1, col=2)
-        fig.update_yaxes(title_text="CMD Signals", row=2, col=1)
-        fig.update_yaxes(title_text="Cost ($/kWh)", row=2, col=2)
-        fig.update_xaxes(title_text="Time of Day (hour)")
-        fig.update_layout(title_text=f"Baseline - {name} - {type} type")
-        fig.show()
-
-        if type == "pv_only":
-            self.plot_single_home_pv(h, name)
-        elif type == "battery_only":
-            self.plot_single_home_battery(h, name)
-        elif type == "pv_battery":
-            self.plot_single_home_pv_battery(h, name)
 
     def plot_environmental_values(self, fig, summary):
         fig.add_trace(go.Scatter(x=self.x_lims, y=summary["OAT"][0:self.timesteps], name=f"OAT (C)"))
@@ -381,7 +356,6 @@ class Reformat:
         flag = True
         for file in self.parametrics:
             if flag:
-                print(file['iter_results'])
                 with open(file['iter_results']) as f:
                     data = json.load(f)
 
@@ -400,15 +374,16 @@ class Reformat:
                     if not is_greedy[t]:
                         is_random.append(t)
 
+                num_decisions = float(max(self.config["rl_agg_action_horizon"]))
                 for i in rtgs:
-                    if i > 6:
+                    if i > 0.75*num_decisions:
                         color = 'green'
-                    elif i > 4:
+                    elif i > 0.5*num_decisions:
                         color = 'yellow'
                     else:
                         color = 'red'
 
-                    opacity = abs(i-4)/10
+                    opacity = abs(i-(0.5*num_decisions))/num_decisions
 
                     times = rtgs[i]
                     fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in times], y=[1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
@@ -434,6 +409,7 @@ class Reformat:
 
             name = file["name"]
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"][1:], name=f"Agg Load - RL - {name}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:]),np.arange(self.timesteps)+1), name=f"Avg Load - RL - {name}"))
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["RP"], name=f"RP - RL - {name}", line_shape='hv'), secondary_y=True)
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["RP"]), np.arange(self.timesteps) + 1), name=f"Average RP"), secondary_y=True)
             # fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(data["Summary"]["TOU"], data["Summary"]["RP"]).tolist(), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
