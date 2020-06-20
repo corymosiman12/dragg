@@ -555,7 +555,7 @@ class Aggregator:
 
     def _calc_state(self):
         # TODO: include the magnitude of the current load
-        current_error = (self.agg_load - self.agg_setpoint) / self.agg_setpoint
+        current_error = (self.agg_load - self.agg_setpoint) #/ self.agg_setpoint
         persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
         forecast_error = (self.forecast_load - self.forecast_setpoint) / self.forecast_setpoint
         forecast_delta = self.forecast_load - self.agg_load
@@ -570,8 +570,8 @@ class Aggregator:
         tol = 0.2
         reward = 0
 
-        reward += abs(1/self.state[0])
-
+        #reward += 20*np.exp(abs(self.state[0]))
+        reward = -(50*self.state[0]**2 + 10*self.reward_price[-1]**2)
         # if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
         #     reward += 1
         # elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
@@ -600,17 +600,22 @@ class Aggregator:
         # time = state[5]
         # agg_load = state[6]
         #
-        # sigma = 0.1
-        # normalized = 1/(sigma*np.sqrt(2*np.pi))
+        #sigma = 0.1
+        #normalized = 1/(sigma*np.sqrt(2*np.pi))
         #
-        action_basis = np.array([1, action, action**2])
+        action_basis = np.array([1])
+        for x in np.arange(self.actionspace[0], self.actionspace[1]+0.01, 0.01):
+            temp = np.array([(action-x), (action-x)**2])
+            action_basis = np.concatenate([temp, action_basis])
+
+        # action_basis = np.array([1, action, action**2])
         curr_error_basis = np.array([1, curr_error, curr_error**2])
         # for i in range(8):
         #     np.append(action_basis, rbf(action, sigma, mu=0.01*(i-4)))
         #
-        # current_error_basis = np.array([1])
-        # for i in range(10):
-        #     np.append(current_error_basis, rbf(curr_error, sigma, mu=0.1*i))
+        #current_error_basis = np.array([1])
+        #for i in range(10):
+        #    np.append(current_error_basis, rbf(curr_error, sigma, mu=0.1*i))
         # current_error_basis = np.outer(current_error_basis, action_basis).flatten()
         # time_basis = np.outer(np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)]), action_basis).flatten()
 
@@ -700,13 +705,12 @@ class Aggregator:
         return theta
 
     def rl_update_reward_price(self):
-        if self.rl_agg_horizon > 1:
-            avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
-        else:
-            avg_rp = np.sum(0)
-
+        # if self.rl_agg_horizon > 1:
+        #     avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
+        # else:
+        #     avg_rp = np.sum(0)
         self.reward_price[:-1] = self.reward_price[1:]
-        self.reward_price[-1] = np.round(avg_rp + self.action,2)
+        self.reward_price[-1] = np.round(self.action,2)
 
     def simplified_update_reward_price(self):
         self.reward_price[:-1] = self.reward_price[1:]
@@ -1018,17 +1022,18 @@ class Aggregator:
         return forecast_data
 
     def _gen_forecast(self, action=0):
-        for home in self.all_homes:
-             if self.check_type == "all" or home["type"] == self.check_type:
-                 self.queue.put(home)
-
-        forecast_horizon = 1
-        forecast = np.empty(forecast_horizon)
-        for t in range(forecast_horizon):
-            worker = MPCCalc(self.queue, 8, self.dt, self.redis_client, self.forecast_log)
-            worker.forecast(forecast_action=action)
-            forecast[t] = self.collect_forecast_data()
-        return forecast[0]
+        # for home in self.all_homes:
+        #      if self.check_type == "all" or home["type"] == self.check_type:
+        #          self.queue.put(home)
+        #
+        # forecast_horizon = 1
+        # forecast = np.empty(forecast_horizon)
+        # for t in range(forecast_horizon):
+        #     worker = MPCCalc(self.queue, 8, self.dt, self.redis_client, self.forecast_log)
+        #     worker.forecast(forecast_action=action)
+        #     forecast[t] = self.collect_forecast_data()
+        # return forecast[0]
+        return 4
 
     def get_best_action(self):
         results = []
@@ -1058,7 +1063,8 @@ class Aggregator:
         c = 0.8
         if self.timestep == 0:
             self.agg_load = self.agg_setpoint #+ np.random.rand()*self.agg_setpoint
-        self.agg_load = max(0.01, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
+        self.agg_load = max(1, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
+        self.agg_load = min(self.agg_load, 50)
         #self.agg_load = max(200,self.agg_load) # can't go above 200
         self.agg_cost = self.agg_load * self.reward_price[0]
 
