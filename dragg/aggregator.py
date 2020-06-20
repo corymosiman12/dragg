@@ -504,7 +504,7 @@ class Aggregator:
             self.redis_client.conn.hset("current_values", "reward_price", self.reward_price.tolist())
 
         if self.case == "rl_agg" or self.case == "simplified":
-            self.reward_price = np.zeros(self.rl_agg_horizon)
+            self.reward_price = np.zeros(self.rl_agg_horizon * self.dt)
             for val in self.reward_price.tolist():
                 self.redis_client.conn.rpush("reward_price", val)
 
