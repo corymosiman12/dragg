@@ -123,7 +123,7 @@ class MPCCalc:
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
-        self.discomfort = 0 # hard constraints on temp when discomfort is 0
+        self.discomfort = 0.2 # hard constraints on temp when discomfort is 0 ( @kyri )
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -162,15 +162,15 @@ class MPCCalc:
             self.temp_wh[0] == self.temp_wh_init,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
             self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
-            self.temp_in[1:self.h_plus] >= self.temp_in_min,
-            self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
+            # self.temp_in[1:self.h_plus] >= self.temp_in_min,
+            # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
             self.temp_in[1:self.h_plus] <= self.temp_in_max,
             self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
 
-            self.temp_in[1:self.h_plus] <= 21,
-            self.temp_wh[1:self.h_plus] <= 48,
+            # self.temp_in[1:self.h_plus] <= 21,
+            # self.temp_wh[1:self.h_plus] <= 48,
 
             self.hvac_cool_on <= 1,
             self.hvac_cool_on >= 0,
@@ -221,8 +221,7 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load
         ]
-        self.wf_wh = 1.8 * self.wf_wh
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (0.2*self.wf_temp * cp.sum(cp.norm(self.temp_in - self.temp_in_sp)) + 0.5*self.wf_wh * cp.sum(cp.norm(self.temp_wh - self.temp_wh_sp))))
 
     def set_battery_only_p_grid(self):
         self.constraints += [
@@ -367,6 +366,10 @@ class MPCCalc:
         self.oat_current = self.all_oat[start_slice:end_slice]
         self.spp_current = self.all_spp[start_slice:end_slice]
         self.tou_current = self.all_tou[start_slice:end_slice]
+
+        # self.ghi_current = np.ones(self.horizon+1) @kyri uncomment these for constant environmental values
+        # self.oat_current = 10*np.ones(self.horizon+1)
+        # self.spp_current = np.ones(self.horizon+1)
 
     def run(self):
         self.redis_get_initial_values()
