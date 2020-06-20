@@ -1,0 +1,8642 @@
+[
+    {
+        "timestep": 0,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 3.0,
+        "is_greedy": true
+    },
+    {
+        "timestep": 1,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.02976,
+        "agg_load": 2.976,
+        "is_greedy": false
+    },
+    {
+        "timestep": 2,
+        "reward_price": [
+            -0.0
+        ],
+        "agg_cost": -0.0,
+        "agg_load": 2.976,
+        "is_greedy": false
+    },
+    {
+        "timestep": 3,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11523072,
+        "agg_load": 2.8807679999999998,
+        "is_greedy": true
+    },
+    {
+        "timestep": 4,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11154333695999999,
+        "agg_load": 2.7885834239999996,
+        "is_greedy": true
+    },
+    {
+        "timestep": 5,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.10797395017727998,
+        "agg_load": 2.6993487544319996,
+        "is_greedy": true
+    },
+    {
+        "timestep": 6,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.10451878377160703,
+        "agg_load": 2.612969594290176,
+        "is_greedy": false
+    },
+    {
+        "timestep": 7,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1011741826909156,
+        "agg_load": 2.52935456727289,
+        "is_greedy": true
+    },
+    {
+        "timestep": 8,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0979366088448063,
+        "agg_load": 2.4484152211201575,
+        "is_greedy": true
+    },
+    {
+        "timestep": 9,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0948026373617725,
+        "agg_load": 2.3700659340443124,
+        "is_greedy": true
+    },
+    {
+        "timestep": 10,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.09176895296619578,
+        "agg_load": 2.2942238241548942,
+        "is_greedy": true
+    },
+    {
+        "timestep": 11,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.07047855587803835,
+        "agg_load": 2.3492851959346117,
+        "is_greedy": false
+    },
+    {
+        "timestep": 12,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.09096432278658817,
+        "agg_load": 2.2741080696647042,
+        "is_greedy": true
+    },
+    {
+        "timestep": 13,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11825361962256463,
+        "agg_load": 2.3650723924512924,
+        "is_greedy": false
+    },
+    {
+        "timestep": 14,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.02346151813311682,
+        "agg_load": 2.346151813311682,
+        "is_greedy": false
+    },
+    {
+        "timestep": 15,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.11261528703896073,
+        "agg_load": 2.2523057407792146,
+        "is_greedy": false
+    },
+    {
+        "timestep": 16,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08720927828297119,
+        "agg_load": 2.18023195707428,
+        "is_greedy": true
+    },
+    {
+        "timestep": 17,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08441858137791611,
+        "agg_load": 2.1104645344479027,
+        "is_greedy": true
+    },
+    {
+        "timestep": 18,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08171718677382278,
+        "agg_load": 2.0429296693455696,
+        "is_greedy": true
+    },
+    {
+        "timestep": 19,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07910223679706045,
+        "agg_load": 1.9775559199265114,
+        "is_greedy": true
+    },
+    {
+        "timestep": 20,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.019933763672859234,
+        "agg_load": 1.9933763672859235,
+        "is_greedy": false
+    },
+    {
+        "timestep": 21,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07718353294131096,
+        "agg_load": 1.929588323532774,
+        "is_greedy": true
+    },
+    {
+        "timestep": 22,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07471365988718902,
+        "agg_load": 1.8678414971797253,
+        "is_greedy": true
+    },
+    {
+        "timestep": 23,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07232282277079896,
+        "agg_load": 1.8080705692699741,
+        "is_greedy": true
+    },
+    {
+        "timestep": 24,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0700084924421334,
+        "agg_load": 1.750212311053335,
+        "is_greedy": true
+    },
+    {
+        "timestep": 25,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06776822068398512,
+        "agg_load": 1.6942055170996282,
+        "is_greedy": true
+    },
+    {
+        "timestep": 26,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0655996376220976,
+        "agg_load": 1.63999094055244,
+        "is_greedy": true
+    },
+    {
+        "timestep": 27,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06350044921819048,
+        "agg_load": 1.5875112304547618,
+        "is_greedy": true
+    },
+    {
+        "timestep": 28,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06146843484320838,
+        "agg_load": 1.5367108710802095,
+        "is_greedy": true
+    },
+    {
+        "timestep": 29,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05950144492822571,
+        "agg_load": 1.4875361232056428,
+        "is_greedy": true
+    },
+    {
+        "timestep": 30,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05759739869052249,
+        "agg_load": 1.4399349672630621,
+        "is_greedy": true
+    },
+    {
+        "timestep": 31,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.055754281932425764,
+        "agg_load": 1.393857048310644,
+        "is_greedy": true
+    },
+    {
+        "timestep": 32,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05397014491058814,
+        "agg_load": 1.3492536227647034,
+        "is_greedy": true
+    },
+    {
+        "timestep": 33,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05224310027344932,
+        "agg_load": 1.306077506836233,
+        "is_greedy": true
+    },
+    {
+        "timestep": 34,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.013165261268909228,
+        "agg_load": 1.3165261268909227,
+        "is_greedy": false
+    },
+    {
+        "timestep": 35,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05097589163321653,
+        "agg_load": 1.2743972908304133,
+        "is_greedy": true
+    },
+    {
+        "timestep": 36,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.049344663100953604,
+        "agg_load": 1.2336165775238401,
+        "is_greedy": true
+    },
+    {
+        "timestep": 37,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04776563388172309,
+        "agg_load": 1.1941408470430772,
+        "is_greedy": true
+    },
+    {
+        "timestep": 38,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04623713359750795,
+        "agg_load": 1.1559283399376987,
+        "is_greedy": true
+    },
+    {
+        "timestep": 39,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.044757545322387696,
+        "agg_load": 1.1189386330596924,
+        "is_greedy": true
+    },
+    {
+        "timestep": 40,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.043325303872071286,
+        "agg_load": 1.0831325968017822,
+        "is_greedy": true
+    },
+    {
+        "timestep": 41,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.01074467536027368,
+        "agg_load": 1.0744675360273679,
+        "is_greedy": false
+    },
+    {
+        "timestep": 42,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.010830632763155868,
+        "agg_load": 1.0830632763155867,
+        "is_greedy": false
+    },
+    {
+        "timestep": 43,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04193621005893952,
+        "agg_load": 1.048405251473488,
+        "is_greedy": true
+    },
+    {
+        "timestep": 44,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05451707307662138,
+        "agg_load": 1.0903414615324276,
+        "is_greedy": true
+    },
+    {
+        "timestep": 45,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.02215573849833893,
+        "agg_load": 1.1077869249169465,
+        "is_greedy": false
+    },
+    {
+        "timestep": 46,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.057604920095681224,
+        "agg_load": 1.1520984019136244,
+        "is_greedy": true
+    },
+    {
+        "timestep": 47,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.02341063952688485,
+        "agg_load": 1.1705319763442423,
+        "is_greedy": false
+    },
+    {
+        "timestep": 48,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.056185534864523635,
+        "agg_load": 1.1237106972904727,
+        "is_greedy": false
+    },
+    {
+        "timestep": 49,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.058432956259104586,
+        "agg_load": 1.1686591251820917,
+        "is_greedy": true
+    },
+    {
+        "timestep": 50,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0452504813270506,
+        "agg_load": 1.1312620331762648,
+        "is_greedy": true
+    },
+    {
+        "timestep": 51,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.04669849672951621,
+        "agg_load": 1.1674624182379052,
+        "is_greedy": false
+    },
+    {
+        "timestep": 52,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04520414483417169,
+        "agg_load": 1.1301036208542923,
+        "is_greedy": true
+    },
+    {
+        "timestep": 53,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05876538828442321,
+        "agg_load": 1.175307765688464,
+        "is_greedy": true
+    },
+    {
+        "timestep": 54,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.011659053035629563,
+        "agg_load": 1.1659053035629563,
+        "is_greedy": false
+    },
+    {
+        "timestep": 55,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04514385335395767,
+        "agg_load": 1.1285963338489418,
+        "is_greedy": false
+    },
+    {
+        "timestep": 56,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04369925004663102,
+        "agg_load": 1.0924812511657755,
+        "is_greedy": true
+    },
+    {
+        "timestep": 57,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04230087404513883,
+        "agg_load": 1.0575218511284707,
+        "is_greedy": true
+    },
+    {
+        "timestep": 58,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04094724607569439,
+        "agg_load": 1.0236811518923596,
+        "is_greedy": true
+    },
+    {
+        "timestep": 59,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 60,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 61,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 62,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 63,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 64,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 65,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 66,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 67,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 68,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.03072,
+        "agg_load": 1.024,
+        "is_greedy": false
+    },
+    {
+        "timestep": 69,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 70,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052000000000000005,
+        "agg_load": 1.04,
+        "is_greedy": false
+    },
+    {
+        "timestep": 71,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0402688,
+        "agg_load": 1.00672,
+        "is_greedy": true
+    },
+    {
+        "timestep": 72,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052349440000000004,
+        "agg_load": 1.0469888,
+        "is_greedy": true
+    },
+    {
+        "timestep": 73,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.040539406336,
+        "agg_load": 1.0134851584,
+        "is_greedy": true
+    },
+    {
+        "timestep": 74,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052701228236800006,
+        "agg_load": 1.054024564736,
+        "is_greedy": true
+    },
+    {
+        "timestep": 75,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04081183114657792,
+        "agg_load": 1.020295778664448,
+        "is_greedy": true
+    },
+    {
+        "timestep": 76,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0530553804905513,
+        "agg_load": 1.061107609811026,
+        "is_greedy": true
+    },
+    {
+        "timestep": 77,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.041086086651882923,
+        "agg_load": 1.027152166297073,
+        "is_greedy": true
+    },
+    {
+        "timestep": 78,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0534119126474478,
+        "agg_load": 1.068238252948956,
+        "is_greedy": true
+    },
+    {
+        "timestep": 79,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.041362185154183585,
+        "agg_load": 1.0340546288545895,
+        "is_greedy": true
+    },
+    {
+        "timestep": 80,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.053770840700438666,
+        "agg_load": 1.0754168140087732,
+        "is_greedy": true
+    },
+    {
+        "timestep": 81,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.03303680452634951,
+        "agg_load": 1.1012268175449837,
+        "is_greedy": false
+    },
+    {
+        "timestep": 82,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05726379451233915,
+        "agg_load": 1.145275890246783,
+        "is_greedy": true
+    },
+    {
+        "timestep": 83,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05955434629283272,
+        "agg_load": 1.1910869258566543,
+        "is_greedy": true
+    },
+    {
+        "timestep": 84,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06193652014454603,
+        "agg_load": 1.2387304028909205,
+        "is_greedy": true
+    },
+    {
+        "timestep": 85,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06441398095032787,
+        "agg_load": 1.2882796190065573,
+        "is_greedy": true
+    },
+    {
+        "timestep": 86,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06699054018834098,
+        "agg_load": 1.3398108037668197,
+        "is_greedy": true
+    },
+    {
+        "timestep": 87,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.027224955532541777,
+        "agg_load": 1.3612477766270887,
+        "is_greedy": false
+    },
+    {
+        "timestep": 88,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07078488438460862,
+        "agg_load": 1.4156976876921723,
+        "is_greedy": true
+    },
+    {
+        "timestep": 89,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07361627975999296,
+        "agg_load": 1.4723255951998593,
+        "is_greedy": true
+    },
+    {
+        "timestep": 90,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 1.4723255951998593,
+        "is_greedy": false
+    },
+    {
+        "timestep": 91,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07656093095039268,
+        "agg_load": 1.5312186190078536,
+        "is_greedy": true
+    },
+    {
+        "timestep": 92,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07962336818840839,
+        "agg_load": 1.5924673637681677,
+        "is_greedy": true
+    },
+    {
+        "timestep": 93,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08280830291594472,
+        "agg_load": 1.6561660583188944,
+        "is_greedy": true
+    },
+    {
+        "timestep": 94,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08612063503258252,
+        "agg_load": 1.7224127006516503,
+        "is_greedy": true
+    },
+    {
+        "timestep": 95,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08956546043388582,
+        "agg_load": 1.7913092086777163,
+        "is_greedy": true
+    },
+    {
+        "timestep": 96,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09314807885124125,
+        "agg_load": 1.862961577024825,
+        "is_greedy": true
+    },
+    {
+        "timestep": 97,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.036663083835848556,
+        "agg_load": 1.8331541917924277,
+        "is_greedy": false
+    },
+    {
+        "timestep": 98,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09532401797320625,
+        "agg_load": 1.9064803594641249,
+        "is_greedy": true
+    },
+    {
+        "timestep": 99,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0991369786921345,
+        "agg_load": 1.9827395738426898,
+        "is_greedy": true
+    },
+    {
+        "timestep": 100,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07677167629918895,
+        "agg_load": 1.9192919074797237,
+        "is_greedy": false
+    },
+    {
+        "timestep": 101,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09980317918894564,
+        "agg_load": 1.9960635837789127,
+        "is_greedy": false
+    },
+    {
+        "timestep": 102,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.10379530635650347,
+        "agg_load": 2.0759061271300694,
+        "is_greedy": true
+    },
+    {
+        "timestep": 103,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.10794711861076361,
+        "agg_load": 2.158942372215272,
+        "is_greedy": true
+    },
+    {
+        "timestep": 104,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11226500335519417,
+        "agg_load": 2.245300067103883,
+        "is_greedy": true
+    },
+    {
+        "timestep": 105,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08693801859826236,
+        "agg_load": 2.173450464956559,
+        "is_greedy": false
+    },
+    {
+        "timestep": 106,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11301942417774108,
+        "agg_load": 2.2603884835548214,
+        "is_greedy": true
+    },
+    {
+        "timestep": 107,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11754020114485071,
+        "agg_load": 2.350804022897014,
+        "is_greedy": true
+    },
+    {
+        "timestep": 108,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.12224180919064474,
+        "agg_load": 2.4448361838128947,
+        "is_greedy": true
+    },
+    {
+        "timestep": 109,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.12713148155827053,
+        "agg_load": 2.5426296311654104,
+        "is_greedy": true
+    },
+    {
+        "timestep": 110,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.13221674082060136,
+        "agg_load": 2.644334816412027,
+        "is_greedy": true
+    },
+    {
+        "timestep": 111,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.05373288346949239,
+        "agg_load": 2.6866441734746194,
+        "is_greedy": false
+    },
+    {
+        "timestep": 112,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.13970549702068022,
+        "agg_load": 2.794109940413604,
+        "is_greedy": false
+    },
+    {
+        "timestep": 113,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.10818793689281474,
+        "agg_load": 2.7046984223203685,
+        "is_greedy": true
+    },
+    {
+        "timestep": 114,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.10472592291224468,
+        "agg_load": 2.618148072806117,
+        "is_greedy": true
+    },
+    {
+        "timestep": 115,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.0766593755717631,
+        "agg_load": 2.55531251905877,
+        "is_greedy": false
+    },
+    {
+        "timestep": 116,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 2.55531251905877,
+        "is_greedy": false
+    },
+    {
+        "timestep": 117,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.09894170073795558,
+        "agg_load": 2.4735425184488893,
+        "is_greedy": true
+    },
+    {
+        "timestep": 118,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.12862421095934226,
+        "agg_load": 2.572484219186845,
+        "is_greedy": false
+    },
+    {
+        "timestep": 119,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.09960658896691463,
+        "agg_load": 2.4901647241728657,
+        "is_greedy": true
+    },
+    {
+        "timestep": 120,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.07649786032659044,
+        "agg_load": 2.5499286775530146,
+        "is_greedy": false
+    },
+    {
+        "timestep": 121,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.09873323839485272,
+        "agg_load": 2.468330959871318,
+        "is_greedy": true
+    },
+    {
+        "timestep": 122,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.09557377476621744,
+        "agg_load": 2.389344369155436,
+        "is_greedy": true
+    },
+    {
+        "timestep": 123,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.06996000312887116,
+        "agg_load": 2.3320001042957053,
+        "is_greedy": false
+    },
+    {
+        "timestep": 124,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0902950440383297,
+        "agg_load": 2.2573761009582425,
+        "is_greedy": true
+    },
+    {
+        "timestep": 125,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08740560262910314,
+        "agg_load": 2.1851400657275786,
+        "is_greedy": true
+    },
+    {
+        "timestep": 126,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.043003556493518745,
+        "agg_load": 2.150177824675937,
+        "is_greedy": false
+    },
+    {
+        "timestep": 127,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11180924688314874,
+        "agg_load": 2.2361849376629745,
+        "is_greedy": false
+    },
+    {
+        "timestep": 128,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.04543927793331164,
+        "agg_load": 2.271963896665582,
+        "is_greedy": false
+    },
+    {
+        "timestep": 129,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08797044207889135,
+        "agg_load": 2.1992610519722837,
+        "is_greedy": true
+    },
+    {
+        "timestep": 130,
+        "reward_price": [
+            -0.0
+        ],
+        "agg_cost": -0.0,
+        "agg_load": 2.1992610519722837,
+        "is_greedy": false
+    },
+    {
+        "timestep": 131,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08515538793236684,
+        "agg_load": 2.1288846983091707,
+        "is_greedy": true
+    },
+    {
+        "timestep": 132,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08243041551853109,
+        "agg_load": 2.060760387963277,
+        "is_greedy": true
+    },
+    {
+        "timestep": 133,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0797926422219381,
+        "agg_load": 1.9948160555484524,
+        "is_greedy": true
+    },
+    {
+        "timestep": 134,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07723927767083608,
+        "agg_load": 1.930981941770902,
+        "is_greedy": true
+    },
+    {
+        "timestep": 135,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.059319765251202104,
+        "agg_load": 1.9773255083734036,
+        "is_greedy": false
+    },
+    {
+        "timestep": 136,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07656204368421819,
+        "agg_load": 1.9140510921054548,
+        "is_greedy": true
+    },
+    {
+        "timestep": 137,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.019293635008422984,
+        "agg_load": 1.9293635008422985,
+        "is_greedy": false
+    },
+    {
+        "timestep": 138,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0747049547526138,
+        "agg_load": 1.8676238688153448,
+        "is_greedy": true
+    },
+    {
+        "timestep": 139,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07231439620053015,
+        "agg_load": 1.8078599050132538,
+        "is_greedy": true
+    },
+    {
+        "timestep": 140,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07000033552211318,
+        "agg_load": 1.7500083880528297,
+        "is_greedy": true
+    },
+    {
+        "timestep": 141,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06776032478540557,
+        "agg_load": 1.694008119635139,
+        "is_greedy": true
+    },
+    {
+        "timestep": 142,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06559199439227259,
+        "agg_load": 1.6397998598068146,
+        "is_greedy": true
+    },
+    {
+        "timestep": 143,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06349305057171986,
+        "agg_load": 1.5873262642929966,
+        "is_greedy": true
+    },
+    {
+        "timestep": 144,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.0655248281900149,
+        "agg_load": 1.6381207047503725,
+        "is_greedy": false
+    },
+    {
+        "timestep": 145,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06342803368793443,
+        "agg_load": 1.5857008421983605,
+        "is_greedy": true
+    },
+    {
+        "timestep": 146,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.061398336609920515,
+        "agg_load": 1.534958415248013,
+        "is_greedy": true
+    },
+    {
+        "timestep": 147,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.01522678747926029,
+        "agg_load": 1.5226787479260289,
+        "is_greedy": false
+    },
+    {
+        "timestep": 148,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05895812111969584,
+        "agg_load": 1.473953027992396,
+        "is_greedy": true
+    },
+    {
+        "timestep": 149,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05707146124386558,
+        "agg_load": 1.4267865310966394,
+        "is_greedy": true
+    },
+    {
+        "timestep": 150,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05524517448406188,
+        "agg_load": 1.381129362101547,
+        "is_greedy": true
+    },
+    {
+        "timestep": 151,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.053477328900571906,
+        "agg_load": 1.3369332225142976,
+        "is_greedy": true
+    },
+    {
+        "timestep": 152,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0517660543757536,
+        "agg_load": 1.29415135939384,
+        "is_greedy": true
+    },
+    {
+        "timestep": 153,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.050109540635729484,
+        "agg_load": 1.2527385158932371,
+        "is_greedy": true
+    },
+    {
+        "timestep": 154,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.03668018374535398,
+        "agg_load": 1.2226727915117994,
+        "is_greedy": false
+    },
+    {
+        "timestep": 155,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04734189048733687,
+        "agg_load": 1.1835472621834218,
+        "is_greedy": true
+    },
+    {
+        "timestep": 156,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04582694999174209,
+        "agg_load": 1.1456737497935523,
+        "is_greedy": true
+    },
+    {
+        "timestep": 157,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.044360487592006344,
+        "agg_load": 1.1090121898001586,
+        "is_greedy": true
+    },
+    {
+        "timestep": 158,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.042940951989062136,
+        "agg_load": 1.0735237997265534,
+        "is_greedy": true
+    },
+    {
+        "timestep": 159,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05582323758578078,
+        "agg_load": 1.1164647517156157,
+        "is_greedy": false
+    },
+    {
+        "timestep": 160,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.04608766495082062,
+        "agg_load": 1.1521916237705154,
+        "is_greedy": false
+    },
+    {
+        "timestep": 161,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05991396443606681,
+        "agg_load": 1.198279288721336,
+        "is_greedy": true
+    },
+    {
+        "timestep": 162,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06231052301350948,
+        "agg_load": 1.2462104602701896,
+        "is_greedy": true
+    },
+    {
+        "timestep": 163,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04825326902166174,
+        "agg_load": 1.2063317255415436,
+        "is_greedy": false
+    },
+    {
+        "timestep": 164,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06272924972816027,
+        "agg_load": 1.2545849945632053,
+        "is_greedy": true
+    },
+    {
+        "timestep": 165,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.048577530989487305,
+        "agg_load": 1.2144382747371827,
+        "is_greedy": true
+    },
+    {
+        "timestep": 166,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06315079028633351,
+        "agg_load": 1.26301580572667,
+        "is_greedy": true
+    },
+    {
+        "timestep": 167,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04890397199773666,
+        "agg_load": 1.2225992999434165,
+        "is_greedy": true
+    },
+    {
+        "timestep": 168,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06357516359705766,
+        "agg_load": 1.2715032719411532,
+        "is_greedy": true
+    },
+    {
+        "timestep": 169,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.049232606689561455,
+        "agg_load": 1.2308151672390364,
+        "is_greedy": true
+    },
+    {
+        "timestep": 170,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.0378106419375832,
+        "agg_load": 1.2603547312527732,
+        "is_greedy": false
+    },
+    {
+        "timestep": 171,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04880093519410738,
+        "agg_load": 1.2200233798526845,
+        "is_greedy": true
+    },
+    {
+        "timestep": 172,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0634412157523396,
+        "agg_load": 1.268824315046792,
+        "is_greedy": true
+    },
+    {
+        "timestep": 173,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04912887747861179,
+        "agg_load": 1.2282219369652947,
+        "is_greedy": true
+    },
+    {
+        "timestep": 174,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.012183961614695725,
+        "agg_load": 1.2183961614695724,
+        "is_greedy": false
+    },
+    {
+        "timestep": 175,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04717629937210185,
+        "agg_load": 1.1794074843025462,
+        "is_greedy": true
+    },
+    {
+        "timestep": 176,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.045666657792194594,
+        "agg_load": 1.1416664448048648,
+        "is_greedy": false
+    },
+    {
+        "timestep": 177,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04420532474284437,
+        "agg_load": 1.105133118571109,
+        "is_greedy": true
+    },
+    {
+        "timestep": 178,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05746692216569768,
+        "agg_load": 1.1493384433139535,
+        "is_greedy": true
+    },
+    {
+        "timestep": 179,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04450238452511628,
+        "agg_load": 1.112559613127907,
+        "is_greedy": true
+    },
+    {
+        "timestep": 180,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.057853099882651166,
+        "agg_load": 1.1570619976530232,
+        "is_greedy": true
+    },
+    {
+        "timestep": 181,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.044801440549125056,
+        "agg_load": 1.1200360137281264,
+        "is_greedy": true
+    },
+    {
+        "timestep": 182,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05824187271386258,
+        "agg_load": 1.1648374542772515,
+        "is_greedy": true
+    },
+    {
+        "timestep": 183,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.04808449011256494,
+        "agg_load": 1.2021122528141235,
+        "is_greedy": false
+    },
+    {
+        "timestep": 184,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.046545786428962864,
+        "agg_load": 1.1636446607240716,
+        "is_greedy": true
+    },
+    {
+        "timestep": 185,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.060509522357651724,
+        "agg_load": 1.2101904471530345,
+        "is_greedy": true
+    },
+    {
+        "timestep": 186,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04685857411376549,
+        "agg_load": 1.1714643528441373,
+        "is_greedy": true
+    },
+    {
+        "timestep": 187,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06091614634789514,
+        "agg_load": 1.2183229269579028,
+        "is_greedy": true
+    },
+    {
+        "timestep": 188,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04717346373181,
+        "agg_load": 1.17933659329525,
+        "is_greedy": true
+    },
+    {
+        "timestep": 189,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.061325502851353,
+        "agg_load": 1.22651005702706,
+        "is_greedy": true
+    },
+    {
+        "timestep": 190,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.047490469408087765,
+        "agg_load": 1.1872617352021941,
+        "is_greedy": true
+    },
+    {
+        "timestep": 191,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0617376102305141,
+        "agg_load": 1.234752204610282,
+        "is_greedy": true
+    },
+    {
+        "timestep": 192,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04780960536251012,
+        "agg_load": 1.195240134062753,
+        "is_greedy": true
+    },
+    {
+        "timestep": 193,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06215248697126316,
+        "agg_load": 1.243049739425263,
+        "is_greedy": true
+    },
+    {
+        "timestep": 194,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.05966638749241263,
+        "agg_load": 1.1933277498482526,
+        "is_greedy": false
+    },
+    {
+        "timestep": 195,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.03494063651555684,
+        "agg_load": 1.1646878838518946,
+        "is_greedy": false
+    },
+    {
+        "timestep": 196,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.045096714862745364,
+        "agg_load": 1.127417871568634,
+        "is_greedy": true
+    },
+    {
+        "timestep": 197,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04365361998713751,
+        "agg_load": 1.0913404996784377,
+        "is_greedy": true
+    },
+    {
+        "timestep": 198,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.042256704147549104,
+        "agg_load": 1.0564176036887276,
+        "is_greedy": false
+    },
+    {
+        "timestep": 199,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04090448961482753,
+        "agg_load": 1.0226122403706883,
+        "is_greedy": true
+    },
+    {
+        "timestep": 200,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 201,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.01008,
+        "agg_load": 1.008,
+        "is_greedy": false
+    },
+    {
+        "timestep": 202,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.01,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 203,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.05,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 204,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052000000000000005,
+        "agg_load": 1.04,
+        "is_greedy": true
+    },
+    {
+        "timestep": 205,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.0429312,
+        "agg_load": 1.07328,
+        "is_greedy": false
+    },
+    {
+        "timestep": 206,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.041557401599999995,
+        "agg_load": 1.03893504,
+        "is_greedy": true
+    },
+    {
+        "timestep": 207,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05402462208,
+        "agg_load": 1.0804924416,
+        "is_greedy": true
+    },
+    {
+        "timestep": 208,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04183666733875199,
+        "agg_load": 1.0459166834687998,
+        "is_greedy": true
+    },
+    {
+        "timestep": 209,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.010375493500010496,
+        "agg_load": 1.0375493500010495,
+        "is_greedy": false
+    },
+    {
+        "timestep": 210,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04017391083204064,
+        "agg_load": 1.004347770801016,
+        "is_greedy": true
+    },
+    {
+        "timestep": 211,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052226084081652836,
+        "agg_load": 1.0445216816330567,
+        "is_greedy": true
+    },
+    {
+        "timestep": 212,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04044387951283196,
+        "agg_load": 1.011096987820799,
+        "is_greedy": true
+    },
+    {
+        "timestep": 213,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05257704336668154,
+        "agg_load": 1.0515408673336308,
+        "is_greedy": true
+    },
+    {
+        "timestep": 214,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.040715662383158185,
+        "agg_load": 1.0178915595789546,
+        "is_greedy": true
+    },
+    {
+        "timestep": 215,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 216,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.03,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 217,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 218,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 219,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.02032,
+        "agg_load": 1.016,
+        "is_greedy": false
+    },
+    {
+        "timestep": 220,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 221,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.02032,
+        "agg_load": 1.016,
+        "is_greedy": false
+    },
+    {
+        "timestep": 222,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 223,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.02,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 224,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 225,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.05,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 226,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 227,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 228,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.02032,
+        "agg_load": 1.016,
+        "is_greedy": false
+    },
+    {
+        "timestep": 229,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 230,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.03,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 231,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 232,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 233,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 234,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.03,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 235,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.03072,
+        "agg_load": 1.024,
+        "is_greedy": false
+    },
+    {
+        "timestep": 236,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 237,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.05,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 238,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 239,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 240,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 241,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.03072,
+        "agg_load": 1.024,
+        "is_greedy": false
+    },
+    {
+        "timestep": 242,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 243,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052000000000000005,
+        "agg_load": 1.04,
+        "is_greedy": true
+    },
+    {
+        "timestep": 244,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0402688,
+        "agg_load": 1.00672,
+        "is_greedy": true
+    },
+    {
+        "timestep": 245,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.04155740160000001,
+        "agg_load": 1.0389350400000001,
+        "is_greedy": false
+    },
+    {
+        "timestep": 246,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04022756474880001,
+        "agg_load": 1.00568911872,
+        "is_greedy": true
+    },
+    {
+        "timestep": 247,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 248,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 249,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 250,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.01,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 251,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.03072,
+        "agg_load": 1.024,
+        "is_greedy": false
+    },
+    {
+        "timestep": 252,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05324800000000001,
+        "agg_load": 1.0649600000000001,
+        "is_greedy": true
+    },
+    {
+        "timestep": 253,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.0311820288,
+        "agg_load": 1.03940096,
+        "is_greedy": false
+    },
+    {
+        "timestep": 254,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05404884992,
+        "agg_load": 1.0809769984,
+        "is_greedy": true
+    },
+    {
+        "timestep": 255,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.041855429378048,
+        "agg_load": 1.0463857344512,
+        "is_greedy": true
+    },
+    {
+        "timestep": 256,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.030638174304731137,
+        "agg_load": 1.0212724768243713,
+        "is_greedy": false
+    },
+    {
+        "timestep": 257,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.010131022970097762,
+        "agg_load": 1.0131022970097763,
+        "is_greedy": false
+    },
+    {
+        "timestep": 258,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.020586238675238656,
+        "agg_load": 1.0293119337619328,
+        "is_greedy": false
+    },
+    {
+        "timestep": 259,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 260,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 261,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 262,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 263,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 264,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 265,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.05,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 266,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 267,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 268,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 269,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 270,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.02032,
+        "agg_load": 1.016,
+        "is_greedy": false
+    },
+    {
+        "timestep": 271,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 272,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 273,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 274,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 275,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 276,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 277,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 278,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 279,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.02,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 280,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 281,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052000000000000005,
+        "agg_load": 1.04,
+        "is_greedy": false
+    },
+    {
+        "timestep": 282,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0402688,
+        "agg_load": 1.00672,
+        "is_greedy": false
+    },
+    {
+        "timestep": 283,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052349440000000004,
+        "agg_load": 1.0469888,
+        "is_greedy": true
+    },
+    {
+        "timestep": 284,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.021274812416,
+        "agg_load": 1.0637406208,
+        "is_greedy": false
+    },
+    {
+        "timestep": 285,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0553145122816,
+        "agg_load": 1.106290245632,
+        "is_greedy": true
+    },
+    {
+        "timestep": 286,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.02247981779124224,
+        "agg_load": 1.123990889562112,
+        "is_greedy": false
+    },
+    {
+        "timestep": 287,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05844752625722982,
+        "agg_load": 1.1689505251445964,
+        "is_greedy": true
+    },
+    {
+        "timestep": 288,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04526176433359878,
+        "agg_load": 1.1315441083399693,
+        "is_greedy": true
+    },
+    {
+        "timestep": 289,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05884029363367841,
+        "agg_load": 1.1768058726735682,
+        "is_greedy": true
+    },
+    {
+        "timestep": 290,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.0485785464239649,
+        "agg_load": 1.2144636605991224,
+        "is_greedy": false
+    },
+    {
+        "timestep": 291,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.02390064484059073,
+        "agg_load": 1.1950322420295365,
+        "is_greedy": false
+    },
+    {
+        "timestep": 292,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.062141676585535904,
+        "agg_load": 1.242833531710718,
+        "is_greedy": true
+    },
+    {
+        "timestep": 293,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.048122514347839006,
+        "agg_load": 1.203062858695975,
+        "is_greedy": false
+    },
+    {
+        "timestep": 294,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0625592686521907,
+        "agg_load": 1.251185373043814,
+        "is_greedy": true
+    },
+    {
+        "timestep": 295,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.012411758900594635,
+        "agg_load": 1.2411758900594636,
+        "is_greedy": false
+    },
+    {
+        "timestep": 296,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06454114628309211,
+        "agg_load": 1.2908229256618422,
+        "is_greedy": true
+    },
+    {
+        "timestep": 297,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04998066368162653,
+        "agg_load": 1.2495165920406632,
+        "is_greedy": true
+    },
+    {
+        "timestep": 298,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06497486278611449,
+        "agg_load": 1.2994972557222897,
+        "is_greedy": true
+    },
+    {
+        "timestep": 299,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05031653374156706,
+        "agg_load": 1.2579133435391765,
+        "is_greedy": true
+    },
+    {
+        "timestep": 300,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06541149386403718,
+        "agg_load": 1.3082298772807435,
+        "is_greedy": true
+    },
+    {
+        "timestep": 301,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05065466084831039,
+        "agg_load": 1.2663665212077597,
+        "is_greedy": true
+    },
+    {
+        "timestep": 302,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06585105910280352,
+        "agg_load": 1.3170211820560702,
+        "is_greedy": true
+    },
+    {
+        "timestep": 303,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.050995060169211036,
+        "agg_load": 1.2748765042302759,
+        "is_greedy": true
+    },
+    {
+        "timestep": 304,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.025905490565959206,
+        "agg_load": 1.2952745282979603,
+        "is_greedy": false
+    },
+    {
+        "timestep": 305,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06735427547149395,
+        "agg_load": 1.3470855094298788,
+        "is_greedy": true
+    },
+    {
+        "timestep": 306,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.02737277755161514,
+        "agg_load": 1.368638877580757,
+        "is_greedy": false
+    },
+    {
+        "timestep": 307,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07116922163419936,
+        "agg_load": 1.4233844326839873,
+        "is_greedy": true
+    },
+    {
+        "timestep": 308,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07401599049956735,
+        "agg_load": 1.4803198099913468,
+        "is_greedy": true
+    },
+    {
+        "timestep": 309,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07697663011955004,
+        "agg_load": 1.5395326023910008,
+        "is_greedy": true
+    },
+    {
+        "timestep": 310,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08005569532433204,
+        "agg_load": 1.6011139064866409,
+        "is_greedy": true
+    },
+    {
+        "timestep": 311,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08325792313730533,
+        "agg_load": 1.6651584627461065,
+        "is_greedy": true
+    },
+    {
+        "timestep": 312,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.048755839789205994,
+        "agg_load": 1.6251946596401998,
+        "is_greedy": false
+    },
+    {
+        "timestep": 313,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0845101223012904,
+        "agg_load": 1.6902024460258078,
+        "is_greedy": true
+    },
+    {
+        "timestep": 314,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.087890527193342,
+        "agg_load": 1.75781054386684,
+        "is_greedy": true
+    },
+    {
+        "timestep": 315,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09140614828107568,
+        "agg_load": 1.8281229656215137,
+        "is_greedy": true
+    },
+    {
+        "timestep": 316,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09506239421231871,
+        "agg_load": 1.9012478842463743,
+        "is_greedy": true
+    },
+    {
+        "timestep": 317,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09886488998081147,
+        "agg_load": 1.9772977996162293,
+        "is_greedy": true
+    },
+    {
+        "timestep": 318,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.10281948558004393,
+        "agg_load": 2.0563897116008785,
+        "is_greedy": false
+    },
+    {
+        "timestep": 319,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1069322650032457,
+        "agg_load": 2.1386453000649137,
+        "is_greedy": true
+    },
+    {
+        "timestep": 320,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 2.1386453000649137,
+        "is_greedy": false
+    },
+    {
+        "timestep": 321,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11120955560337552,
+        "agg_load": 2.22419111206751,
+        "is_greedy": true
+    },
+    {
+        "timestep": 322,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11565793782751053,
+        "agg_load": 2.3131587565502105,
+        "is_greedy": true
+    },
+    {
+        "timestep": 323,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.12028425534061096,
+        "agg_load": 2.405685106812219,
+        "is_greedy": true
+    },
+    {
+        "timestep": 324,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 2.405685106812219,
+        "is_greedy": false
+    },
+    {
+        "timestep": 325,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.09314812733576913,
+        "agg_load": 2.328703183394228,
+        "is_greedy": false
+    },
+    {
+        "timestep": 326,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.09016738726102451,
+        "agg_load": 2.254184681525613,
+        "is_greedy": true
+    },
+    {
+        "timestep": 327,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.04580503272860045,
+        "agg_load": 2.2902516364300225,
+        "is_greedy": false
+    },
+    {
+        "timestep": 328,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08867854336257047,
+        "agg_load": 2.2169635840642616,
+        "is_greedy": true
+    },
+    {
+        "timestep": 329,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08584082997496821,
+        "agg_load": 2.1460207493742054,
+        "is_greedy": true
+    },
+    {
+        "timestep": 330,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.02163188915369199,
+        "agg_load": 2.163188915369199,
+        "is_greedy": false
+    },
+    {
+        "timestep": 331,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.042571557854465834,
+        "agg_load": 2.1285778927232917,
+        "is_greedy": false
+    },
+    {
+        "timestep": 332,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.04325270278013729,
+        "agg_load": 2.1626351390068645,
+        "is_greedy": false
+    },
+    {
+        "timestep": 333,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0837372325823458,
+        "agg_load": 2.093430814558645,
+        "is_greedy": true
+    },
+    {
+        "timestep": 334,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.021101782610751144,
+        "agg_load": 2.1101782610751143,
+        "is_greedy": false
+    },
+    {
+        "timestep": 335,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.08170610226882843,
+        "agg_load": 2.0426525567207108,
+        "is_greedy": true
+    },
+    {
+        "timestep": 336,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07909150699622593,
+        "agg_load": 1.977287674905648,
+        "is_greedy": true
+    },
+    {
+        "timestep": 337,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.06074227737310151,
+        "agg_load": 2.0247425791033837,
+        "is_greedy": false
+    },
+    {
+        "timestep": 338,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.041142769207380754,
+        "agg_load": 2.0571384603690377,
+        "is_greedy": false
+    },
+    {
+        "timestep": 339,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07965240118548915,
+        "agg_load": 1.9913100296372286,
+        "is_greedy": true
+    },
+    {
+        "timestep": 340,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07710352434755349,
+        "agg_load": 1.9275881086888373,
+        "is_greedy": true
+    },
+    {
+        "timestep": 341,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07463621156843178,
+        "agg_load": 1.8659052892107946,
+        "is_greedy": false
+    },
+    {
+        "timestep": 342,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07224785279824196,
+        "agg_load": 1.8061963199560491,
+        "is_greedy": true
+    },
+    {
+        "timestep": 343,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06993592150869822,
+        "agg_load": 1.7483980377174555,
+        "is_greedy": true
+    },
+    {
+        "timestep": 344,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06769797202041988,
+        "agg_load": 1.692449300510497,
+        "is_greedy": true
+    },
+    {
+        "timestep": 345,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06553163691576644,
+        "agg_load": 1.6382909228941611,
+        "is_greedy": true
+    },
+    {
+        "timestep": 346,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06343462453446191,
+        "agg_load": 1.5858656133615479,
+        "is_greedy": true
+    },
+    {
+        "timestep": 347,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06140471654935913,
+        "agg_load": 1.5351179137339783,
+        "is_greedy": true
+    },
+    {
+        "timestep": 348,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05943976561977964,
+        "agg_load": 1.485994140494491,
+        "is_greedy": true
+    },
+    {
+        "timestep": 349,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 1.485994140494491,
+        "is_greedy": false
+    },
+    {
+        "timestep": 350,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05753769311994669,
+        "agg_load": 1.4384423279986673,
+        "is_greedy": true
+    },
+    {
+        "timestep": 351,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0556964869401084,
+        "agg_load": 1.39241217350271,
+        "is_greedy": true
+    },
+    {
+        "timestep": 352,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05391419935802493,
+        "agg_load": 1.3478549839506233,
+        "is_greedy": true
+    },
+    {
+        "timestep": 353,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05218894497856813,
+        "agg_load": 1.3047236244642033,
+        "is_greedy": true
+    },
+    {
+        "timestep": 354,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.050518898739253956,
+        "agg_load": 1.2629724684813488,
+        "is_greedy": true
+    },
+    {
+        "timestep": 355,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.048902293979597826,
+        "agg_load": 1.2225573494899455,
+        "is_greedy": true
+    },
+    {
+        "timestep": 356,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.047337420572250696,
+        "agg_load": 1.1834355143062674,
+        "is_greedy": true
+    },
+    {
+        "timestep": 357,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04582262311393867,
+        "agg_load": 1.1455655778484668,
+        "is_greedy": true
+    },
+    {
+        "timestep": 358,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04435629917429264,
+        "agg_load": 1.108907479357316,
+        "is_greedy": true
+    },
+    {
+        "timestep": 359,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04293689760071527,
+        "agg_load": 1.0734224400178818,
+        "is_greedy": true
+    },
+    {
+        "timestep": 360,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04156291687749238,
+        "agg_load": 1.0390729219373096,
+        "is_greedy": true
+    },
+    {
+        "timestep": 361,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.040232903537412636,
+        "agg_load": 1.0058225884353158,
+        "is_greedy": true
+    },
+    {
+        "timestep": 362,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 363,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 364,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 365,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.01,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 366,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 367,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 368,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 369,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 370,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 371,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.041280000000000004,
+        "agg_load": 1.032,
+        "is_greedy": false
+    },
+    {
+        "timestep": 372,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 373,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.02,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 374,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 375,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.03,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 376,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 377,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 378,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 379,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 380,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 381,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.03072,
+        "agg_load": 1.024,
+        "is_greedy": false
+    },
+    {
+        "timestep": 382,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 383,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 384,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 385,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 386,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.02,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 387,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 388,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052000000000000005,
+        "agg_load": 1.04,
+        "is_greedy": true
+    },
+    {
+        "timestep": 389,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0402688,
+        "agg_load": 1.00672,
+        "is_greedy": true
+    },
+    {
+        "timestep": 390,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052349440000000004,
+        "agg_load": 1.0469888,
+        "is_greedy": true
+    },
+    {
+        "timestep": 391,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.040539406336,
+        "agg_load": 1.0134851584,
+        "is_greedy": true
+    },
+    {
+        "timestep": 392,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052701228236800006,
+        "agg_load": 1.054024564736,
+        "is_greedy": true
+    },
+    {
+        "timestep": 393,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04081183114657792,
+        "agg_load": 1.020295778664448,
+        "is_greedy": true
+    },
+    {
+        "timestep": 394,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0530553804905513,
+        "agg_load": 1.061107609811026,
+        "is_greedy": true
+    },
+    {
+        "timestep": 395,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.041086086651882923,
+        "agg_load": 1.027152166297073,
+        "is_greedy": true
+    },
+    {
+        "timestep": 396,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0534119126474478,
+        "agg_load": 1.068238252948956,
+        "is_greedy": true
+    },
+    {
+        "timestep": 397,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.041362185154183585,
+        "agg_load": 1.0340546288545895,
+        "is_greedy": true
+    },
+    {
+        "timestep": 398,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.030277119532862384,
+        "agg_load": 1.0092373177620795,
+        "is_greedy": false
+    },
+    {
+        "timestep": 399,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052480340523628134,
+        "agg_load": 1.0496068104725627,
+        "is_greedy": true
+    },
+    {
+        "timestep": 400,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04064077570149762,
+        "agg_load": 1.0160193925374406,
+        "is_greedy": true
+    },
+    {
+        "timestep": 401,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052833008411946915,
+        "agg_load": 1.0566601682389383,
+        "is_greedy": false
+    },
+    {
+        "timestep": 402,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04091388171421169,
+        "agg_load": 1.0228470428552923,
+        "is_greedy": true
+    },
+    {
+        "timestep": 403,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.02012962980339215,
+        "agg_load": 1.0064814901696075,
+        "is_greedy": false
+    },
+    {
+        "timestep": 404,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.020451703880246423,
+        "agg_load": 1.0225851940123212,
+        "is_greedy": false
+    },
+    {
+        "timestep": 405,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 406,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 407,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 408,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 409,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 410,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.041280000000000004,
+        "agg_load": 1.032,
+        "is_greedy": false
+    },
+    {
+        "timestep": 411,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 412,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.05,
+        "agg_load": 1,
+        "is_greedy": false
+    },
+    {
+        "timestep": 413,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.03072,
+        "agg_load": 1.024,
+        "is_greedy": false
+    },
+    {
+        "timestep": 414,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04,
+        "agg_load": 1,
+        "is_greedy": true
+    },
+    {
+        "timestep": 415,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052000000000000005,
+        "agg_load": 1.04,
+        "is_greedy": true
+    },
+    {
+        "timestep": 416,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0402688,
+        "agg_load": 1.00672,
+        "is_greedy": true
+    },
+    {
+        "timestep": 417,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052349440000000004,
+        "agg_load": 1.0469888,
+        "is_greedy": true
+    },
+    {
+        "timestep": 418,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.040539406336,
+        "agg_load": 1.0134851584,
+        "is_greedy": true
+    },
+    {
+        "timestep": 419,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.031134264066047995,
+        "agg_load": 1.0378088022015999,
+        "is_greedy": false
+    },
+    {
+        "timestep": 420,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.04018395682124595,
+        "agg_load": 1.0045989205311487,
+        "is_greedy": true
+    },
+    {
+        "timestep": 421,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.052239143867619735,
+        "agg_load": 1.0447828773523946,
+        "is_greedy": true
+    },
+    {
+        "timestep": 422,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.020561327026295127,
+        "agg_load": 1.0280663513147563,
+        "is_greedy": false
+    },
+    {
+        "timestep": 423,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05345945026836733,
+        "agg_load": 1.0691890053673465,
+        "is_greedy": true
+    },
+    {
+        "timestep": 424,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05559782827910203,
+        "agg_load": 1.1119565655820405,
+        "is_greedy": false
+    },
+    {
+        "timestep": 425,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.05782174141026611,
+        "agg_load": 1.156434828205322,
+        "is_greedy": true
+    },
+    {
+        "timestep": 426,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06013461106667675,
+        "agg_load": 1.202692221333535,
+        "is_greedy": true
+    },
+    {
+        "timestep": 427,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06253999550934382,
+        "agg_load": 1.2507999101868763,
+        "is_greedy": true
+    },
+    {
+        "timestep": 428,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06504159532971758,
+        "agg_load": 1.3008319065943514,
+        "is_greedy": true
+    },
+    {
+        "timestep": 429,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06764325914290628,
+        "agg_load": 1.3528651828581255,
+        "is_greedy": true
+    },
+    {
+        "timestep": 430,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.055846274748383426,
+        "agg_load": 1.3961568687095856,
+        "is_greedy": false
+    },
+    {
+        "timestep": 431,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07260015717289846,
+        "agg_load": 1.452003143457969,
+        "is_greedy": true
+    },
+    {
+        "timestep": 432,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0755041634598144,
+        "agg_load": 1.5100832691962878,
+        "is_greedy": true
+    },
+    {
+        "timestep": 433,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07852432999820697,
+        "agg_load": 1.5704865999641393,
+        "is_greedy": true
+    },
+    {
+        "timestep": 434,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08166530319813525,
+        "agg_load": 1.6333060639627048,
+        "is_greedy": true
+    },
+    {
+        "timestep": 435,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08493191532606065,
+        "agg_load": 1.698638306521213,
+        "is_greedy": true
+    },
+    {
+        "timestep": 436,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08832919193910307,
+        "agg_load": 1.7665838387820614,
+        "is_greedy": true
+    },
+    {
+        "timestep": 437,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06840212623764141,
+        "agg_load": 1.7100531559410355,
+        "is_greedy": true
+    },
+    {
+        "timestep": 438,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06621325819803689,
+        "agg_load": 1.6553314549509224,
+        "is_greedy": true
+    },
+    {
+        "timestep": 439,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06409443393569972,
+        "agg_load": 1.602360848392493,
+        "is_greedy": true
+    },
+    {
+        "timestep": 440,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06204341204975733,
+        "agg_load": 1.5510853012439332,
+        "is_greedy": true
+    },
+    {
+        "timestep": 441,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.060058022864165096,
+        "agg_load": 1.5014505716041273,
+        "is_greedy": true
+    },
+    {
+        "timestep": 442,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05813616613251181,
+        "agg_load": 1.4534041533127953,
+        "is_greedy": true
+    },
+    {
+        "timestep": 443,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05627580881627143,
+        "agg_load": 1.4068952204067857,
+        "is_greedy": true
+    },
+    {
+        "timestep": 444,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05447498293415074,
+        "agg_load": 1.3618745733537685,
+        "is_greedy": true
+    },
+    {
+        "timestep": 445,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05273178348025792,
+        "agg_load": 1.318294587006448,
+        "is_greedy": true
+    },
+    {
+        "timestep": 446,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.051044366408889666,
+        "agg_load": 1.2761091602222416,
+        "is_greedy": true
+    },
+    {
+        "timestep": 447,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0494109466838052,
+        "agg_load": 1.2352736670951299,
+        "is_greedy": true
+    },
+    {
+        "timestep": 448,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.01245155856431891,
+        "agg_load": 1.245155856431891,
+        "is_greedy": false
+    },
+    {
+        "timestep": 449,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.012551171032833461,
+        "agg_load": 1.2551171032833461,
+        "is_greedy": false
+    },
+    {
+        "timestep": 450,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06526608937073401,
+        "agg_load": 1.30532178741468,
+        "is_greedy": true
+    },
+    {
+        "timestep": 451,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.05054205960869641,
+        "agg_load": 1.2635514902174103,
+        "is_greedy": true
+    },
+    {
+        "timestep": 452,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.0521594055161747,
+        "agg_load": 1.3039851379043674,
+        "is_greedy": false
+    },
+    {
+        "timestep": 453,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0504903045396571,
+        "agg_load": 1.2622576134914276,
+        "is_greedy": true
+    },
+    {
+        "timestep": 454,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06563739590155425,
+        "agg_load": 1.3127479180310848,
+        "is_greedy": true
+    },
+    {
+        "timestep": 455,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.050829599386163604,
+        "agg_load": 1.27073998465409,
+        "is_greedy": true
+    },
+    {
+        "timestep": 456,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.049203052205806376,
+        "agg_load": 1.2300763051451593,
+        "is_greedy": false
+    },
+    {
+        "timestep": 457,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0639639678675483,
+        "agg_load": 1.2792793573509658,
+        "is_greedy": true
+    },
+    {
+        "timestep": 458,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0495336967166294,
+        "agg_load": 1.238342417915735,
+        "is_greedy": true
+    },
+    {
+        "timestep": 459,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06439380573161822,
+        "agg_load": 1.2878761146323643,
+        "is_greedy": true
+    },
+    {
+        "timestep": 460,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.012775731057153055,
+        "agg_load": 1.2775731057153055,
+        "is_greedy": false
+    },
+    {
+        "timestep": 461,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0664338014971959,
+        "agg_load": 1.3286760299439178,
+        "is_greedy": false
+    },
+    {
+        "timestep": 462,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.0514463358794285,
+        "agg_load": 1.2861583969857124,
+        "is_greedy": true
+    },
+    {
+        "timestep": 463,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06688023664325705,
+        "agg_load": 1.337604732865141,
+        "is_greedy": true
+    },
+    {
+        "timestep": 464,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.026324061142785977,
+        "agg_load": 1.3162030571392989,
+        "is_greedy": false
+    },
+    {
+        "timestep": 465,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.06844255897124354,
+        "agg_load": 1.3688511794248708,
+        "is_greedy": true
+    },
+    {
+        "timestep": 466,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0711802613300933,
+        "agg_load": 1.4236052266018657,
+        "is_greedy": true
+    },
+    {
+        "timestep": 467,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07402747178329702,
+        "agg_load": 1.4805494356659403,
+        "is_greedy": true
+    },
+    {
+        "timestep": 468,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.01492393831151268,
+        "agg_load": 1.492393831151268,
+        "is_greedy": false
+    },
+    {
+        "timestep": 469,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.07760447921986594,
+        "agg_load": 1.5520895843973186,
+        "is_greedy": true
+    },
+    {
+        "timestep": 470,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.04768019203268562,
+        "agg_load": 1.5893397344228541,
+        "is_greedy": false
+    },
+    {
+        "timestep": 471,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.06153923451685292,
+        "agg_load": 1.538480862921323,
+        "is_greedy": false
+    },
+    {
+        "timestep": 472,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.015507887098246936,
+        "agg_load": 1.5507887098246935,
+        "is_greedy": false
+    },
+    {
+        "timestep": 473,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08064101291088407,
+        "agg_load": 1.6128202582176814,
+        "is_greedy": true
+    },
+    {
+        "timestep": 474,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08386665342731944,
+        "agg_load": 1.6773330685463888,
+        "is_greedy": true
+    },
+    {
+        "timestep": 475,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.051527671865745056,
+        "agg_load": 1.717589062191502,
+        "is_greedy": false
+    },
+    {
+        "timestep": 476,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.050291007740967175,
+        "agg_load": 1.676366924698906,
+        "is_greedy": false
+    },
+    {
+        "timestep": 477,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.034063775909881765,
+        "agg_load": 1.7031887954940883,
+        "is_greedy": false
+    },
+    {
+        "timestep": 478,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 1.7031887954940883,
+        "is_greedy": false
+    },
+    {
+        "timestep": 479,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.08856581736569259,
+        "agg_load": 1.7713163473138518,
+        "is_greedy": true
+    },
+    {
+        "timestep": 480,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.0921084500603203,
+        "agg_load": 1.8421690012064058,
+        "is_greedy": false
+    },
+    {
+        "timestep": 481,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09579278806273311,
+        "agg_load": 1.915855761254662,
+        "is_greedy": true
+    },
+    {
+        "timestep": 482,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09962449958524244,
+        "agg_load": 1.9924899917048486,
+        "is_greedy": true
+    },
+    {
+        "timestep": 483,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.07714921247881174,
+        "agg_load": 1.9287303119702934,
+        "is_greedy": false
+    },
+    {
+        "timestep": 484,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.019133004694745312,
+        "agg_load": 1.913300469474531,
+        "is_greedy": false
+    },
+    {
+        "timestep": 485,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.09949162441267562,
+        "agg_load": 1.9898324882535123,
+        "is_greedy": true
+    },
+    {
+        "timestep": 486,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.10347128938918265,
+        "agg_load": 2.069425787783653,
+        "is_greedy": true
+    },
+    {
+        "timestep": 487,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.042050732007763825,
+        "agg_load": 2.1025366003881913,
+        "is_greedy": false
+    },
+    {
+        "timestep": 488,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.10933190322018596,
+        "agg_load": 2.186638064403719,
+        "is_greedy": true
+    },
+    {
+        "timestep": 489,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.084666625853712,
+        "agg_load": 2.1166656463428,
+        "is_greedy": false
+    },
+    {
+        "timestep": 490,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.0416559799200263,
+        "agg_load": 2.082798996001315,
+        "is_greedy": false
+    },
+    {
+        "timestep": 491,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.10830554779206839,
+        "agg_load": 2.1661109558413676,
+        "is_greedy": true
+    },
+    {
+        "timestep": 492,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11263776970375113,
+        "agg_load": 2.2527553940750225,
+        "is_greedy": true
+    },
+    {
+        "timestep": 493,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.11714328049190117,
+        "agg_load": 2.3428656098380234,
+        "is_greedy": true
+    },
+    {
+        "timestep": 494,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.07197283153422407,
+        "agg_load": 2.399094384474136,
+        "is_greedy": false
+    },
+    {
+        "timestep": 495,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.12475290799265507,
+        "agg_load": 2.495058159853101,
+        "is_greedy": true
+    },
+    {
+        "timestep": 496,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.12974302431236126,
+        "agg_load": 2.5948604862472253,
+        "is_greedy": true
+    },
+    {
+        "timestep": 497,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.13493274528485574,
+        "agg_load": 2.6986549056971145,
+        "is_greedy": true
+    },
+    {
+        "timestep": 498,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.1295354354734615,
+        "agg_load": 2.59070870946923,
+        "is_greedy": false
+    },
+    {
+        "timestep": 499,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.13471685289239996,
+        "agg_load": 2.6943370578479993,
+        "is_greedy": true
+    },
+    {
+        "timestep": 500,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.07889018905378942,
+        "agg_load": 2.6296729684596474,
+        "is_greedy": false
+    },
+    {
+        "timestep": 501,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.13674299435990167,
+        "agg_load": 2.7348598871980334,
+        "is_greedy": true
+    },
+    {
+        "timestep": 502,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14221271413429776,
+        "agg_load": 2.844254282685955,
+        "is_greedy": true
+    },
+    {
+        "timestep": 503,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.08737549156411253,
+        "agg_load": 2.912516385470418,
+        "is_greedy": false
+    },
+    {
+        "timestep": 504,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11277263444541458,
+        "agg_load": 2.8193158611353644,
+        "is_greedy": true
+    },
+    {
+        "timestep": 505,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14660442477903896,
+        "agg_load": 2.932088495580779,
+        "is_greedy": true
+    },
+    {
+        "timestep": 506,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11353046654888775,
+        "agg_load": 2.838261663722194,
+        "is_greedy": true
+    },
+    {
+        "timestep": 507,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1475896065135541,
+        "agg_load": 2.9517921302710817,
+        "is_greedy": true
+    },
+    {
+        "timestep": 508,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.02928177793228913,
+        "agg_load": 2.928177793228913,
+        "is_greedy": false
+    },
+    {
+        "timestep": 509,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11337904415382351,
+        "agg_load": 2.8344761038455877,
+        "is_greedy": true
+    },
+    {
+        "timestep": 510,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.028571519126763523,
+        "agg_load": 2.8571519126763523,
+        "is_greedy": false
+    },
+    {
+        "timestep": 511,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14857189945917032,
+        "agg_load": 2.971437989183406,
+        "is_greedy": true
+    },
+    {
+        "timestep": 512,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11505407894118148,
+        "agg_load": 2.876351973529537,
+        "is_greedy": true
+    },
+    {
+        "timestep": 513,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.1187358094672993,
+        "agg_load": 2.968395236682482,
+        "is_greedy": false
+    },
+    {
+        "timestep": 514,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11493626356434572,
+        "agg_load": 2.873406589108643,
+        "is_greedy": true
+    },
+    {
+        "timestep": 515,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11125830313028665,
+        "agg_load": 2.781457578257166,
+        "is_greedy": true
+    },
+    {
+        "timestep": 516,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.133509963756344,
+        "agg_load": 2.6701992751268797,
+        "is_greedy": false
+    },
+    {
+        "timestep": 517,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.13885036230659775,
+        "agg_load": 2.777007246131955,
+        "is_greedy": true
+    },
+    {
+        "timestep": 518,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.056428787241401324,
+        "agg_load": 2.821439362070066,
+        "is_greedy": false
+    },
+    {
+        "timestep": 519,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14671484682764344,
+        "agg_load": 2.934296936552869,
+        "is_greedy": true
+    },
+    {
+        "timestep": 520,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11361597738332709,
+        "agg_load": 2.840399434583177,
+        "is_greedy": true
+    },
+    {
+        "timestep": 521,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1477007705983252,
+        "agg_load": 2.954015411966504,
+        "is_greedy": true
+    },
+    {
+        "timestep": 522,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11437947675134304,
+        "agg_load": 2.859486918783576,
+        "is_greedy": true
+    },
+    {
+        "timestep": 523,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14869331977674594,
+        "agg_load": 2.9738663955349187,
+        "is_greedy": true
+    },
+    {
+        "timestep": 524,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11514810683511206,
+        "agg_load": 2.8787026708778014,
+        "is_greedy": true
+    },
+    {
+        "timestep": 525,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14969253888564568,
+        "agg_load": 2.9938507777129133,
+        "is_greedy": true
+    },
+    {
+        "timestep": 526,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.14370483733021985,
+        "agg_load": 2.8740967466043967,
+        "is_greedy": false
+    },
+    {
+        "timestep": 527,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14945303082342862,
+        "agg_load": 2.9890606164685725,
+        "is_greedy": true
+    },
+    {
+        "timestep": 528,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11573642706966313,
+        "agg_load": 2.893410676741578,
+        "is_greedy": false
+    },
+    {
+        "timestep": 529,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11203286140343391,
+        "agg_load": 2.8008215350858476,
+        "is_greedy": true
+    },
+    {
+        "timestep": 530,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14564271982446408,
+        "agg_load": 2.9128543964892817,
+        "is_greedy": true
+    },
+    {
+        "timestep": 531,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.02936157231661196,
+        "agg_load": 2.936157231661196,
+        "is_greedy": false
+    },
+    {
+        "timestep": 532,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11368800800992152,
+        "agg_load": 2.8422002002480378,
+        "is_greedy": true
+    },
+    {
+        "timestep": 533,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14779441041289795,
+        "agg_load": 2.955888208257959,
+        "is_greedy": true
+    },
+    {
+        "timestep": 534,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11445199142374818,
+        "agg_load": 2.8612997855937046,
+        "is_greedy": true
+    },
+    {
+        "timestep": 535,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14878758885087265,
+        "agg_load": 2.975751777017453,
+        "is_greedy": true
+    },
+    {
+        "timestep": 536,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11522110880611579,
+        "agg_load": 2.8805277201528945,
+        "is_greedy": true
+    },
+    {
+        "timestep": 537,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1497874414479505,
+        "agg_load": 2.99574882895901,
+        "is_greedy": true
+    },
+    {
+        "timestep": 538,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11599539465729289,
+        "agg_load": 2.899884866432322,
+        "is_greedy": true
+    },
+    {
+        "timestep": 539,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.11970724728632626,
+        "agg_load": 2.9926811821581563,
+        "is_greedy": false
+    },
+    {
+        "timestep": 540,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11587661537316381,
+        "agg_load": 2.896915384329095,
+        "is_greedy": true
+    },
+    {
+        "timestep": 541,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15063959998511295,
+        "agg_load": 3.0127919997022587,
+        "is_greedy": true
+    },
+    {
+        "timestep": 542,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11665530622847146,
+        "agg_load": 2.9163826557117867,
+        "is_greedy": false
+    },
+    {
+        "timestep": 543,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11292233642916039,
+        "agg_load": 2.8230584107290095,
+        "is_greedy": true
+    },
+    {
+        "timestep": 544,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.05555778952314691,
+        "agg_load": 2.7778894761573456,
+        "is_greedy": false
+    },
+    {
+        "timestep": 545,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14445025276018197,
+        "agg_load": 2.8890050552036395,
+        "is_greedy": true
+    },
+    {
+        "timestep": 546,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15022826287058927,
+        "agg_load": 3.004565257411785,
+        "is_greedy": true
+    },
+    {
+        "timestep": 547,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.08797367073701706,
+        "agg_load": 2.932455691233902,
+        "is_greedy": false
+    },
+    {
+        "timestep": 548,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15248769594416292,
+        "agg_load": 3.0497539188832583,
+        "is_greedy": true
+    },
+    {
+        "timestep": 549,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.030253558875321926,
+        "agg_load": 3.0253558875321924,
+        "is_greedy": false
+    },
+    {
+        "timestep": 550,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1171417799652465,
+        "agg_load": 2.928544499131162,
+        "is_greedy": true
+    },
+    {
+        "timestep": 551,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11339324300635861,
+        "agg_load": 2.834831075158965,
+        "is_greedy": true
+    },
+    {
+        "timestep": 552,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1474112159082662,
+        "agg_load": 2.9482243181653236,
+        "is_greedy": true
+    },
+    {
+        "timestep": 553,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15330766454459685,
+        "agg_load": 3.0661532908919367,
+        "is_greedy": true
+    },
+    {
+        "timestep": 554,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11872145542333579,
+        "agg_load": 2.9680363855833947,
+        "is_greedy": true
+    },
+    {
+        "timestep": 555,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11492236884978904,
+        "agg_load": 2.873059221244726,
+        "is_greedy": true
+    },
+    {
+        "timestep": 556,
+        "reward_price": [
+            -0.0
+        ],
+        "agg_cost": -0.0,
+        "agg_load": 2.873059221244726,
+        "is_greedy": false
+    },
+    {
+        "timestep": 557,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14939907950472575,
+        "agg_load": 2.987981590094515,
+        "is_greedy": true
+    },
+    {
+        "timestep": 558,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.05880347769306006,
+        "agg_load": 2.940173884653003,
+        "is_greedy": false
+    },
+    {
+        "timestep": 559,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1528890420019562,
+        "agg_load": 3.0577808400391233,
+        "is_greedy": true
+    },
+    {
+        "timestep": 560,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 3.0577808400391233,
+        "is_greedy": false
+    },
+    {
+        "timestep": 561,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11839727412631486,
+        "agg_load": 2.9599318531578716,
+        "is_greedy": true
+    },
+    {
+        "timestep": 562,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15391645636420934,
+        "agg_load": 3.0783291272841864,
+        "is_greedy": true
+    },
+    {
+        "timestep": 563,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1191929038084437,
+        "agg_load": 2.9798225952110924,
+        "is_greedy": true
+    },
+    {
+        "timestep": 564,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1153787308865735,
+        "agg_load": 2.8844682721643373,
+        "is_greedy": true
+    },
+    {
+        "timestep": 565,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14999235015254556,
+        "agg_load": 2.999847003050911,
+        "is_greedy": true
+    },
+    {
+        "timestep": 566,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.02975848227026504,
+        "agg_load": 2.975848227026504,
+        "is_greedy": false
+    },
+    {
+        "timestep": 567,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1547441078053782,
+        "agg_load": 3.094882156107564,
+        "is_greedy": true
+    },
+    {
+        "timestep": 568,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.12775673540412025,
+        "agg_load": 3.193918385103006,
+        "is_greedy": false
+    },
+    {
+        "timestep": 569,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12366851987118839,
+        "agg_load": 3.0917129967797097,
+        "is_greedy": true
+    },
+    {
+        "timestep": 570,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11971112723531036,
+        "agg_load": 2.992778180882759,
+        "is_greedy": true
+    },
+    {
+        "timestep": 571,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11588037116378043,
+        "agg_load": 2.897009279094511,
+        "is_greedy": true
+    },
+    {
+        "timestep": 572,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15064448251291457,
+        "agg_load": 3.012889650258291,
+        "is_greedy": true
+    },
+    {
+        "timestep": 573,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11665908725800103,
+        "agg_load": 2.9164771814500257,
+        "is_greedy": true
+    },
+    {
+        "timestep": 574,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15165681343540136,
+        "agg_load": 3.0331362687080268,
+        "is_greedy": true
+    },
+    {
+        "timestep": 575,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11744303632437479,
+        "agg_load": 2.9360759081093697,
+        "is_greedy": true
+    },
+    {
+        "timestep": 576,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15267594722168723,
+        "agg_load": 3.0535189444337445,
+        "is_greedy": true
+    },
+    {
+        "timestep": 577,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.030779470959892145,
+        "agg_load": 3.0779470959892143,
+        "is_greedy": false
+    },
+    {
+        "timestep": 578,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11917811155670238,
+        "agg_load": 2.9794527889175595,
+        "is_greedy": true
+    },
+    {
+        "timestep": 579,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.029556171666062194,
+        "agg_load": 2.955617166606219,
+        "is_greedy": false
+    },
+    {
+        "timestep": 580,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11444149669099281,
+        "agg_load": 2.86103741727482,
+        "is_greedy": true
+    },
+    {
+        "timestep": 581,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14877394569829067,
+        "agg_load": 2.975478913965813,
+        "is_greedy": true
+    },
+    {
+        "timestep": 582,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11521054354875629,
+        "agg_load": 2.880263588718907,
+        "is_greedy": true
+    },
+    {
+        "timestep": 583,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14977370661338318,
+        "agg_load": 2.9954741322676637,
+        "is_greedy": true
+    },
+    {
+        "timestep": 584,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11598475840140393,
+        "agg_load": 2.8996189600350983,
+        "is_greedy": true
+    },
+    {
+        "timestep": 585,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.0589202572679132,
+        "agg_load": 2.94601286339566,
+        "is_greedy": false
+    },
+    {
+        "timestep": 586,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15319266889657435,
+        "agg_load": 3.0638533779314865,
+        "is_greedy": true
+    },
+    {
+        "timestep": 587,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1593203756524373,
+        "agg_load": 3.186407513048746,
+        "is_greedy": false
+    },
+    {
+        "timestep": 588,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12337769890524745,
+        "agg_load": 3.0844424726311863,
+        "is_greedy": true
+    },
+    {
+        "timestep": 589,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11942961254027953,
+        "agg_load": 2.985740313506988,
+        "is_greedy": true
+    },
+    {
+        "timestep": 590,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11560786493899058,
+        "agg_load": 2.8901966234747647,
+        "is_greedy": true
+    },
+    {
+        "timestep": 591,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11190841326094289,
+        "agg_load": 2.797710331523572,
+        "is_greedy": true
+    },
+    {
+        "timestep": 592,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.08191695850701018,
+        "agg_load": 2.7305652835670062,
+        "is_greedy": false
+    },
+    {
+        "timestep": 593,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.053737524780598685,
+        "agg_load": 2.6868762390299343,
+        "is_greedy": false
+    },
+    {
+        "timestep": 594,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 2.6868762390299343,
+        "is_greedy": false
+    },
+    {
+        "timestep": 595,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1397175644295566,
+        "agg_load": 2.7943512885911317,
+        "is_greedy": true
+    },
+    {
+        "timestep": 596,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14530626700673885,
+        "agg_load": 2.906125340134777,
+        "is_greedy": true
+    },
+    {
+        "timestep": 597,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15111851768700843,
+        "agg_load": 3.0223703537401683,
+        "is_greedy": true
+    },
+    {
+        "timestep": 598,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15716325839448875,
+        "agg_load": 3.143265167889775,
+        "is_greedy": true
+    },
+    {
+        "timestep": 599,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.09203480411581261,
+        "agg_load": 3.06782680386042,
+        "is_greedy": false
+    },
+    {
+        "timestep": 600,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11878625384547548,
+        "agg_load": 2.969656346136887,
+        "is_greedy": true
+    },
+    {
+        "timestep": 601,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.09122784295332516,
+        "agg_load": 3.040928098444172,
+        "is_greedy": false
+    },
+    {
+        "timestep": 602,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11774473597175834,
+        "agg_load": 2.9436183992939586,
+        "is_greedy": true
+    },
+    {
+        "timestep": 603,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15306815676328586,
+        "agg_load": 3.061363135265717,
+        "is_greedy": true
+    },
+    {
+        "timestep": 604,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11853598059748857,
+        "agg_load": 2.963399514937214,
+        "is_greedy": true
+    },
+    {
+        "timestep": 605,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15409677477673514,
+        "agg_load": 3.0819354955347027,
+        "is_greedy": true
+    },
+    {
+        "timestep": 606,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11933254238710368,
+        "agg_load": 2.983313559677592,
+        "is_greedy": true
+    },
+    {
+        "timestep": 607,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1551323051032348,
+        "agg_load": 3.102646102064696,
+        "is_greedy": false
+    },
+    {
+        "timestep": 608,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12013445707194503,
+        "agg_load": 3.0033614267986257,
+        "is_greedy": true
+    },
+    {
+        "timestep": 609,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1162901544456428,
+        "agg_load": 2.90725386114107,
+        "is_greedy": true
+    },
+    {
+        "timestep": 610,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15117720077933564,
+        "agg_load": 3.0235440155867126,
+        "is_greedy": true
+    },
+    {
+        "timestep": 611,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15722428881050907,
+        "agg_load": 3.144485776210181,
+        "is_greedy": true
+    },
+    {
+        "timestep": 612,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.061883480075816365,
+        "agg_load": 3.094174003790818,
+        "is_greedy": false
+    },
+    {
+        "timestep": 613,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11980641742678047,
+        "agg_load": 2.995160435669512,
+        "is_greedy": true
+    },
+    {
+        "timestep": 614,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1159726120691235,
+        "agg_load": 2.8993153017280875,
+        "is_greedy": true
+    },
+    {
+        "timestep": 615,
+        "reward_price": [
+            -0.0
+        ],
+        "agg_cost": -0.0,
+        "agg_load": 2.8993153017280875,
+        "is_greedy": false
+    },
+    {
+        "timestep": 616,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.08906696606908684,
+        "agg_load": 2.9688988689695615,
+        "is_greedy": false
+    },
+    {
+        "timestep": 617,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11495576420650143,
+        "agg_load": 2.8738941051625355,
+        "is_greedy": false
+    },
+    {
+        "timestep": 618,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14944249346845184,
+        "agg_load": 2.988849869369037,
+        "is_greedy": true
+    },
+    {
+        "timestep": 619,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15542019320718992,
+        "agg_load": 3.1084038641437983,
+        "is_greedy": true
+    },
+    {
+        "timestep": 620,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.03083536633230648,
+        "agg_load": 3.083536633230648,
+        "is_greedy": false
+    },
+    {
+        "timestep": 621,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1603439049279937,
+        "agg_load": 3.2068780985598737,
+        "is_greedy": true
+    },
+    {
+        "timestep": 622,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1241703199762383,
+        "agg_load": 3.1042579994059576,
+        "is_greedy": true
+    },
+    {
+        "timestep": 623,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12019686973699868,
+        "agg_load": 3.004921743424967,
+        "is_greedy": true
+    },
+    {
+        "timestep": 624,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15625593065809829,
+        "agg_load": 3.1251186131619657,
+        "is_greedy": true
+    },
+    {
+        "timestep": 625,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16250616788442224,
+        "agg_load": 3.2501233576884445,
+        "is_greedy": true
+    },
+    {
+        "timestep": 626,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12584477640969657,
+        "agg_load": 3.1461194102424144,
+        "is_greedy": true
+    },
+    {
+        "timestep": 627,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12181774356458629,
+        "agg_load": 3.045443589114657,
+        "is_greedy": true
+    },
+    {
+        "timestep": 628,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.030698071378275748,
+        "agg_load": 3.0698071378275746,
+        "is_greedy": false
+    },
+    {
+        "timestep": 629,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1596299711670339,
+        "agg_load": 3.1925994233406776,
+        "is_greedy": true
+    },
+    {
+        "timestep": 630,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.06283035665134454,
+        "agg_load": 3.1415178325672266,
+        "is_greedy": false
+    },
+    {
+        "timestep": 631,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1633589272934958,
+        "agg_load": 3.267178545869916,
+        "is_greedy": true
+    },
+    {
+        "timestep": 632,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16989328438523565,
+        "agg_load": 3.3978656877047126,
+        "is_greedy": true
+    },
+    {
+        "timestep": 633,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.13156535942792646,
+        "agg_load": 3.289133985698162,
+        "is_greedy": true
+    },
+    {
+        "timestep": 634,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12735526792623283,
+        "agg_load": 3.1838816981558207,
+        "is_greedy": true
+    },
+    {
+        "timestep": 635,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.09322405612200242,
+        "agg_load": 3.1074685374000808,
+        "is_greedy": false
+    },
+    {
+        "timestep": 636,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16158836394480422,
+        "agg_load": 3.231767278896084,
+        "is_greedy": true
+    },
+    {
+        "timestep": 637,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1680518985025964,
+        "agg_load": 3.3610379700519273,
+        "is_greedy": true
+    },
+    {
+        "timestep": 638,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 3.3610379700519273,
+        "is_greedy": false
+    },
+    {
+        "timestep": 639,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.17477397444270024,
+        "agg_load": 3.4954794888540044,
+        "is_greedy": true
+    },
+    {
+        "timestep": 640,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.18176493342040823,
+        "agg_load": 3.6352986684081645,
+        "is_greedy": true
+    },
+    {
+        "timestep": 641,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.18903553075722457,
+        "agg_load": 3.780710615144491,
+        "is_greedy": true
+    },
+    {
+        "timestep": 642,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.19659695198751354,
+        "agg_load": 3.9319390397502705,
+        "is_greedy": true
+    },
+    {
+        "timestep": 643,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.20446083006701407,
+        "agg_load": 4.089216601340281,
+        "is_greedy": true
+    },
+    {
+        "timestep": 644,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.21263926326969462,
+        "agg_load": 4.252785265393892,
+        "is_greedy": true
+    },
+    {
+        "timestep": 645,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.17555497575545986,
+        "agg_load": 4.388874393886496,
+        "is_greedy": false
+    },
+    {
+        "timestep": 646,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.2282214684820978,
+        "agg_load": 4.564429369641956,
+        "is_greedy": true
+    },
+    {
+        "timestep": 647,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.14021927023540087,
+        "agg_load": 4.673975674513363,
+        "is_greedy": false
+    },
+    {
+        "timestep": 648,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.24304673507469488,
+        "agg_load": 4.860934701493897,
+        "is_greedy": true
+    },
+    {
+        "timestep": 649,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.2527686044776826,
+        "agg_load": 5.055372089553653,
+        "is_greedy": true
+    },
+    {
+        "timestep": 650,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.2628793486567899,
+        "agg_load": 5.2575869731357985,
+        "is_greedy": true
+    },
+    {
+        "timestep": 651,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.2733945226030616,
+        "agg_load": 5.467890452061231,
+        "is_greedy": true
+    },
+    {
+        "timestep": 652,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.2257145178610876,
+        "agg_load": 5.64286294652719,
+        "is_greedy": false
+    },
+    {
+        "timestep": 653,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.29342887321941385,
+        "agg_load": 5.868577464388277,
+        "is_greedy": false
+    },
+    {
+        "timestep": 654,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.30516602814819044,
+        "agg_load": 6.103320562963808,
+        "is_greedy": true
+    },
+    {
+        "timestep": 655,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.31737266927411806,
+        "agg_load": 6.3474533854823605,
+        "is_greedy": true
+    },
+    {
+        "timestep": 656,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.3300675760450828,
+        "agg_load": 6.601351520901655,
+        "is_greedy": true
+    },
+    {
+        "timestep": 657,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.3432702790868861,
+        "agg_load": 6.865405581737722,
+        "is_greedy": true
+    },
+    {
+        "timestep": 658,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.13511118184859838,
+        "agg_load": 6.755559092429919,
+        "is_greedy": false
+    },
+    {
+        "timestep": 659,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.3512890728063558,
+        "agg_load": 7.025781456127116,
+        "is_greedy": true
+    },
+    {
+        "timestep": 660,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2720382579812419,
+        "agg_load": 6.800956449531048,
+        "is_greedy": true
+    },
+    {
+        "timestep": 661,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.3536497353756145,
+        "agg_load": 7.07299470751229,
+        "is_greedy": true
+    },
+    {
+        "timestep": 662,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2738663550748759,
+        "agg_load": 6.846658876871897,
+        "is_greedy": true
+    },
+    {
+        "timestep": 663,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.35602626159733863,
+        "agg_load": 7.120525231946773,
+        "is_greedy": true
+    },
+    {
+        "timestep": 664,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.27570673698097903,
+        "agg_load": 6.892668424524476,
+        "is_greedy": true
+    },
+    {
+        "timestep": 665,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.35841875807527274,
+        "agg_load": 7.1683751615054545,
+        "is_greedy": true
+    },
+    {
+        "timestep": 666,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2775594862534912,
+        "agg_load": 6.93898715633728,
+        "is_greedy": false
+    },
+    {
+        "timestep": 667,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.36082733212953855,
+        "agg_load": 7.216546642590771,
+        "is_greedy": true
+    },
+    {
+        "timestep": 668,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.27942468600111464,
+        "agg_load": 6.985617150027866,
+        "is_greedy": true
+    },
+    {
+        "timestep": 669,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.3632520918014491,
+        "agg_load": 7.265041836028981,
+        "is_greedy": true
+    },
+    {
+        "timestep": 670,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.28130241989104215,
+        "agg_load": 7.032560497276054,
+        "is_greedy": true
+    },
+    {
+        "timestep": 671,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.36569314585835483,
+        "agg_load": 7.313862917167096,
+        "is_greedy": true
+    },
+    {
+        "timestep": 672,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.28319277215271,
+        "agg_load": 7.079819303817749,
+        "is_greedy": true
+    },
+    {
+        "timestep": 673,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.368150603798523,
+        "agg_load": 7.36301207597046,
+        "is_greedy": true
+    },
+    {
+        "timestep": 674,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.3039451384960606,
+        "agg_load": 7.598628462401514,
+        "is_greedy": false
+    },
+    {
+        "timestep": 675,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.3951286800448788,
+        "agg_load": 7.902573600897575,
+        "is_greedy": true
+    },
+    {
+        "timestep": 676,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.16058029557023873,
+        "agg_load": 8.029014778511936,
+        "is_greedy": false
+    },
+    {
+        "timestep": 677,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.4175087684826207,
+        "agg_load": 8.350175369652414,
+        "is_greedy": true
+    },
+    {
+        "timestep": 678,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3233187903129414,
+        "agg_load": 8.082969757823536,
+        "is_greedy": true
+    },
+    {
+        "timestep": 679,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.42031442740682384,
+        "agg_load": 8.406288548136477,
+        "is_greedy": true
+    },
+    {
+        "timestep": 680,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3254914925838444,
+        "agg_load": 8.13728731459611,
+        "is_greedy": true
+    },
+    {
+        "timestep": 681,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.4231389403589978,
+        "agg_load": 8.462778807179955,
+        "is_greedy": true
+    },
+    {
+        "timestep": 682,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3276787954140079,
+        "agg_load": 8.191969885350197,
+        "is_greedy": true
+    },
+    {
+        "timestep": 683,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.42598243403821023,
+        "agg_load": 8.519648680764204,
+        "is_greedy": false
+    },
+    {
+        "timestep": 684,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.16766668603743956,
+        "agg_load": 8.383334301871978,
+        "is_greedy": false
+    },
+    {
+        "timestep": 685,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.08316267627457002,
+        "agg_load": 8.316267627457002,
+        "is_greedy": false
+    },
+    {
+        "timestep": 686,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.4324459166277641,
+        "agg_load": 8.648918332555281,
+        "is_greedy": true
+    },
+    {
+        "timestep": 687,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3348861178365405,
+        "agg_load": 8.372152945913513,
+        "is_greedy": true
+    },
+    {
+        "timestep": 688,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.43535195318750275,
+        "agg_load": 8.707039063750054,
+        "is_greedy": true
+    },
+    {
+        "timestep": 689,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.33713655254840214,
+        "agg_load": 8.428413813710053,
+        "is_greedy": true
+    },
+    {
+        "timestep": 690,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.43827751831292283,
+        "agg_load": 8.765550366258456,
+        "is_greedy": true
+    },
+    {
+        "timestep": 691,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3394021101815274,
+        "agg_load": 8.485052754538184,
+        "is_greedy": true
+    },
+    {
+        "timestep": 692,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.44122274323598565,
+        "agg_load": 8.824454864719712,
+        "is_greedy": true
+    },
+    {
+        "timestep": 693,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.34168289236194727,
+        "agg_load": 8.542072309048681,
+        "is_greedy": true
+    },
+    {
+        "timestep": 694,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.08610408887521069,
+        "agg_load": 8.61040888752107,
+        "is_greedy": false
+    },
+    {
+        "timestep": 695,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3333950321248158,
+        "agg_load": 8.334875803120395,
+        "is_greedy": true
+    },
+    {
+        "timestep": 696,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.4334135417622606,
+        "agg_load": 8.668270835245211,
+        "is_greedy": true
+    },
+    {
+        "timestep": 697,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3356354467406946,
+        "agg_load": 8.390886168517365,
+        "is_greedy": true
+    },
+    {
+        "timestep": 698,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.436326080762903,
+        "agg_load": 8.72652161525806,
+        "is_greedy": true
+    },
+    {
+        "timestep": 699,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3378909169427921,
+        "agg_load": 8.447272923569802,
+        "is_greedy": true
+    },
+    {
+        "timestep": 700,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.4392581920256297,
+        "agg_load": 8.785163840512594,
+        "is_greedy": false
+    },
+    {
+        "timestep": 701,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.34016154390464765,
+        "agg_load": 8.50403859761619,
+        "is_greedy": true
+    },
+    {
+        "timestep": 702,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.44221000707604197,
+        "agg_load": 8.844200141520838,
+        "is_greedy": true
+    },
+    {
+        "timestep": 703,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.34244742947968687,
+        "agg_load": 8.561185736992172,
+        "is_greedy": true
+    },
+    {
+        "timestep": 704,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.445181658323593,
+        "agg_load": 8.90363316647186,
+        "is_greedy": true
+    },
+    {
+        "timestep": 705,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3447486762057904,
+        "agg_load": 8.61871690514476,
+        "is_greedy": true
+    },
+    {
+        "timestep": 706,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.2523560309826386,
+        "agg_load": 8.411867699421286,
+        "is_greedy": false
+    },
+    {
+        "timestep": 707,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.17092915165224054,
+        "agg_load": 8.546457582612026,
+        "is_greedy": false
+    },
+    {
+        "timestep": 708,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3309188375987377,
+        "agg_load": 8.272970939968442,
+        "is_greedy": true
+    },
+    {
+        "timestep": 709,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.32032943479557807,
+        "agg_load": 8.008235869889452,
+        "is_greedy": true
+    },
+    {
+        "timestep": 710,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.3100788928821196,
+        "agg_load": 7.75197232205299,
+        "is_greedy": true
+    },
+    {
+        "timestep": 711,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.22697774958971154,
+        "agg_load": 7.565924986323719,
+        "is_greedy": false
+    },
+    {
+        "timestep": 712,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.29295261547045437,
+        "agg_load": 7.32381538676136,
+        "is_greedy": false
+    },
+    {
+        "timestep": 713,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.28357813177539987,
+        "agg_load": 7.089453294384996,
+        "is_greedy": true
+    },
+    {
+        "timestep": 714,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2745036315585871,
+        "agg_load": 6.862590788964677,
+        "is_greedy": false
+    },
+    {
+        "timestep": 715,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2657195153487123,
+        "agg_load": 6.642987883717807,
+        "is_greedy": true
+    },
+    {
+        "timestep": 716,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2572164908575535,
+        "agg_load": 6.430412271438837,
+        "is_greedy": true
+    },
+    {
+        "timestep": 717,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 6.430412271438837,
+        "is_greedy": false
+    },
+    {
+        "timestep": 718,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.24898556315011178,
+        "agg_load": 6.224639078752794,
+        "is_greedy": true
+    },
+    {
+        "timestep": 719,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2410180251293082,
+        "agg_load": 6.025450628232705,
+        "is_greedy": true
+    },
+    {
+        "timestep": 720,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.23330544832517036,
+        "agg_load": 5.832636208129259,
+        "is_greedy": true
+    },
+    {
+        "timestep": 721,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2258396739787649,
+        "agg_load": 5.645991849469122,
+        "is_greedy": true
+    },
+    {
+        "timestep": 722,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2186128044114444,
+        "agg_load": 5.46532011028611,
+        "is_greedy": true
+    },
+    {
+        "timestep": 723,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.2116171946702782,
+        "agg_load": 5.290429866756955,
+        "is_greedy": true
+    },
+    {
+        "timestep": 724,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.10411565977777688,
+        "agg_load": 5.205782988888844,
+        "is_greedy": false
+    },
+    {
+        "timestep": 725,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.20156791732977603,
+        "agg_load": 5.039197933244401,
+        "is_greedy": true
+    },
+    {
+        "timestep": 726,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1951177439752232,
+        "agg_load": 4.87794359938058,
+        "is_greedy": true
+    },
+    {
+        "timestep": 727,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.18887397616801607,
+        "agg_load": 4.721849404200402,
+        "is_greedy": true
+    },
+    {
+        "timestep": 728,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.18283000893063958,
+        "agg_load": 4.570750223265989,
+        "is_greedy": true
+    },
+    {
+        "timestep": 729,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1769794486448591,
+        "agg_load": 4.424486216121477,
+        "is_greedy": true
+    },
+    {
+        "timestep": 730,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.04389090326392506,
+        "agg_load": 4.389090326392505,
+        "is_greedy": false
+    },
+    {
+        "timestep": 731,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1699455774379178,
+        "agg_load": 4.248639435947945,
+        "is_greedy": true
+    },
+    {
+        "timestep": 732,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.16450731895990445,
+        "agg_load": 4.112682973997611,
+        "is_greedy": true
+    },
+    {
+        "timestep": 733,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1592430847531875,
+        "agg_load": 3.9810771188296874,
+        "is_greedy": false
+    },
+    {
+        "timestep": 734,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1541473060410855,
+        "agg_load": 3.8536826510271376,
+        "is_greedy": true
+    },
+    {
+        "timestep": 735,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.14921459224777078,
+        "agg_load": 3.7303648061942694,
+        "is_greedy": true
+    },
+    {
+        "timestep": 736,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.11459680684628795,
+        "agg_load": 3.8198935615429317,
+        "is_greedy": false
+    },
+    {
+        "timestep": 737,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.14790627870294232,
+        "agg_load": 3.697656967573558,
+        "is_greedy": true
+    },
+    {
+        "timestep": 738,
+        "reward_price": [
+            -0.0
+        ],
+        "agg_cost": -0.0,
+        "agg_load": 3.697656967573558,
+        "is_greedy": false
+    },
+    {
+        "timestep": 739,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.07276988912184762,
+        "agg_load": 3.638494456092381,
+        "is_greedy": false
+    },
+    {
+        "timestep": 740,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.11177454969115794,
+        "agg_load": 3.725818323038598,
+        "is_greedy": false
+    },
+    {
+        "timestep": 741,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.03755624869622907,
+        "agg_load": 3.7556248696229066,
+        "is_greedy": false
+    },
+    {
+        "timestep": 742,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.1099646961825587,
+        "agg_load": 3.665489872751957,
+        "is_greedy": false
+    },
+    {
+        "timestep": 743,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.036948137917339724,
+        "agg_load": 3.6948137917339725,
+        "is_greedy": false
+    },
+    {
+        "timestep": 744,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.14306319001593942,
+        "agg_load": 3.5765797503984853,
+        "is_greedy": true
+    },
+    {
+        "timestep": 745,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.13848516793542934,
+        "agg_load": 3.4621291983857336,
+        "is_greedy": true
+    },
+    {
+        "timestep": 746,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1340536425614956,
+        "agg_load": 3.35134106403739,
+        "is_greedy": true
+    },
+    {
+        "timestep": 747,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12976392599952774,
+        "agg_load": 3.2440981499881936,
+        "is_greedy": true
+    },
+    {
+        "timestep": 748,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12561148036754285,
+        "agg_load": 3.1402870091885715,
+        "is_greedy": true
+    },
+    {
+        "timestep": 749,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1215919129957815,
+        "agg_load": 3.039797824894537,
+        "is_greedy": true
+    },
+    {
+        "timestep": 750,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15806948689451594,
+        "agg_load": 3.161389737890319,
+        "is_greedy": true
+    },
+    {
+        "timestep": 751,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.062216150041681476,
+        "agg_load": 3.1108075020840738,
+        "is_greedy": false
+    },
+    {
+        "timestep": 752,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12045046648069534,
+        "agg_load": 3.0112616620173833,
+        "is_greedy": true
+    },
+    {
+        "timestep": 753,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.030353517553135225,
+        "agg_load": 3.0353517553135223,
+        "is_greedy": false
+    },
+    {
+        "timestep": 754,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.1456968842550491,
+        "agg_load": 2.9139376851009815,
+        "is_greedy": false
+    },
+    {
+        "timestep": 755,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.05921121376125194,
+        "agg_load": 2.960560688062597,
+        "is_greedy": false
+    },
+    {
+        "timestep": 756,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15394915577925505,
+        "agg_load": 3.078983115585101,
+        "is_greedy": true
+    },
+    {
+        "timestep": 757,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16010712201042526,
+        "agg_load": 3.202142440208505,
+        "is_greedy": true
+    },
+    {
+        "timestep": 758,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12398695528487333,
+        "agg_load": 3.099673882121833,
+        "is_greedy": true
+    },
+    {
+        "timestep": 759,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16118304187033533,
+        "agg_load": 3.2236608374067064,
+        "is_greedy": true
+    },
+    {
+        "timestep": 760,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12482014762438767,
+        "agg_load": 3.120503690609692,
+        "is_greedy": true
+    },
+    {
+        "timestep": 761,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.162266191911704,
+        "agg_load": 3.2453238382340794,
+        "is_greedy": true
+    },
+    {
+        "timestep": 762,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12565893901642355,
+        "agg_load": 3.141473475410589,
+        "is_greedy": true
+    },
+    {
+        "timestep": 763,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.121637852967898,
+        "agg_load": 3.04094632419745,
+        "is_greedy": true
+    },
+    {
+        "timestep": 764,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15812920885826742,
+        "agg_load": 3.162584177165348,
+        "is_greedy": true
+    },
+    {
+        "timestep": 765,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16445437721259812,
+        "agg_load": 3.289087544251962,
+        "is_greedy": true
+    },
+    {
+        "timestep": 766,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.06683425889919987,
+        "agg_load": 3.3417129449599936,
+        "is_greedy": false
+    },
+    {
+        "timestep": 767,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.06790360704158707,
+        "agg_load": 3.3951803520793535,
+        "is_greedy": false
+    },
+    {
+        "timestep": 768,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.1401530449338357,
+        "agg_load": 3.5038261233458927,
+        "is_greedy": false
+    },
+    {
+        "timestep": 769,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.13566814749595296,
+        "agg_load": 3.391703687398824,
+        "is_greedy": true
+    },
+    {
+        "timestep": 770,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.03364570057899634,
+        "agg_load": 3.3645700578996336,
+        "is_greedy": false
+    },
+    {
+        "timestep": 771,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1302761526418738,
+        "agg_load": 3.2569038160468455,
+        "is_greedy": true
+    },
+    {
+        "timestep": 772,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12610731575733386,
+        "agg_load": 3.1526828939333464,
+        "is_greedy": true
+    },
+    {
+        "timestep": 773,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12207188165309918,
+        "agg_load": 3.0517970413274793,
+        "is_greedy": true
+    },
+    {
+        "timestep": 774,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11816558144020001,
+        "agg_load": 2.954139536005,
+        "is_greedy": true
+    },
+    {
+        "timestep": 775,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15361525587226,
+        "agg_load": 3.0723051174452,
+        "is_greedy": true
+    },
+    {
+        "timestep": 776,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11895965414747814,
+        "agg_load": 2.9739913536869533,
+        "is_greedy": true
+    },
+    {
+        "timestep": 777,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1546475503917216,
+        "agg_load": 3.0929510078344316,
+        "is_greedy": true
+    },
+    {
+        "timestep": 778,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11975906302334918,
+        "agg_load": 2.9939765755837295,
+        "is_greedy": true
+    },
+    {
+        "timestep": 779,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15568678193035396,
+        "agg_load": 3.113735638607079,
+        "is_greedy": true
+    },
+    {
+        "timestep": 780,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1205638439268661,
+        "agg_load": 3.0140960981716525,
+        "is_greedy": true
+    },
+    {
+        "timestep": 781,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15673299710492594,
+        "agg_load": 3.1346599420985184,
+        "is_greedy": true
+    },
+    {
+        "timestep": 782,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12137403295805463,
+        "agg_load": 3.0343508239513657,
+        "is_greedy": true
+    },
+    {
+        "timestep": 783,
+        "reward_price": [
+            0.05
+        ],
+        "agg_cost": 0.14564883954966554,
+        "agg_load": 2.912976790993311,
+        "is_greedy": false
+    },
+    {
+        "timestep": 784,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.029362806053212575,
+        "agg_load": 2.9362806053212576,
+        "is_greedy": false
+    },
+    {
+        "timestep": 785,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1526865914767054,
+        "agg_load": 3.053731829534108,
+        "is_greedy": true
+    },
+    {
+        "timestep": 786,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15879405513577363,
+        "agg_load": 3.1758811027154725,
+        "is_greedy": true
+    },
+    {
+        "timestep": 787,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1229701162971431,
+        "agg_load": 3.0742529074285776,
+        "is_greedy": true
+    },
+    {
+        "timestep": 788,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11903507257563453,
+        "agg_load": 2.975876814390863,
+        "is_greedy": true
+    },
+    {
+        "timestep": 789,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.0914189357380873,
+        "agg_load": 3.0472978579362437,
+        "is_greedy": false
+    },
+    {
+        "timestep": 790,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1584594886126847,
+        "agg_load": 3.1691897722536937,
+        "is_greedy": true
+    },
+    {
+        "timestep": 791,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12271102798166302,
+        "agg_load": 3.0677756995415755,
+        "is_greedy": true
+    },
+    {
+        "timestep": 792,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.08982447248257733,
+        "agg_load": 2.994149082752578,
+        "is_greedy": false
+    },
+    {
+        "timestep": 793,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15569575230313407,
+        "agg_load": 3.113915046062681,
+        "is_greedy": true
+    },
+    {
+        "timestep": 794,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.09117543254871531,
+        "agg_load": 3.039181084957177,
+        "is_greedy": false
+    },
+    {
+        "timestep": 795,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15803741641777322,
+        "agg_load": 3.160748328355464,
+        "is_greedy": true
+    },
+    {
+        "timestep": 796,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12238417527392358,
+        "agg_load": 3.0596043818480894,
+        "is_greedy": true
+    },
+    {
+        "timestep": 797,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11846788166515802,
+        "agg_load": 2.9616970416289505,
+        "is_greedy": true
+    },
+    {
+        "timestep": 798,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.06018168388590028,
+        "agg_load": 3.009084194295014,
+        "is_greedy": false
+    },
+    {
+        "timestep": 799,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15647237810334075,
+        "agg_load": 3.1294475620668147,
+        "is_greedy": true
+    },
+    {
+        "timestep": 800,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12117220960322707,
+        "agg_load": 3.0293052400806766,
+        "is_greedy": true
+    },
+    {
+        "timestep": 801,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1575238724841952,
+        "agg_load": 3.150477449683904,
+        "is_greedy": true
+    },
+    {
+        "timestep": 802,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12198648685176076,
+        "agg_load": 3.049662171294019,
+        "is_greedy": true
+    },
+    {
+        "timestep": 803,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15858243290728902,
+        "agg_load": 3.17164865814578,
+        "is_greedy": true
+    },
+    {
+        "timestep": 804,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12280623604340458,
+        "agg_load": 3.0701559010851147,
+        "is_greedy": true
+    },
+    {
+        "timestep": 805,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11887643649001564,
+        "agg_load": 2.971910912250391,
+        "is_greedy": true
+    },
+    {
+        "timestep": 806,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15453936743702035,
+        "agg_load": 3.090787348740407,
+        "is_greedy": true
+    },
+    {
+        "timestep": 807,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16072094213450117,
+        "agg_load": 3.2144188426900233,
+        "is_greedy": true
+    },
+    {
+        "timestep": 808,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1244622975889577,
+        "agg_load": 3.1115574397239425,
+        "is_greedy": true
+    },
+    {
+        "timestep": 809,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12047950406611106,
+        "agg_load": 3.0119876016527765,
+        "is_greedy": true
+    },
+    {
+        "timestep": 810,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1566233552859444,
+        "agg_load": 3.1324671057188875,
+        "is_greedy": false
+    },
+    {
+        "timestep": 811,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12128912633343532,
+        "agg_load": 3.032228158335883,
+        "is_greedy": true
+    },
+    {
+        "timestep": 812,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1576758642334659,
+        "agg_load": 3.1535172846693182,
+        "is_greedy": true
+    },
+    {
+        "timestep": 813,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.122104189262396,
+        "agg_load": 3.0526047315599,
+        "is_greedy": true
+    },
+    {
+        "timestep": 814,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1587354460411148,
+        "agg_load": 3.174708920822296,
+        "is_greedy": true
+    },
+    {
+        "timestep": 815,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.03149311249455718,
+        "agg_load": 3.149311249455718,
+        "is_greedy": false
+    },
+    {
+        "timestep": 816,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.03124116759460072,
+        "agg_load": 3.124116759460072,
+        "is_greedy": false
+    },
+    {
+        "timestep": 817,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12096580092629398,
+        "agg_load": 3.0241450231573497,
+        "is_greedy": true
+    },
+    {
+        "timestep": 818,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.09290173511139377,
+        "agg_load": 3.096724503713126,
+        "is_greedy": false
+    },
+    {
+        "timestep": 819,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11990517278377225,
+        "agg_load": 2.997629319594306,
+        "is_greedy": true
+    },
+    {
+        "timestep": 820,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.05899334500961595,
+        "agg_load": 2.9496672504807973,
+        "is_greedy": false
+    },
+    {
+        "timestep": 821,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.08636625709407775,
+        "agg_load": 2.8788752364692582,
+        "is_greedy": false
+    },
+    {
+        "timestep": 822,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14970151229640144,
+        "agg_load": 2.9940302459280286,
+        "is_greedy": true
+    },
+    {
+        "timestep": 823,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15568957278825749,
+        "agg_load": 3.1137914557651496,
+        "is_greedy": true
+    },
+    {
+        "timestep": 824,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.030888811241190285,
+        "agg_load": 3.0888811241190286,
+        "is_greedy": false
+    },
+    {
+        "timestep": 825,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1606218184541895,
+        "agg_load": 3.2124363690837896,
+        "is_greedy": false
+    },
+    {
+        "timestep": 826,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12438553621092434,
+        "agg_load": 3.1096384052731083,
+        "is_greedy": true
+    },
+    {
+        "timestep": 827,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16170119707420164,
+        "agg_load": 3.2340239414840326,
+        "is_greedy": true
+    },
+    {
+        "timestep": 828,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12522140701426174,
+        "agg_load": 3.1305351753565436,
+        "is_greedy": true
+    },
+    {
+        "timestep": 829,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16278782911854028,
+        "agg_load": 3.2557565823708052,
+        "is_greedy": true
+    },
+    {
+        "timestep": 830,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1260628948693976,
+        "agg_load": 3.1515723717349395,
+        "is_greedy": true
+    },
+    {
+        "timestep": 831,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12202888223357686,
+        "agg_load": 3.0507220558394215,
+        "is_greedy": true
+    },
+    {
+        "timestep": 832,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15863754690364995,
+        "agg_load": 3.1727509380729986,
+        "is_greedy": true
+    },
+    {
+        "timestep": 833,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12284891632218652,
+        "agg_load": 3.0712229080546627,
+        "is_greedy": true
+    },
+    {
+        "timestep": 834,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15970359121884248,
+        "agg_load": 3.194071824376849,
+        "is_greedy": true
+    },
+    {
+        "timestep": 835,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.06285933350373639,
+        "agg_load": 3.1429666751868197,
+        "is_greedy": false
+    },
+    {
+        "timestep": 836,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12169566966323365,
+        "agg_load": 3.0423917415808415,
+        "is_greedy": true
+    },
+    {
+        "timestep": 837,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15820437056220377,
+        "agg_load": 3.164087411244075,
+        "is_greedy": true
+    },
+    {
+        "timestep": 838,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12251346456337059,
+        "agg_load": 3.0628366140842647,
+        "is_greedy": true
+    },
+    {
+        "timestep": 839,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15926750393238176,
+        "agg_load": 3.185350078647635,
+        "is_greedy": true
+    },
+    {
+        "timestep": 840,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12333675504523645,
+        "agg_load": 3.083418876130911,
+        "is_greedy": true
+    },
+    {
+        "timestep": 841,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1603377815588074,
+        "agg_load": 3.2067556311761476,
+        "is_greedy": true
+    },
+    {
+        "timestep": 842,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12416557803914044,
+        "agg_load": 3.104139450978511,
+        "is_greedy": true
+    },
+    {
+        "timestep": 843,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1614152514508826,
+        "agg_load": 3.2283050290176516,
+        "is_greedy": true
+    },
+    {
+        "timestep": 844,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.09917353049142225,
+        "agg_load": 3.305784349714075,
+        "is_greedy": false
+    },
+    {
+        "timestep": 845,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.127999970020929,
+        "agg_load": 3.199999250523225,
+        "is_greedy": false
+    },
+    {
+        "timestep": 846,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12390397098025928,
+        "agg_load": 3.0975992745064818,
+        "is_greedy": true
+    },
+    {
+        "timestep": 847,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.09069770675754979,
+        "agg_load": 3.0232568919183263,
+        "is_greedy": false
+    },
+    {
+        "timestep": 848,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15720935837975297,
+        "agg_load": 3.1441871675950592,
+        "is_greedy": true
+    },
+    {
+        "timestep": 849,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1217429271292807,
+        "agg_load": 3.0435731782320175,
+        "is_greedy": true
+    },
+    {
+        "timestep": 850,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.030679217636578736,
+        "agg_load": 3.0679217636578735,
+        "is_greedy": false
+    },
+    {
+        "timestep": 851,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15953193171020943,
+        "agg_load": 3.1906386342041886,
+        "is_greedy": true
+    },
+    {
+        "timestep": 852,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.16591320897861783,
+        "agg_load": 3.318264179572356,
+        "is_greedy": false
+    },
+    {
+        "timestep": 853,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12848318903304162,
+        "agg_load": 3.2120797258260407,
+        "is_greedy": true
+    },
+    {
+        "timestep": 854,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.09867508917737597,
+        "agg_load": 3.289169639245866,
+        "is_greedy": false
+    },
+    {
+        "timestep": 855,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1273566484315999,
+        "agg_load": 3.183916210789998,
+        "is_greedy": true
+    },
+    {
+        "timestep": 856,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12328123568178873,
+        "agg_load": 3.082030892044718,
+        "is_greedy": true
+    },
+    {
+        "timestep": 857,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11933623613997149,
+        "agg_load": 2.9834059034992872,
+        "is_greedy": true
+    },
+    {
+        "timestep": 858,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15513710698196295,
+        "agg_load": 3.102742139639259,
+        "is_greedy": true
+    },
+    {
+        "timestep": 859,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1201381756468321,
+        "agg_load": 3.0034543911708025,
+        "is_greedy": true
+    },
+    {
+        "timestep": 860,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15617962834088173,
+        "agg_load": 3.1235925668176345,
+        "is_greedy": true
+    },
+    {
+        "timestep": 861,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12094550418717882,
+        "agg_load": 3.0236376046794704,
+        "is_greedy": true
+    },
+    {
+        "timestep": 862,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1572291554433325,
+        "agg_load": 3.1445831088666494,
+        "is_greedy": true
+    },
+    {
+        "timestep": 863,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12175825797531667,
+        "agg_load": 3.0439564493829168,
+        "is_greedy": true
+    },
+    {
+        "timestep": 864,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15828573536791168,
+        "agg_load": 3.1657147073582337,
+        "is_greedy": true
+    },
+    {
+        "timestep": 865,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.06432732285351932,
+        "agg_load": 3.2163661426759655,
+        "is_greedy": false
+    },
+    {
+        "timestep": 866,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12453769704441339,
+        "agg_load": 3.1134424261103346,
+        "is_greedy": true
+    },
+    {
+        "timestep": 867,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12055249073899216,
+        "agg_load": 3.013812268474804,
+        "is_greedy": true
+    },
+    {
+        "timestep": 868,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15671823796068982,
+        "agg_load": 3.134364759213796,
+        "is_greedy": true
+    },
+    {
+        "timestep": 869,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.1293865772603455,
+        "agg_load": 3.2346644315086373,
+        "is_greedy": false
+    },
+    {
+        "timestep": 870,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12524620678801443,
+        "agg_load": 3.131155169700361,
+        "is_greedy": true
+    },
+    {
+        "timestep": 871,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12123832817079798,
+        "agg_load": 3.0309582042699494,
+        "is_greedy": true
+    },
+    {
+        "timestep": 872,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11735870166933245,
+        "agg_load": 2.933967541733311,
+        "is_greedy": true
+    },
+    {
+        "timestep": 873,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15256631217013217,
+        "agg_load": 3.0513262434026434,
+        "is_greedy": true
+    },
+    {
+        "timestep": 874,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11814735214455035,
+        "agg_load": 2.953683803613759,
+        "is_greedy": true
+    },
+    {
+        "timestep": 875,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15359155778791547,
+        "agg_load": 3.0718311557583093,
+        "is_greedy": true
+    },
+    {
+        "timestep": 876,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11894130235096174,
+        "agg_load": 2.9735325587740435,
+        "is_greedy": true
+    },
+    {
+        "timestep": 877,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15462369305625026,
+        "agg_load": 3.092473861125005,
+        "is_greedy": true
+    },
+    {
+        "timestep": 878,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11974058790276021,
+        "agg_load": 2.993514697569005,
+        "is_greedy": true
+    },
+    {
+        "timestep": 879,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.12357228671564853,
+        "agg_load": 3.089307167891213,
+        "is_greedy": false
+    },
+    {
+        "timestep": 880,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11961797354074777,
+        "agg_load": 2.9904493385186943,
+        "is_greedy": true
+    },
+    {
+        "timestep": 881,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11579019838744385,
+        "agg_load": 2.894754959686096,
+        "is_greedy": true
+    },
+    {
+        "timestep": 882,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15052725790367702,
+        "agg_load": 3.01054515807354,
+        "is_greedy": true
+    },
+    {
+        "timestep": 883,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.08814876222839324,
+        "agg_load": 2.938292074279775,
+        "is_greedy": false
+    },
+    {
+        "timestep": 884,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 2.938292074279775,
+        "is_greedy": false
+    },
+    {
+        "timestep": 885,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1527911878625483,
+        "agg_load": 3.055823757250966,
+        "is_greedy": true
+    },
+    {
+        "timestep": 886,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.08947451961230829,
+        "agg_load": 2.982483987076943,
+        "is_greedy": false
+    },
+    {
+        "timestep": 887,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11548177997961924,
+        "agg_load": 2.887044499490481,
+        "is_greedy": true
+    },
+    {
+        "timestep": 888,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.150126313973505,
+        "agg_load": 3.0025262794701,
+        "is_greedy": true
+    },
+    {
+        "timestep": 889,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.02978506069234339,
+        "agg_load": 2.978506069234339,
+        "is_greedy": false
+    },
+    {
+        "timestep": 890,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15488231560018564,
+        "agg_load": 3.0976463120037128,
+        "is_greedy": true
+    },
+    {
+        "timestep": 891,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.030728651415076833,
+        "agg_load": 3.072865141507683,
+        "is_greedy": false
+    },
+    {
+        "timestep": 892,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11898133827917748,
+        "agg_load": 2.974533456979437,
+        "is_greedy": true
+    },
+    {
+        "timestep": 893,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15467573976293073,
+        "agg_load": 3.0935147952586144,
+        "is_greedy": true
+    },
+    {
+        "timestep": 894,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11978089287241356,
+        "agg_load": 2.9945223218103387,
+        "is_greedy": true
+    },
+    {
+        "timestep": 895,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11594790430049631,
+        "agg_load": 2.898697607512408,
+        "is_greedy": true
+    },
+    {
+        "timestep": 896,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15073227559064523,
+        "agg_load": 3.0146455118129043,
+        "is_greedy": true
+    },
+    {
+        "timestep": 897,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15676156661427104,
+        "agg_load": 3.1352313322854206,
+        "is_greedy": true
+    },
+    {
+        "timestep": 898,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12139615718609148,
+        "agg_load": 3.034903929652287,
+        "is_greedy": true
+    },
+    {
+        "timestep": 899,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11751148015613655,
+        "agg_load": 2.9377870039034137,
+        "is_greedy": true
+    },
+    {
+        "timestep": 900,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15276492420297752,
+        "agg_load": 3.0552984840595503,
+        "is_greedy": true
+    },
+    {
+        "timestep": 901,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11830115730278579,
+        "agg_load": 2.9575289325696446,
+        "is_greedy": true
+    },
+    {
+        "timestep": 902,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15379150449362153,
+        "agg_load": 3.0758300898724302,
+        "is_greedy": true
+    },
+    {
+        "timestep": 903,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.06250086742620778,
+        "agg_load": 3.125043371310389,
+        "is_greedy": false
+    },
+    {
+        "timestep": 904,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12100167933713825,
+        "agg_load": 3.0250419834284563,
+        "is_greedy": true
+    },
+    {
+        "timestep": 905,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11712962559834983,
+        "agg_load": 2.9282406399587457,
+        "is_greedy": true
+    },
+    {
+        "timestep": 906,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1522685132778548,
+        "agg_load": 3.0453702655570956,
+        "is_greedy": true
+    },
+    {
+        "timestep": 907,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.06188192379612018,
+        "agg_load": 3.094096189806009,
+        "is_greedy": false
+    },
+    {
+        "timestep": 908,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11980340446928868,
+        "agg_load": 2.995085111732217,
+        "is_greedy": true
+    },
+    {
+        "timestep": 909,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11596969552627144,
+        "agg_load": 2.899242388156786,
+        "is_greedy": true
+    },
+    {
+        "timestep": 910,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15076060418415288,
+        "agg_load": 3.0152120836830574,
+        "is_greedy": true
+    },
+    {
+        "timestep": 911,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11674901188020798,
+        "agg_load": 2.9187252970051993,
+        "is_greedy": true
+    },
+    {
+        "timestep": 912,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15177371544427037,
+        "agg_load": 3.0354743088854073,
+        "is_greedy": true
+    },
+    {
+        "timestep": 913,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11753356524004296,
+        "agg_load": 2.938339131001074,
+        "is_greedy": true
+    },
+    {
+        "timestep": 914,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1137724911523616,
+        "agg_load": 2.84431227880904,
+        "is_greedy": true
+    },
+    {
+        "timestep": 915,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14790423849807008,
+        "agg_load": 2.9580847699614012,
+        "is_greedy": true
+    },
+    {
+        "timestep": 916,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15382040803799288,
+        "agg_load": 3.0764081607598572,
+        "is_greedy": true
+    },
+    {
+        "timestep": 917,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11911852398462168,
+        "agg_load": 2.977963099615542,
+        "is_greedy": true
+    },
+    {
+        "timestep": 918,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1153067312171138,
+        "agg_load": 2.8826682804278447,
+        "is_greedy": true
+    },
+    {
+        "timestep": 919,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14989875058224794,
+        "agg_load": 2.9979750116449586,
+        "is_greedy": true
+    },
+    {
+        "timestep": 920,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11608159245089279,
+        "agg_load": 2.90203981127232,
+        "is_greedy": true
+    },
+    {
+        "timestep": 921,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15090607018616065,
+        "agg_load": 3.0181214037232125,
+        "is_greedy": true
+    },
+    {
+        "timestep": 922,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1168616607521628,
+        "agg_load": 2.92154151880407,
+        "is_greedy": true
+    },
+    {
+        "timestep": 923,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15192015897781164,
+        "agg_load": 3.0384031795562327,
+        "is_greedy": true
+    },
+    {
+        "timestep": 924,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11764697111241734,
+        "agg_load": 2.9411742778104335,
+        "is_greedy": true
+    },
+    {
+        "timestep": 925,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.057882309787309336,
+        "agg_load": 2.8941154893654666,
+        "is_greedy": false
+    },
+    {
+        "timestep": 926,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15049400544700428,
+        "agg_load": 3.0098801089400853,
+        "is_greedy": true
+    },
+    {
+        "timestep": 927,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.0881292895897657,
+        "agg_load": 2.9376429863255233,
+        "is_greedy": false
+    },
+    {
+        "timestep": 928,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11374553643052426,
+        "agg_load": 2.8436384107631065,
+        "is_greedy": true
+    },
+    {
+        "timestep": 929,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14786919735968154,
+        "agg_load": 2.9573839471936307,
+        "is_greedy": true
+    },
+    {
+        "timestep": 930,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15378396525406882,
+        "agg_load": 3.075679305081376,
+        "is_greedy": true
+    },
+    {
+        "timestep": 931,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1190903026927509,
+        "agg_load": 2.9772575673187722,
+        "is_greedy": true
+    },
+    {
+        "timestep": 932,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11527941300658286,
+        "agg_load": 2.8819853251645715,
+        "is_greedy": true
+    },
+    {
+        "timestep": 933,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.028589294425632548,
+        "agg_load": 2.8589294425632548,
+        "is_greedy": false
+    },
+    {
+        "timestep": 934,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.08782631247554318,
+        "agg_load": 2.927543749184773,
+        "is_greedy": false
+    },
+    {
+        "timestep": 935,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.12084900596634743,
+        "agg_load": 3.0212251491586857,
+        "is_greedy": false
+    },
+    {
+        "timestep": 936,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11698183777542431,
+        "agg_load": 2.9245459443856077,
+        "is_greedy": true
+    },
+    {
+        "timestep": 937,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.11323841896661073,
+        "agg_load": 2.830960474165268,
+        "is_greedy": false
+    },
+    {
+        "timestep": 938,
+        "reward_price": [
+            0.03
+        ],
+        "agg_cost": 0.08289052268355904,
+        "agg_load": 2.7630174227853015,
+        "is_greedy": false
+    },
+    {
+        "timestep": 939,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1436769059848357,
+        "agg_load": 2.873538119696714,
+        "is_greedy": true
+    },
+    {
+        "timestep": 940,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.05655123019563133,
+        "agg_load": 2.8275615097815665,
+        "is_greedy": false
+    },
+    {
+        "timestep": 941,
+        "reward_price": [
+            0.0
+        ],
+        "agg_cost": 0.0,
+        "agg_load": 2.8275615097815665,
+        "is_greedy": false
+    },
+    {
+        "timestep": 942,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.14703319850864147,
+        "agg_load": 2.940663970172829,
+        "is_greedy": true
+    },
+    {
+        "timestep": 943,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15291452644898712,
+        "agg_load": 3.058290528979742,
+        "is_greedy": false
+    },
+    {
+        "timestep": 944,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1590311075069466,
+        "agg_load": 3.180622150138932,
+        "is_greedy": true
+    },
+    {
+        "timestep": 945,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.03155177172937821,
+        "agg_load": 3.1551771729378206,
+        "is_greedy": false
+    },
+    {
+        "timestep": 946,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.13024571369887325,
+        "agg_load": 3.256142842471831,
+        "is_greedy": false
+    },
+    {
+        "timestep": 947,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1260778508605093,
+        "agg_load": 3.1519462715127324,
+        "is_greedy": true
+    },
+    {
+        "timestep": 948,
+        "reward_price": [
+            -0.01
+        ],
+        "agg_cost": -0.03177161841684834,
+        "agg_load": 3.177161841684834,
+        "is_greedy": false
+    },
+    {
+        "timestep": 949,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12301970651003678,
+        "agg_load": 3.0754926627509196,
+        "is_greedy": true
+    },
+    {
+        "timestep": 950,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.1190830759017156,
+        "agg_load": 2.97707689754289,
+        "is_greedy": true
+    },
+    {
+        "timestep": 951,
+        "reward_price": [
+            0.02
+        ],
+        "agg_cost": 0.05858887334364408,
+        "agg_load": 2.9294436671822037,
+        "is_greedy": false
+    },
+    {
+        "timestep": 952,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.15233107069347462,
+        "agg_load": 3.046621413869492,
+        "is_greedy": true
+    },
+    {
+        "timestep": 953,
+        "reward_price": [
+            0.01
+        ],
+        "agg_cost": 0.030222484425585363,
+        "agg_load": 3.0222484425585363,
+        "is_greedy": false
+    },
+    {
+        "timestep": 954,
+        "reward_price": [
+            -0.05
+        ],
+        "agg_cost": -0.1571569190130439,
+        "agg_load": 3.143138380260878,
+        "is_greedy": true
+    },
+    {
+        "timestep": 955,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12170231808370119,
+        "agg_load": 3.0425579520925297,
+        "is_greedy": true
+    },
+    {
+        "timestep": 956,
+        "reward_price": [
+            -0.03
+        ],
+        "agg_cost": -0.09346738028828251,
+        "agg_load": 3.1155793429427505,
+        "is_greedy": false
+    },
+    {
+        "timestep": 957,
+        "reward_price": [
+            -0.02
+        ],
+        "agg_cost": -0.06330857224859669,
+        "agg_load": 3.1654286124298343,
+        "is_greedy": false
+    },
+    {
+        "timestep": 958,
+        "reward_price": [
+            -0.04
+        ],
+        "agg_cost": -0.13066889312110358,
+        "agg_load": 3.266722328027589,
+        "is_greedy": false
+    },
+    {
+        "timestep": 959,
+        "reward_price": [
+            0.04
+        ],
+        "agg_cost": 0.12648748854122827,
+        "agg_load": 3.1621872135307063,
+        "is_greedy": true
+    }
+]
