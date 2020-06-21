@@ -14,7 +14,7 @@ from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, agg_params={}, mpc_params={}, exclude_runs={}, log=Logger("reformat")):
+    def __init__(self, agg_params={}, mpc_params={}, include_runs={}, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = 'data'
         self.outputs_dir = 'outputs'
@@ -41,7 +41,7 @@ class Reformat:
 
         self.add_agg_params = agg_params
         self.agg_params = self._setup_agg_params()
-        self.exclude_runs = exclude_runs
+        self.include_runs = include_runs
         self.parametrics = []
         self.set_parametric_files()
 
@@ -131,12 +131,10 @@ class Reformat:
                         self.parametrics.append(set)
 
     def set_parametric_files(self):
-        if self.config["run_rl_agg"]:
-            if "rl_agg" not in self.exclude_runs:
-                self.set_rl_files()
-        if self.config["run_simplified"]:
-            if "simplified" not in self.exclude_runs:
-                self.set_simplified_files()
+        if self.config["run_rl_agg"] or "rl_agg" in self.include_runs:
+            self.set_rl_files()
+        if self.config["run_simplified"] or "simplified" in self.include_runs:
+            self.set_simplified_files()
 
     def set_other_files(self, otherfile):
         self.parametrics.append(otherfile)
@@ -673,21 +671,16 @@ class Reformat:
         fig.show()
 
 def main():
-    r = Reformat()
-    # r.agg_params["alpha"] |= set([0.01]) # add additional params from previous runs
-    # r.agg_params["beta"] |= set([0.54, 0.53])
-    # r.agg_params["rl_horizon"] |= set([1])
-
-    r.set_mpc_folders() # sets folders with additional mpc_params specified above
-    # r.set_base_files() # adds baseline files to list of things to plot
-    # r.set_rl_files() # adds rl_agg with actual community response to list of things to plot
-    r.set_simplified_files() # adds the rl_agg with a *SIMPLIFIED* community response to list of things to plot
+    agg_params = {"alpha": [0.79]} # set parameters from earlier runs
+    mpc_params = {}
+    exclude_runs = {"simplified"}
+    r = Reformat(agg_params=agg_params, exclude_runs=exclude_runs)
 
     r.rl2baseline()
     r.rl_thetas()
     if r.config["run_rl_agg"] or r.config["run_agg_mpc"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
-        # r.plot_single_home2("Crystal-RXXFA") # pv_battery
-        r.plot_single_home2(type="base")
+        r.plot_single_home2("Crystal-RXXFA") # pv_battery
+        # r.plot_single_home2(type="base")
 
 if __name__ == "__main__":
     main()
