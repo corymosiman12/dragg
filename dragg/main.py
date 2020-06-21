@@ -10,11 +10,10 @@ if __name__ == "__main__":
     a = Aggregator()
     a.run()
 
-    agg_params = {"alpha": [0.79]} # set parameters from earlier runs
+    agg_params = {"alpha": [0.78]} # set parameters from earlier runs
     mpc_params = {}
-    exclude_runs = {"simplified"}
-
-    r = Reformat(agg_params=agg_params, exclude_runs=exclude_runs)
+    include_runs = {"rl_agg"}
+    r = Reformat(agg_params=agg_params, include_runs=include_runs)
 
     r.rl2baseline()
     r.rl_thetas()
