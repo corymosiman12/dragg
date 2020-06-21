@@ -565,13 +565,20 @@ class Aggregator:
         return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day, agg_load]
 
     def _reward(self, x):
-        """ @kyri: Reward "function" should encourage the RL agent to move towards a state with curr_error = 0
-        :return: float"""
+        """
+        @kyri: Reward "function" should encourage the RL agent to move towards a state with curr_error = 0
+        :return: float
+        """
         tol = 0.2
         reward = 0
 
         #reward += 20*np.exp(abs(self.state[0]))
-        reward = -(50*self.state[0]**2 + 10*self.reward_price[-1]**2)
+        reward = -self.state[0]**2 #- 10*self.reward_price[-1]**2)
+        if self.state[0] > 0:
+            reward = reward * 2
+
+        if (self.state[0] * self.next_state[0]) < 0:
+            reward = reward * 4
         # if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
         #     reward += 1
         # elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
@@ -590,8 +597,10 @@ class Aggregator:
         return experience
 
     def _phi(self, state, action):
-        """ @kyri: Phi = the basis functions for the Q-function, the values and length of phi is dynamic so any changes here should be fine.
-        :return: a 1-D numpy array of arbitrary length"""
+        """
+        @kyri: Phi = the basis functions for the Q-function, the values and length of phi is dynamic so any changes here should be fine.
+        :return: a 1-D numpy array of arbitrary length
+        """
         curr_error = state[0]
         # persistence_error = state[1]
         # forecast_error = state[2]
@@ -603,12 +612,12 @@ class Aggregator:
         #sigma = 0.1
         #normalized = 1/(sigma*np.sqrt(2*np.pi))
         #
-        action_basis = np.array([1])
-        for x in np.arange(self.actionspace[0], self.actionspace[1]+0.01, 0.01):
-            temp = np.array([(action-x), (action-x)**2])
-            action_basis = np.concatenate([temp, action_basis])
+        # action_basis = np.array([1])
+        # for x in np.arange(self.actionspace[0], self.actionspace[1]+0.01, 0.01):
+        #     temp = np.array([(action-x), (action-x)**2])
+        #     action_basis = np.concatenate([temp, action_basis])
 
-        # action_basis = np.array([1, action, action**2])
+        action_basis = np.array([1, action, action**2])
         curr_error_basis = np.array([1, curr_error, curr_error**2])
         # for i in range(8):
         #     np.append(action_basis, rbf(action, sigma, mu=0.01*(i-4)))
@@ -622,7 +631,7 @@ class Aggregator:
         # phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, prev_forecast_error_basis, delta_basis, agg_load_basis, time_basis))
         # phi = np.concatenate((action_basis, current_error_basis, time_basis))
         phi = np.outer(action_basis, curr_error_basis).flatten()
-        return phi
+        return phi[:-1]
 
     def _qvalue(self):
         q_k = self._reward(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state)) # off policy learning (Q-learning)
@@ -900,11 +909,11 @@ class Aggregator:
         if not os.path.isdir(agg_output):
             os.makedirs(agg_output)
 
-        if self.case == "baseline":
-            file_name = "baseline-results.json"
+        if self.case == "baseline" or self.case == "no_mpc":
+            file_name = f"{self.case}-results.json"
 
         elif self.case == "agg_mpc":
-            file_name = "baseline-results.json"
+            file_name = "results.json"
             f2 = os.path.join(agg_output, f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-iter-results.json")
             with open(f2, 'w+') as f:
                 json.dump(self.agg_mpc_data, f, indent=4)
@@ -1056,7 +1065,7 @@ class Aggregator:
         #     sp = 10
         #
         # return sp
-        return 3 # for a single house
+        return 25 # for a single house
 
     def test_response(self):
         """ @kyri: to be changed for the response rate of the community """
@@ -1179,7 +1188,7 @@ class Aggregator:
 
             self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
-            self.reward = self._reward(self.next_state)
+            self.reward = self._reward(self.state)
             self.cumulative_reward += self.reward
             self._experience()
 
@@ -1213,7 +1222,7 @@ class Aggregator:
         if self.config["run_baseline"]:
             # Run baseline - no MPC, no aggregator
             self.flush_redis()
-            self.case = "baseline" # no aggregator
+            self.case = "no_mpc" # no aggregator
             self.horizon = 1
             self.redis_set_initial_values()
             self.reset_baseline_data()
