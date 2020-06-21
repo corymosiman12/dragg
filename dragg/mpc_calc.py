@@ -96,15 +96,15 @@ class MPCCalc:
         # Define constants
         # self.spp = cp.Constant(self.spp_current)
         if mode == "tou":
-            base_price = np.array(self.tou_current, dtype=float)
+            self.base_price = np.array(self.tou_current, dtype=float)
         elif mode == "spp":
-            base_price = np.array(self.spp_current, dtype=float)
+            self.base_price = np.array(self.spp_current, dtype=float)
         self.oat = cp.Constant(self.oat_current)
         self.ghi = cp.Constant(self.ghi_current)
 
         # tot_price = np.array(self.reward_price) + base_price[:self.horizon]
         # rp_forecast = np.zeros(self.horizon)
-        self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + base_price[:self.horizon])
+        # self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + base_price[:self.horizon])
 
         # Water heater temperature constraints
         self.temp_wh_min = cp.Constant(float(self.initial_values["temp_wh_min"]))
@@ -119,8 +119,8 @@ class MPCCalc:
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
-        self.discomfort = 0.5 # hard constraints on temp when discomfort is 0 ( @kyri )
-        self.disutility = 0.1 # penalizes shift from forecasted baseline
+        self.discomfort = 0.0 # hard constraints on temp when discomfort is 0 ( @kyri )
+        self.disutility = 0.0 # penalizes shift from forecasted baseline
         self.p_grid_forecast = cp.Variable(self.horizon, name="p_grid_forecast")
 
     def setup_battery_problem(self):
@@ -160,15 +160,15 @@ class MPCCalc:
             self.temp_wh[0] == self.temp_wh_init,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
             self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
-            # self.temp_in[1:self.h_plus] >= self.temp_in_min,
-            # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
+            self.temp_in[1:self.h_plus] >= self.temp_in_min,
+            self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
             self.temp_in[1:self.h_plus] <= self.temp_in_max,
             self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
 
-            # self.temp_in[1:self.h_plus] <= 21,
-            # self.temp_wh[1:self.h_plus] <= 48,
+            self.temp_in[1:self.h_plus] <= 21,
+            self.temp_wh[1:self.h_plus] <= 48,
 
             self.hvac_cool_on <= 1,
             self.hvac_cool_on >= 0,
@@ -190,8 +190,10 @@ class MPCCalc:
 
         if self.mode == "forecast":
             self.constraints += [self.p_grid_forecast == self.p_grid] # null difference between optimal and forecast
+            self.total_price = cp.Constant(np.array(self.base_price[:self.horizon]))
         else:
             self.constraints += [self.p_grid_forecast == self.forecast_p_grid_opt]
+            self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
 
     def add_battery_constraints(self):
         self.constraints += [
@@ -409,10 +411,10 @@ class MPCCalc:
     def forecast(self, forecast_action=0):
         self.mode = "forecast"
         self.forecast_rp = forecast_action
-        self.redis_get_initial_values()
-        self.cast_redis_init_vals()
-        self.cast_redis_forecast_vals()
-        self.set_vals_for_current_run()
+        # self.redis_get_initial_values()
+        # self.cast_redis_init_vals()
+        # self.cast_redis_forecast_vals()
+        # self.set_vals_for_current_run()
 
         self.mpc_log.logger.debug(f"Forecasting Home: {self.home['name']}; ts: {self.timestep}; iter: {self.iteration}; GHI: {self.ghi_current}; OAT: {self.oat_current}; RP: {self.reward_price}")
         if self.timestep > 0:
