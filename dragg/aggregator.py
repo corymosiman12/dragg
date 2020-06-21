@@ -503,8 +503,13 @@ class Aggregator:
             self.redis_client.conn.hset("current_values", "iteration", self.iteration)
             self.redis_client.conn.hset("current_values", "reward_price", self.reward_price.tolist())
 
-        if self.case == "rl_agg" or self.case == "simplified":
+        if self.case == "rl_agg":
             self.reward_price = np.zeros(self.rl_agg_horizon * self.dt)
+            for val in self.reward_price.tolist():
+                self.redis_client.conn.rpush("reward_price", val)
+
+        if self.case == "simplified":
+            self.reward_price = np.zeros(1) # force immediate response to action price in simplified case
             for val in self.reward_price.tolist():
                 self.redis_client.conn.rpush("reward_price", val)
 
@@ -556,13 +561,22 @@ class Aggregator:
     def _calc_state(self):
         # TODO: include the magnitude of the current load
         current_error = (self.agg_load - self.agg_setpoint) #/ self.agg_setpoint
-        persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
-        forecast_error = (self.forecast_load - self.forecast_setpoint) / self.forecast_setpoint
-        forecast_delta = self.forecast_load - self.agg_load
-        prev_forecast_error = (self.agg_load - self.prev_forecast_load) / max(self.prev_forecast_load,0.001)
-        time_of_day = self.timestep % 24
-        agg_load = self.agg_load
-        return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day, agg_load]
+        if self.timestep > 0:
+            integral_error = self.state[1] + current_error
+            derivative_error = self.state[0] - current_error
+        else:
+            integral_error = 0
+            derivative_error = 0
+        derivative_action = self.action - self.prev_action
+        # persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
+        # forecast_error = (self.forecast_load - self.forecast_setpoint) / self.forecast_setpoint
+        # forecast_delta = self.forecast_load - self.agg_load
+        # prev_forecast_error = (self.agg_load - self.prev_forecast_load) / max(self.prev_forecast_load,0.001)
+        # time_of_day = self.timestep % 24
+        # agg_load = self.agg_load
+        # return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day, agg_load]
+
+        return [current_error, integral_error, derivative_error, derivative_action]
 
     def _reward(self, x):
         """
@@ -573,12 +587,12 @@ class Aggregator:
         reward = 0
 
         #reward += 20*np.exp(abs(self.state[0]))
-        reward = -self.state[0]**2 #- 10*self.reward_price[-1]**2)
-        if self.state[0] > 0:
-            reward = reward * 2
-
-        if (self.state[0] * self.next_state[0]) < 0:
-            reward = reward * 4
+        reward = -50*self.state[0]**2 + 10*self.reward_price[-1]**2
+        # if self.state[0] > 0:
+        #     reward = reward * 2
+        #
+        # if (self.state[0] * self.next_state[0]) < 0:
+        #     reward = reward * 4
         # if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
         #     reward += 1
         # elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
@@ -602,6 +616,9 @@ class Aggregator:
         :return: a 1-D numpy array of arbitrary length
         """
         curr_error = state[0]
+        integral_error = state[1]
+        derivative_error = state[2]
+        derivative_action = state[3]
         # persistence_error = state[1]
         # forecast_error = state[2]
         # forecast_delta = state[3]
@@ -621,17 +638,9 @@ class Aggregator:
         curr_error_basis = np.array([1, curr_error, curr_error**2])
         # for i in range(8):
         #     np.append(action_basis, rbf(action, sigma, mu=0.01*(i-4)))
-        #
-        #current_error_basis = np.array([1])
-        #for i in range(10):
-        #    np.append(current_error_basis, rbf(curr_error, sigma, mu=0.1*i))
-        # current_error_basis = np.outer(current_error_basis, action_basis).flatten()
-        # time_basis = np.outer(np.array([np.sin(2*np.pi * time/24), np.cos(2*np.pi * time/24)]), action_basis).flatten()
-
-        # phi = np.concatenate((current_error_basis, persistence_error_basis, forecast_error_basis, prev_forecast_error_basis, delta_basis, agg_load_basis, time_basis))
-        # phi = np.concatenate((action_basis, current_error_basis, time_basis))
         phi = np.outer(action_basis, curr_error_basis).flatten()
-        return phi[:-1]
+        # phi = np.outer(phi, derivative_error).flatten()
+        return phi
 
     def _qvalue(self):
         q_k = self._reward(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state)) # off policy learning (Q-learning)
@@ -1065,7 +1074,7 @@ class Aggregator:
         #     sp = 10
         #
         # return sp
-        return 25 # for a single house
+        return 3 # for a single house
 
     def test_response(self):
         """ @kyri: to be changed for the response rate of the community """
@@ -1074,6 +1083,8 @@ class Aggregator:
             self.agg_load = self.agg_setpoint #+ np.random.rand()*self.agg_setpoint
         self.agg_load = max(1, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
         self.agg_load = min(self.agg_load, 50)
+        if (self.timestep + 51) % 200 == 0:
+            self.agg_load = self.agg_setpoint
         #self.agg_load = max(200,self.agg_load) # can't go above 200
         self.agg_cost = self.agg_load * self.reward_price[0]
 
@@ -1095,10 +1106,11 @@ class Aggregator:
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
         self.agg_load = self.forecast_load # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
+        self.action = 0
+        self.prev_action = 0
         self.state = self._calc_state()
         # self.timestep += 1
 
-        self.action = 0
         self.lam = 0.9
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
@@ -1138,6 +1150,7 @@ class Aggregator:
 
             self.timestep += 1
             self.state = self.next_state
+            self.prev_action = self.action
             self.action = self.next_action
 
         self.end_time = datetime.now()
@@ -1162,10 +1175,11 @@ class Aggregator:
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
         self.agg_load = self.forecast_load # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
+        self.action = 0
+        self.prev_action = 0
         self.state = self._calc_state()
         # self.timestep += 1
 
-        self.action = 0
         self.lam = 0.9
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
