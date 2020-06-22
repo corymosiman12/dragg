@@ -568,6 +568,7 @@ class Aggregator:
             integral_error = 0
             derivative_error = 0
         derivative_action = self.action - self.prev_action
+        change_rp = sum(self.reward_price)/(self.rl_agg_horizon * self.dt) - self.reward_price[-1]
         # persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
         # forecast_error = (self.forecast_load - self.forecast_setpoint) / self.forecast_setpoint
         # forecast_delta = self.forecast_load - self.agg_load
@@ -575,8 +576,9 @@ class Aggregator:
         # time_of_day = self.timestep % 24
         # agg_load = self.agg_load
         # return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day, agg_load]
+        state = [current_error, integral_error, derivative_error, derivative_action, change_rp]
 
-        return [current_error, integral_error, derivative_error, derivative_action]
+        return state
 
     def _reward(self, x):
         """
@@ -587,7 +589,7 @@ class Aggregator:
         reward = 0
 
         #reward += 20*np.exp(abs(self.state[0]))
-        reward = -50*self.state[0]**2 + 10*self.reward_price[-1]**2
+        reward = -50*self.state[0]**2 #+ 10*self.reward_price[-1]**2
         # if self.state[0] > 0:
         #     reward = reward * 2
         #
@@ -619,6 +621,7 @@ class Aggregator:
         integral_error = state[1]
         derivative_error = state[2]
         derivative_action = state[3]
+        change_rp = state[4]
         # persistence_error = state[1]
         # forecast_error = state[2]
         # forecast_delta = state[3]
@@ -634,11 +637,12 @@ class Aggregator:
         #     temp = np.array([(action-x), (action-x)**2])
         #     action_basis = np.concatenate([temp, action_basis])
 
-        action_basis = np.array([1, action, action**2])
+        action_basis = np.array([1, (100*action), (100*action)**2])
         curr_error_basis = np.array([1, curr_error, curr_error**2])
         # for i in range(8):
         #     np.append(action_basis, rbf(action, sigma, mu=0.01*(i-4)))
         phi = np.outer(action_basis, curr_error_basis).flatten()
+        
         # phi = np.outer(phi, derivative_error).flatten()
         return phi
 
@@ -649,7 +653,7 @@ class Aggregator:
         return q_k
 
     def _get_greedyaction(self, state_k):
-        self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1], 0.01)
+        self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1]+0.01, 0.01)
         self.nActions = len(self.q_lookup)
         self.q_lookup = np.column_stack((self.q_lookup, self.q_lookup))
         for i in range(len(self.q_lookup)):
@@ -797,16 +801,6 @@ class Aggregator:
         self.agg_load = agg_load
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
-
-    def collect_forecast_data(self):
-        agg_load = 0
-        for home in self.all_homes:
-            if self.check_type == 'all' or home["type"] == self.check_type:
-                key = home["name"]
-                key += "-forecast"
-                vals = self.redis_client.conn.hgetall(key)
-                agg_load += float(vals["p_grid_opt"])
-        return agg_load
 
     def collect_fake_data(self):
         self.baseline_agg_load_list.append(self.agg_load)
@@ -1019,39 +1013,17 @@ class Aggregator:
         temp["reward"] = []
         return temp
 
-    def rl_initialize_forecast(self):
-        forecast_file = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}_{self.dt_interval}Minutes", f"{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{self.horizon}", "baseline", "baseline-results.json")
-        if not os.path.isfile(forecast_file):
-            self.agg_log.logger.warning("No baseline file found for MPC with no aggregator. Running baseline file now.")
-            self.case = "baseline" # no aggregator
-            for h in self.config["prediction_horizons"]:
-                self.flush_redis()
-                self.redis_set_initial_values()
-                self.reset_baseline_data()
-                self.set_baseline_initial_vals()
-                self.run_baseline(h)
-                self.summarize_baseline(h)
-                self.write_outputs(h)
-        self.case = "rl_agg"
-        with open(forecast_file) as f:
-            data = json.load(f)
+    def _gen_forecast(self):
+        for home in self.all_homes:
+             if self.check_type == "all" or home["type"] == self.check_type:
+                 self.queue.put(home)
 
-        forecast_data = data["Summary"]["p_grid_aggregate"]
-        return forecast_data
-
-    def _gen_forecast(self, action=0):
-        # for home in self.all_homes:
-        #      if self.check_type == "all" or home["type"] == self.check_type:
-        #          self.queue.put(home)
-        #
-        # forecast_horizon = 1
-        # forecast = np.empty(forecast_horizon)
-        # for t in range(forecast_horizon):
-        #     worker = MPCCalc(self.queue, 8, self.dt, self.redis_client, self.forecast_log)
-        #     worker.forecast(forecast_action=action)
-        #     forecast[t] = self.collect_forecast_data()
-        # return forecast[0]
-        return 4
+        forecast_horizon = self.config["rl_agg_forecast_horizon"]
+        forecast = []
+        for t in range(forecast_horizon):
+            worker = MPCCalc(self.queue, 8, self.dt, self.redis_client, self.forecast_log)
+            forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
+        return forecast[0] # returns only first forecast value
 
     def get_best_action(self):
         results = []
@@ -1074,17 +1046,19 @@ class Aggregator:
         #     sp = 10
         #
         # return sp
-        return 3 # for a single house
+        return 25 # for a single house
 
     def test_response(self):
         """ @kyri: to be changed for the response rate of the community """
-        c = 0.8
+        c = 4
         if self.timestep == 0:
-            self.agg_load = self.agg_setpoint #+ np.random.rand()*self.agg_setpoint
+            self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
         self.agg_load = max(1, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
         self.agg_load = min(self.agg_load, 50)
-        if (self.timestep + 51) % 200 == 0:
-            self.agg_load = self.agg_setpoint
+        # if (self.timestep + 201) % 200 == 0:
+        #     self.agg_load = self.agg_setpoint
+        if self.reward_price[0] >= -0.02 and self.reward_price[0] <= 0.02:
+            self.agg_load = self.agg_load + 0.5*(self.agg_setpoint - self.agg_load)
         #self.agg_load = max(200,self.agg_load) # can't go above 200
         self.agg_cost = self.agg_load * self.reward_price[0]
 
@@ -1097,10 +1071,6 @@ class Aggregator:
         self.baseline_agg_load_list = [0]
 
         # self.best_action = 0
-        # self.second = 0
-        # self.third = 0
-        # self.fourth = 0
-        # self.timestep = 0
         self.forecast_load = self._gen_forecast()
         self.prev_forecast_load = self.forecast_load
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
@@ -1170,9 +1140,10 @@ class Aggregator:
         # self.third = 0
         # self.fourth = 0
         # self.timestep = 0
-        self.forecast_load = self._gen_forecast()
-        self.prev_forecast_load = self.forecast_load
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
+        self.forecast_load = self.forecast_setpoint
+        self.prev_forecast_load = self.forecast_load
+
         self.agg_load = self.forecast_load # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
         self.action = 0
