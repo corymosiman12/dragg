@@ -294,6 +294,26 @@ class Reformat:
 
         fig.show()
 
+    def plot_all_homes(self):
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+        for file in (self.baselines + self.parametrics):
+            with open(file["results"]) as f:
+                data = json.load(f)
+
+            fname = file["name"]
+            for name, house in data.items():
+                if name != "Summary":
+                    fig.add_trace(go.Scatter(x=self.x_lims, y=house["temp_in_opt"][0:self.timesteps], name=f"Tin (C) - {name} - {fname}"))
+                    fig.add_trace(go.Scatter(x=self.x_lims, y=house["temp_wh_opt"][0:self.timesteps], name=f"Twh (C) - {name} - {fname}"))
+                    fig.add_trace(go.Scatter(x=self.x_lims, y=house["p_grid_opt"][0:self.timesteps], name=f"Pgrid (kW) - {name} - {fname}", line_shape='hv', visible='legendonly'))
+                    fig.add_trace(go.Scatter(x=self.x_lims, y=house["p_load_opt"][0:self.timesteps], name=f"Pload (kW) - {name} - {fname}", line_shape='hv', visible='legendonly'))
+                    fig.add_trace(go.Scatter(x=self.x_lims, y=house["hvac_cool_on_opt"][0:self.timesteps], name=f"HVAC Cool Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+                    fig.add_trace(go.Scatter(x=self.x_lims, y=house["hvac_heat_on_opt"][0:self.timesteps], name=f"HVAC Heat Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+                    fig.add_trace(go.Scatter(x=self.x_lims, y=house["wh_heat_on_opt"][0:self.timesteps], name=f"WH Heat Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+
+        fig.show()
+
     def compare_agg_between_runs(self, n_homes):
         fig = make_subplots(specs=[[{"secondary_y": True}]])
 
@@ -361,7 +381,7 @@ class Reformat:
                 for i in range(max(self.config["rl_agg_action_horizon"])+1):
                     rtgs[i] = []
 
-                is_greedy = [False]*(max(self.config["rl_agg_action_horizon"])-1)
+                is_greedy = [False]*(max(self.config["rl_agg_action_horizon"])*self.dt-1)
                 is_random = []
                 for timestep in data:
                     is_greedy.append(timestep['is_greedy'])
@@ -431,7 +451,8 @@ class Reformat:
                 baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
                 baseline_error = np.subtract(baseline_load, baseline_setpoint)
                 fig.add_trace(go.Scatter(x=self.x_lims, y=(baseline_error), name="Error - Baseline", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Cummulative Error - Baseline", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=abs(baseline_error), name="Abs Error - Baseline", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Abs Cummulative Error - Baseline", line_shape='hv'))
                 fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(baseline_error), name="Cummulative Error - Baseline", line_shape='hv'))
                 fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(baseline_error),np.arange(self.timesteps) + 1), name=f"Average Error - Baseline", line_shape='hv'))
 
@@ -449,6 +470,7 @@ class Reformat:
             rl_setpoint = data["Summary"]["p_grid_setpoint"]
             rl_error = np.subtract(rl_load, rl_setpoint)
             fig.add_trace(go.Scatter(x=self.x_lims, y=(rl_error), name=f"Error - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=abs(rl_error), name=f"Abs Error - {name}", line_shape='hv'))
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Abs Error - {name}", line_shape='hv'))
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(rl_error), name=f"Cummulative Error - {name}", line_shape='hv'))
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(rl_error),np.arange(self.timesteps) + 1), name=f"Average Error - {name}", line_shape='hv'))
@@ -523,12 +545,12 @@ class Reformat:
 
             theta = data["theta"]
 
-            x = np.arange(self.hours)
+            # x = np.arange(self.hours)
             for i in range(len(data["theta"][0])):
                 y = []
-                for j in range(self.hours):
+                for j in range(self.hours*self.dt):
                     y.append(theta[j][i])
-                fig.add_trace(go.Scatter(x=x, y=y, name=f"Theta_{i} - {file['name']}"))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=y, name=f"Theta_{i} - {file['name']}", legendgroup=file['name']))
 
         fig.show()
 
@@ -671,16 +693,18 @@ class Reformat:
         fig.show()
 
 def main():
-    agg_params = {"alpha": [0.79]} # set parameters from earlier runs
+    agg_params = {"alpha": [0.09, 0.1]} # set parameters from earlier runs
     mpc_params = {}
-    exclude_runs = {"simplified"}
-    r = Reformat(agg_params=agg_params, exclude_runs=exclude_runs)
+    include_runs = {"baseline", "rl_agg"}
+    r = Reformat(agg_params=agg_params, include_runs=include_runs)
 
     r.rl2baseline()
     r.rl_thetas()
     if r.config["run_rl_agg"] or r.config["run_agg_mpc"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
         r.plot_single_home2("Crystal-RXXFA") # pv_battery
         # r.plot_single_home2(type="base")
+
+        r.plot_all_homes()
 
 if __name__ == "__main__":
     main()

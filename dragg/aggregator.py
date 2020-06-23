@@ -111,8 +111,6 @@ class Aggregator:
         self.memory_size = 1000
         self.actionspace = self.config["action_space"]
 
-        # self.batch_sizes = int(self.config["batch_size"])
-
     def _import_config(self):
         if not os.path.exists(self.config_file):
             self.agg_log.logger.error(f"Configuration file does not exist: {self.config_file}")
@@ -562,46 +560,25 @@ class Aggregator:
         # TODO: include the magnitude of the current load
         current_error = (self.agg_load - self.agg_setpoint) #/ self.agg_setpoint
         if self.timestep > 0:
-            integral_error = self.state[1] + current_error
-            derivative_error = self.state[0] - current_error
+            integral_error = self.state["int_error"] + current_error # calls previous state
+            derivative_error = self.state["curr_error"] - current_error
         else:
             integral_error = 0
             derivative_error = 0
         derivative_action = self.action - self.prev_action
         change_rp = sum(self.reward_price)/(self.rl_agg_horizon * self.dt) - self.reward_price[-1]
-        # persistence_error = (self.agg_load - self.forecast_setpoint) / self.forecast_setpoint
-        # forecast_error = (self.forecast_load - self.forecast_setpoint) / self.forecast_setpoint
-        # forecast_delta = self.forecast_load - self.agg_load
-        # prev_forecast_error = (self.agg_load - self.prev_forecast_load) / max(self.prev_forecast_load,0.001)
-        # time_of_day = self.timestep % 24
-        # agg_load = self.agg_load
-        # return [current_error, persistence_error, forecast_error, forecast_delta, prev_forecast_error, time_of_day, agg_load]
-        state = [current_error, integral_error, derivative_error, derivative_action, change_rp]
+        time_of_day = self.timestep % (24 * self.dt)
 
-        return state
+        return {"curr_error":current_error, "time_of_day":time_of_day, "int_error":integral_error}
 
     def _reward(self, x):
         """
         @kyri: Reward "function" should encourage the RL agent to move towards a state with curr_error = 0
         :return: float
         """
-        tol = 0.2
-        reward = 0
 
-        #reward += 20*np.exp(abs(self.state[0]))
-        reward = -50*self.state[0]**2 #+ 10*self.reward_price[-1]**2
-        # if self.state[0] > 0:
-        #     reward = reward * 2
-        #
-        # if (self.state[0] * self.next_state[0]) < 0:
-        #     reward = reward * 4
-        # if self.state[0]**2 > (abs(self.next_state[0]) + tol)**2: # moves closer to the target agg_setpoint
-        #     reward += 1
-        # elif self.state[0]**2 < self.next_state[0]**2: # moves away from the target agg_setpoint
-        #     reward += -1
-        #
-        # if abs((self.state[6] - self.next_state[6]) /  max(self.state[6],0.1)) > 0.2: # moves slowly
-        #     reward -= 5
+        reward = -50*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
+
         return reward
 
     def _q(self, state, action):
@@ -617,32 +594,15 @@ class Aggregator:
         @kyri: Phi = the basis functions for the Q-function, the values and length of phi is dynamic so any changes here should be fine.
         :return: a 1-D numpy array of arbitrary length
         """
-        curr_error = state[0]
-        integral_error = state[1]
-        derivative_error = state[2]
-        derivative_action = state[3]
-        change_rp = state[4]
-        # persistence_error = state[1]
-        # forecast_error = state[2]
-        # forecast_delta = state[3]
-        # prev_forecast_error = state[4]
-        # time = state[5]
-        # agg_load = state[6]
-        #
-        #sigma = 0.1
-        #normalized = 1/(sigma*np.sqrt(2*np.pi))
-        #
-        # action_basis = np.array([1])
-        # for x in np.arange(self.actionspace[0], self.actionspace[1]+0.01, 0.01):
-        #     temp = np.array([(action-x), (action-x)**2])
-        #     action_basis = np.concatenate([temp, action_basis])
 
-        action_basis = np.array([1, (100*action), (100*action)**2])
-        curr_error_basis = np.array([1, curr_error, curr_error**2])
-        # for i in range(8):
-        #     np.append(action_basis, rbf(action, sigma, mu=0.01*(i-4)))
-        phi = np.outer(action_basis, curr_error_basis).flatten()
-        
+        action_basis = np.array([1, (100*action), (100*action)**2, (100*(action - 0.04))**2, (100*(action + 0.04))**2])
+        time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"] / 24), np.cos(2 * np.pi * state["time_of_day"] / 24)])
+        curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
+        x = np.outer(action_basis, time_basis).flatten()
+        y = np.outer(curr_error_basis, time_basis).flatten()
+        z = np.outer(action_basis, curr_error_basis).flatten()
+        phi = np.concatenate((x,y,z))
+
         # phi = np.outer(phi, derivative_error).flatten()
         return phi
 
@@ -840,6 +800,7 @@ class Aggregator:
         self.rl_q_data["q_obs"].append(self.q_observed)
         self.rl_q_data["q_pred"].append(self.q_predicted)
         self.rl_q_data["action"].append(self.action)
+        self.rl_q_data["greedy_action"].append(self.greedy_action)
         # self.rl_q_data["best_action"].append(self.best_action)
         # self.rl_q_data["second"].append(self.second)
         # self.rl_q_data["third"].append(self.third)
