@@ -55,7 +55,8 @@ class Reformat:
         betas = set(self.config["rl_agg_discount_factor"])
         batch_sizes = set(self.config["batch_size"])
         rl_horizons = set(self.config["rl_agg_action_horizon"])
-        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons}
+        mpc_disutil = set(self.config["mpc_disutility"])
+        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons, "mpc_disutility": mpc_disutil}
         for key in temp:
             if key in self.add_agg_params:
                 temp[key] |= set(self.add_agg_params[key])
@@ -99,7 +100,7 @@ class Reformat:
             permutations = [dict(zip(keys, v)) for v in it.product(*values)]
             for j in permutations:
                 if os.path.isdir(rl_agg_folder):
-                    rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}"
+                    rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_disutil-{j['mpc_disutility']}"
                     results_file = rl_agg_path + "-results.json"
                     rl_agg_file = os.path.join(rl_agg_folder, results_file)
                     if os.path.isfile(rl_agg_file):
@@ -107,7 +108,7 @@ class Reformat:
                         iter_file = os.path.join(rl_agg_folder, iter_results)
                         q_results = rl_agg_path + "-q-results.json"
                         q_file = os.path.join(rl_agg_folder, q_results)
-                        name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}"
+                        name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}"
                         set = {"results": rl_agg_file, "q_results": q_file, "iter_results": iter_file, "name": name}
                         self.parametrics.append(set)
 
@@ -418,6 +419,7 @@ class Reformat:
 
             name = file["name"]
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - Baseline - {name}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - Baseline - {name}"))
         return fig
 
     def plot_parametric(self, fig):
@@ -427,6 +429,7 @@ class Reformat:
 
             name = file["name"]
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"][1:], name=f"Agg Load - RL - {name}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(data["Summary"]["p_grid_aggregate"][1:]), name=f"Cumulative Agg Load - RL - {name}"))
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:]),np.arange(self.timesteps)+1), name=f"Avg Load - RL - {name}"))
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["RP"], name=f"RP - RL - {name}", line_shape='hv'), secondary_y=True)
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["RP"]), np.arange(self.timesteps) + 1), name=f"Average RP"), secondary_y=True)
@@ -535,6 +538,17 @@ class Reformat:
         fig = make_subplots()
         fig.add_trace(go.Scatter3d(x=x1, y=data["action"], z=data["q_obs"], mode="markers"))
         fig.add_trace(go.Scatter3d(x=x2, y=data["action"], z=data["q_obs"], mode="markers"))
+        fig.show()
+
+    def rl_qvals(self):
+        fig = make_subplots()
+        for file in self.parametrics:
+            with open(file["q_results"]) as f:
+                data = json.load(f)
+
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["q_obs"], name=f"Q observed - {file['name']}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["q_pred"], name=f"Q predicted - {file['name']}"))
+
         fig.show()
 
     def rl_thetas(self):

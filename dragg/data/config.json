@@ -1,5 +1,5 @@
 {
-  "total_number_homes": 10,
+  "total_number_homes": 20,
   "homes_battery": 0,
   "homes_pv": 0,
   "homes_pv_battery": 0,
@@ -38,16 +38,17 @@
   "run_simplified": false,
   "mpc_hourly_steps": 4,
   "agg_mpc_horizon": 4,
-  "agg_learning_rate": [0.09],
+  "agg_learning_rate": [0.1],
   "agg_exploration_rate": [0.3],
-  "rl_agg_discount_factor": [0.8],
+  "rl_agg_discount_factor": [0.0],
   "shoulder_times": [9,21],
   "peak_times": [14,18],
   "offpeak_price": 0.10,
   "shoulder_price": 0.10,
   "peak_price": 0.10,
   "action_space": [-0.05, 0.05],
-  "rl_agg_action_horizon": [4],
+  "rl_agg_action_horizon": [1,2,4],
   "rl_agg_forecast_horizon": 1,
-  "batch_size": [32]
+  "batch_size": [32],
+  "mpc_disutility": [0.25, 0.5]
 }

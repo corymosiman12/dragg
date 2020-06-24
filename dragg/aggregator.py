@@ -568,8 +568,10 @@ class Aggregator:
         derivative_action = self.action - self.prev_action
         change_rp = sum(self.reward_price)/(self.rl_agg_horizon * self.dt) - self.reward_price[-1]
         time_of_day = self.timestep % (24 * self.dt)
+        forecast_error = self.forecast_load[0] - self.forecast_setpoint
+        avg_forecast_error = sum(self.forecast_load) - self.forecast_setpoint / len(self.forecast_load)
 
-        return {"curr_error":current_error, "time_of_day":time_of_day, "int_error":integral_error}
+        return {"curr_error":current_error, "time_of_day":time_of_day, "int_error":integral_error, "fcst_error":forecast_error, "avg_fcst_error": avg_forecast_error}
 
     def _reward(self, x):
         """
@@ -578,6 +580,7 @@ class Aggregator:
         """
 
         reward = -50*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
+        # reward = -10*rbf(self.state["curr_error"], 0.1) + self.reward_price[-1]**2
 
         return reward
 
@@ -591,17 +594,21 @@ class Aggregator:
 
     def _phi(self, state, action):
         """
-        @kyri: Phi = the basis functions for the Q-function, the values and length of phi is dynamic so any changes here should be fine.
+        @kyri: Phi = the basis functions for the Q-function, the values and length of phi are dynamic so any changes here should be fine.
         :return: a 1-D numpy array of arbitrary length
         """
 
-        action_basis = np.array([1, (100*action), (100*action)**2, (100*(action - 0.04))**2, (100*(action + 0.04))**2])
+        action_basis = np.array([1, (action), (action)**2, ((action - 0.04))**2, ((action + 0.04))**2])
         time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"] / 24), np.cos(2 * np.pi * state["time_of_day"] / 24)])
         curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
-        x = np.outer(action_basis, time_basis).flatten()
-        y = np.outer(curr_error_basis, time_basis).flatten()
-        z = np.outer(action_basis, curr_error_basis).flatten()
-        phi = np.concatenate((x,y,z))
+        forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
+        avg_forecast_error_basis = np.array([1, state["avg_fcst_error"], state["avg_fcst_error"]**2])
+        v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:]
+        w = np.outer(forecast_error_basis, action_basis).flatten()[1:]
+        x = np.outer(action_basis, time_basis).flatten()[1:]
+        y = np.outer(curr_error_basis, time_basis).flatten()[1:]
+        z = np.outer(action_basis, curr_error_basis).flatten()[1:]
+        phi = np.concatenate((v, w, x, y, z))
 
         # phi = np.outer(phi, derivative_error).flatten()
         return phi
@@ -659,7 +666,7 @@ class Aggregator:
 
             self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
             self.delta = self.q_observed - self.q_predicted
-            self.delta = np.clip(self.delta, -2, 2)
+            # self.delta = np.clip(self.delta, -2, 2)
             self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
             k = (1 - self.beta) * (1 - self.lam)
             self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
@@ -710,8 +717,10 @@ class Aggregator:
         if np.random.uniform(0,1) >= self.epsilon: # the greedy action
             u_k = self._get_greedyaction(state)
             self.is_greedy = True
+            self.agg_log.logger.info("Selecting greedy action.")
         else: # exploration
             u_k = random.uniform(self.actionspace[0], self.actionspace[1])
+            self.agg_log.logger.info("Selecting non-greedy action.")
             self.is_greedy = False
 
         action = u_k
@@ -738,7 +747,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self, horizon=1):
-        worker = MPCCalc(self.queue, horizon, self.dt, self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, horizon, self.dt, self.mpc_disutility, self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
@@ -800,7 +809,7 @@ class Aggregator:
         self.rl_q_data["q_obs"].append(self.q_observed)
         self.rl_q_data["q_pred"].append(self.q_predicted)
         self.rl_q_data["action"].append(self.action)
-        self.rl_q_data["greedy_action"].append(self.greedy_action)
+        # self.rl_q_data["greedy_action"].append(self.greedy_action)
         # self.rl_q_data["best_action"].append(self.best_action)
         # self.rl_q_data["second"].append(self.second)
         # self.rl_q_data["third"].append(self.third)
@@ -883,11 +892,11 @@ class Aggregator:
                 json.dump(self.agg_mpc_data, f, indent=4)
 
         else:
-            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}-results.json"
-            f3 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}-iter-results.json")
+            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}-results.json"
+            f3 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}-iter-results.json")
             with open(f3, 'w+') as f:
                 json.dump(self.rl_agg_data, f, indent=4)
-            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}-q-results.json")
+            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}-q-results.json")
             with open(f4, 'w+') as f:
                 json.dump(self.rl_q_data, f, indent=4)
 
@@ -982,9 +991,9 @@ class Aggregator:
         forecast_horizon = self.config["rl_agg_forecast_horizon"]
         forecast = []
         for t in range(forecast_horizon):
-            worker = MPCCalc(self.queue, 8, self.dt, self.redis_client, self.forecast_log)
+            worker = MPCCalc(self.queue, 8, self.dt, self.mpc_disutility, self.redis_client, self.forecast_log)
             forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
-        return forecast[0] # returns only first forecast value
+        return forecast # returns only first forecast value
 
     def get_best_action(self):
         results = []
@@ -1000,14 +1009,16 @@ class Aggregator:
 
     def _gen_setpoint(self, time):
         """ @kyri: setpoint of community """
-        # i = time % 24
-        # if i >= 2 and i <= 14:
-        #     sp = 60
-        # else:
-        #     sp = 10
-        #
-        # return sp
-        return 25 # for a single house
+        if self.timestep > 0:
+            if self.state["time_of_day"] >= 2*self.dt and self.state["time_of_day"] <= 14*self.dt:
+                sp = 100
+            else:
+                sp = 10
+        else:
+            sp = 50
+
+        return sp
+        # return 55 # for a single house
 
     def test_response(self):
         """ @kyri: to be changed for the response rate of the community """
@@ -1035,7 +1046,7 @@ class Aggregator:
         self.forecast_load = self._gen_forecast()
         self.prev_forecast_load = self.forecast_load
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
-        self.agg_load = self.forecast_load # approximate load for initial timestep
+        self.agg_load = self.forecast_load[0] # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
         self.action = 0
         self.prev_action = 0
@@ -1212,6 +1223,7 @@ class Aggregator:
             betas = self.config["rl_agg_discount_factor"]
             rl_agg_horizons = self.config["rl_agg_action_horizon"]
             batch_sizes = self.config["batch_size"]
+            mpc_disutilitys = self.config["mpc_disutility"]
 
             for a in alphas:
                 self.alpha = float(a)
@@ -1224,14 +1236,15 @@ class Aggregator:
                             self.rl_agg_horizon = int(h)
                             for bs in batch_sizes:
                                 self.batch_size = int(bs)
-
-                                self.flush_redis()
-                                self.redis_set_initial_values()
-                                self.reset_baseline_data()
-                                self.set_baseline_initial_vals()
-                                self.run_rl_agg(self.horizon)
-                                self.summarize_baseline(self.horizon)
-                                self.write_outputs(self.horizon)
+                                for md in mpc_disutilitys:
+                                    self.mpc_disutility = float(md)
+                                    self.flush_redis()
+                                    self.redis_set_initial_values()
+                                    self.reset_baseline_data()
+                                    self.set_baseline_initial_vals()
+                                    self.run_rl_agg(self.horizon)
+                                    self.summarize_baseline(self.horizon)
+                                    self.write_outputs(self.horizon)
 
         if self.config["run_simplified"]:
             self.case = "simplified"

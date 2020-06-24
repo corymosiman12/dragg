@@ -8,7 +8,7 @@ from dragg.redis_client import RedisClient
 
 
 class MPCCalc:
-    def __init__(self, q, h, dt, redis_client, mpc_log):
+    def __init__(self, q, h, dt, disutility, redis_client, mpc_log):
         """
 
         :param q: queue.Queue
@@ -57,6 +57,7 @@ class MPCCalc:
         self.prev_optimal_vals = None  # set after timestep > 0, set_vals_for_current_run
         self.reward_price = np.zeros(self.horizon)
         self.mode = "run"
+        self.dis = disutility
 
     def redis_write_optimal_vals(self):
         key = self.home["name"]
@@ -194,12 +195,13 @@ class MPCCalc:
             self.constraints += [self.p_grid_baseline == self.baseline_p_grid_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
             self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
-            self.disutility = 0.5 # penalizes shift from forecasted baseline
+            self.disutility = self.dis # penalizes shift from forecasted baseline
 
             # self.discomfort = 2.5 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
             # self.disutility = 0 # penalizes shift from forecasted baseline
 
     def add_battery_constraints(self):
+        self.charge_mag = cp.Variable()
         self.constraints += [
             # Battery constraints
             self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon] + self.batt_ch_eff * self.p_batt_ch[0:self.horizon] / self.dt + self.p_batt_disch[0:self.horizon] / self.dt / self.batt_disch_eff,
@@ -237,7 +239,7 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(self.e_batt / self.batt_cap_total - 0.5) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
 
     def set_pv_only_p_grid(self):
         self.constraints += [
@@ -251,7 +253,7 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch - self.p_pv
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(self.e_batt / self.batt_cap_total - 0.5) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
 
     def solve_mpc(self):
         # self.obj = cp.Minimize(cp.sum((self.total_price) * self.p_grid[0:self.horizon]))
@@ -262,7 +264,7 @@ class MPCCalc:
 
     def cleanup_and_finish(self):
         if self.prob.status != "optimal":
-            self.mpc_log.logger.error(f"Couldn't solve problem for {self.home['name']}: {self.prob.status}")
+            self.mpc_log.logger.error(f"Couldn't solve problem for {self.home['name']} of type {self.home['type']}: {self.prob.status}")
         if self.mode == "run":
             # self.mpc_log.logger.info(f"Status for {self.home['name']}: {self.prob.status}")
             self.optimal_vals = {
