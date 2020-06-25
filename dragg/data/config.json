@@ -1,8 +1,11 @@
 {
+  "THE FOLLOWING ARE VALUES FOR HOME NUMBER AND TYPE": null,
   "total_number_homes": 20,
   "homes_battery": 0,
   "homes_pv": 0,
   "homes_pv_battery": 0,
+
+  "THE FOLLOWING ARE PARAMETERS ON HOME AND SYSTEM CONSTRUCTION": null,
   "home_hvac_r_dist": [6.8, 9.2],
   "home_hvac_c_dist": [4.25, 5.75],
   "home_hvac_p_cool_dist": [3.5, 3.5],
@@ -19,36 +22,45 @@
   "battery_cons_penalty":0.005,
   "pv_area": 32,
   "pv_efficiency": 0.2,
-  "start_datetime": "2015-01-01 00",
-  "end_datetime": "2015-01-08 00",
-  "prediction_horizons": [4],
-  "random_seed": 12,
-  "load_zone": "LZ_HOUSTON",
-  "step_size_coeff": 0.0005,
-  "max_load_threshold": [80],
-  "check_type": "all",
   "temp_in_init": 19.3,
   "temp_wh_init": 45.75,
   "temp_sp": [18, 22],
   "wh_sp": [45.5, 48.5],
-  "run_baseline": false,
-  "run_rbo_mpc": false,
-  "run_agg_mpc": false,
-  "run_rl_agg": true,
+
+  "THE FOLLOWING ARE SIMULATION PARAMETERS": null,
+  "start_datetime": "2015-01-01 00",
+  "end_datetime": "2015-01-01 12",
+  "random_seed": 12,
+  "load_zone": "LZ_HOUSTON",
+  "check_type": "all",
+
+  "RUNS THE BASELINE CASE WITH RESIDENTIAL HEMS": null,
+  "run_rbo_mpc": true,
+
+  "RUNS RL AGGREGATOR WITH RESIDENTAL HEMS TO DETERMINE REWARD PRICE": null,
+  "run_rl_agg": false,
+
+  "RUNS THE SIMPLIFIED COMMUNITY RESPONSE (LINEAR MODEL)": null,
   "run_simplified": false,
+
+  "THE FOLLOWING ARE PARAMETERS ON RESIDENTAL HEMS": null,
+  "mpc_prediction_horizons": [4],
   "mpc_hourly_steps": 4,
-  "agg_mpc_horizon": 4,
-  "agg_learning_rate": [0.1],
-  "agg_exploration_rate": [0.3],
-  "rl_agg_discount_factor": [0.0],
-  "shoulder_times": [9,21],
-  "peak_times": [14,18],
-  "offpeak_price": 0.10,
-  "shoulder_price": 0.10,
-  "peak_price": 0.10,
-  "action_space": [-0.05, 0.05],
-  "rl_agg_action_horizon": [1,2,4],
+  "mpc_discomfort": [2.5],
+  "mpc_disutility": [0.25],
+
+  "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,
+  "rl_learning_rate": [0.1],
+  "rl_exploration_rate": [0.31],
+  "rl_discount_factor": [0.0],
+  "rl_batch_size": [32],
+
+  "NUMBER OF HOURS IN ADVANCE RL AGENT CALCULATES REWARD PRICE (where 0 provides only the next RP)": null,
+  "rl_agg_action_horizon": [4],
+
+  "NUMBER OF TIMESTEPS FOR WHICH THE AGGREGATOR FORECASTS THE PREDICTED ENERGY CONSUMPTION (where 0 assumes the load from the last timestep)":null,
   "rl_agg_forecast_horizon": 1,
-  "batch_size": [32],
-  "mpc_disutility": [0.25, 0.5]
+
+  "base_price": 0.10,
+  "action_space": [-0.05, 0.05]
 }

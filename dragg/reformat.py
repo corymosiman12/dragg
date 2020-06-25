@@ -14,7 +14,7 @@ from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, agg_params={}, mpc_params={}, include_runs={}, log=Logger("reformat")):
+    def __init__(self, agg_params={}, mpc_params={}, date_ranges={}, include_runs={}, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = 'data'
         self.outputs_dir = 'outputs'
@@ -24,11 +24,10 @@ class Reformat:
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.json'))
         self.config = self._import_config()
         self.pred_horizons = self.config["prediction_horizons"]
-        self.start_dt = datetime.strptime(self.config["start_datetime"], '%Y-%m-%d %H')
-        self.end_dt = datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')
-        self.date_folder = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
-        self.hours = self.end_dt - self.start_dt
-        self.hours = int(self.hours.total_seconds() / 3600)
+        self.add_date_ranges = date_ranges
+        self.date_ranges = self._setup_date_ranges()
+        self.date_folders = self.set_date_folders()
+        self.hours = min(df["hours"] for df in self.date_folders)
         self.dt = self.config["mpc_hourly_steps"]
         self.timesteps = self.hours * self.dt
         self.dt_minutes = 60 // self.dt
@@ -45,15 +44,25 @@ class Reformat:
         self.parametrics = []
         self.set_parametric_files()
 
+        self.start_dt = self.date_ranges["start_datetime"][0]
         self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_action_horizon"])*self.timesteps)]
 
         np.random.seed(self.config["random_seed"])
 
+    def _setup_date_ranges(self):
+        start_dates = [datetime.strptime(self.config["start_datetime"], '%Y-%m-%d %H')]
+        end_dates = set([datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')])
+        temp = {"start_datetime": start_dates, "end_datetime": end_dates}
+        for key in temp:
+            if key in self.add_date_ranges:
+                temp[key].add(datetime.strptime(self.add_date_ranges[key], '%Y-%m-%d %H'))
+        return temp
+
     def _setup_agg_params(self):
-        alphas = set(self.config["agg_learning_rate"])
-        epsilons = set(self.config["agg_exploration_rate"])
-        betas = set(self.config["rl_agg_discount_factor"])
-        batch_sizes = set(self.config["batch_size"])
+        alphas = set(self.config["rl_learning_rate"])
+        epsilons = set(self.config["rl_exploration_rate"])
+        betas = set(self.config["rl_discount_factor"])
+        batch_sizes = set(self.config["rl_batch_size"])
         rl_horizons = set(self.config["rl_agg_action_horizon"])
         mpc_disutil = set(self.config["mpc_disutility"])
         temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons, "mpc_disutility": mpc_disutil}
@@ -64,7 +73,7 @@ class Reformat:
 
     def _setup_mpc_params(self):
         n_houses = self.config["total_number_homes"]
-        mpc_horizon = self.config["agg_mpc_horizon"]
+        mpc_horizon = set(self.config["mpc_prediction_horizons"])
         dt = self.config["mpc_hourly_steps"]
         interval_minutes = 60 // dt
         check_type = self.config["check_type"]
@@ -74,14 +83,28 @@ class Reformat:
                 temp[key] |= set(self.add_mpc_params[key])
         return temp
 
+    def set_date_folders(self):
+        temp = []
+        keys, values = zip(*self.date_ranges.items())
+        permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+        for i in permutations:
+            date_folder = os.path.join(self.outputs_dir, f"{i['start_datetime'].strftime('%Y-%m-%dT%H')}_{i['end_datetime'].strftime('%Y-%m-%dT%H')}")
+            if os.path.isdir(date_folder):
+                hours = i['end_datetime'] - i['start_datetime']
+                hours = int(hours.total_seconds() / 3600)
+                new_folder = {"folder": date_folder, "hours": hours}
+                temp.append(new_folder)
+        return temp
+
     def set_mpc_folders(self):
         temp = []
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
-        for i in permutations:
-            mpc_folder = os.path.join(self.date_folder, f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_horizon']}-interval_{i['interval_minutes']}")
-            if os.path.isdir(os.path.join(mpc_folder)):
-                temp.append(mpc_folder)
+        for j in self.date_folders:
+            for i in permutations:
+                mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_horizon']}-interval_{i['interval_minutes']}")
+                if os.path.isdir(mpc_folder):
+                    temp.append(mpc_folder)
         return temp
 
     def set_base_files(self):
@@ -393,7 +416,7 @@ class Reformat:
                     if not is_greedy[t]:
                         is_random.append(t)
 
-                num_decisions = float(max(self.config["rl_agg_action_horizon"]))
+                num_decisions = max(float(max(self.config["rl_agg_action_horizon"])),1)
                 for i in rtgs:
                     if i > 0.75*num_decisions:
                         color = 'green'
@@ -430,9 +453,9 @@ class Reformat:
             name = file["name"]
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"][1:], name=f"Agg Load - RL - {name}"))
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(data["Summary"]["p_grid_aggregate"][1:]), name=f"Cumulative Agg Load - RL - {name}"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:]),np.arange(self.timesteps)+1), name=f"Avg Load - RL - {name}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:self.timesteps+1]),np.arange(self.timesteps)+1), name=f"Avg Load - RL - {name}"))
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["RP"], name=f"RP - RL - {name}", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["RP"]), np.arange(self.timesteps) + 1), name=f"Average RP"), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["RP"])[:self.timesteps], np.arange(self.timesteps) + 1), name=f"Average RP"), secondary_y=True)
             # fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(data["Summary"]["TOU"], data["Summary"]["RP"]).tolist(), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
 
         return fig
@@ -452,12 +475,12 @@ class Reformat:
 
                 baseline_load = data["Summary"]["p_grid_aggregate"]
                 baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
-                baseline_error = np.subtract(baseline_load, baseline_setpoint)
+                baseline_error = np.subtract(baseline_load[:self.timesteps], baseline_setpoint[:self.timesteps])
                 fig.add_trace(go.Scatter(x=self.x_lims, y=(baseline_error), name="Error - Baseline", line_shape='hv'))
                 fig.add_trace(go.Scatter(x=self.x_lims, y=abs(baseline_error), name="Abs Error - Baseline", line_shape='hv'))
                 fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Abs Cummulative Error - Baseline", line_shape='hv'))
                 fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(baseline_error), name="Cummulative Error - Baseline", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(baseline_error),np.arange(self.timesteps) + 1), name=f"Average Error - Baseline", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(baseline_error)[:self.timesteps],np.arange(self.timesteps) + 1), name=f"Average Error - Baseline", line_shape='hv'))
 
             flag = False
 
@@ -476,7 +499,7 @@ class Reformat:
             fig.add_trace(go.Scatter(x=self.x_lims, y=abs(rl_error), name=f"Abs Error - {name}", line_shape='hv'))
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Abs Error - {name}", line_shape='hv'))
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(rl_error), name=f"Cummulative Error - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(rl_error),np.arange(self.timesteps) + 1), name=f"Average Error - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(rl_error)[:self.timesteps],np.arange(self.timesteps) + 1), name=f"Average Error - {name}", line_shape='hv'))
 
         return fig
 
@@ -486,9 +509,9 @@ class Reformat:
                 data = json.load(f)
 
             name = file["name"]
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name=f"Average Reward - {name}", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name=f"Cumulative Reward - {name}", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["reward"], name=f"Reward - {name}", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name=f"Average Reward - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name=f"Cumulative Reward - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["reward"], name=f"Reward - {name}", line_shape='hv'))
             try:
                 fig.add_trace(go.Scatter(x=self.x_lims, y=data["best_action"], name="Best Action", line_shape='hv'), secondary_y=True)
                 fig.add_trace(go.Scatter(x=self.x_lims, y=data["second"], name="second Action", line_shape='hv'), secondary_y=True)
@@ -714,7 +737,7 @@ def main():
 
     r.rl2baseline()
     r.rl_thetas()
-    if r.config["run_rl_agg"] or r.config["run_agg_mpc"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
+    if r.config["run_rl_agg"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
         r.plot_single_home2("Crystal-RXXFA") # pv_battery
         # r.plot_single_home2(type="base")
 

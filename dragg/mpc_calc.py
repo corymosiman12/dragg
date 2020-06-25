@@ -8,7 +8,7 @@ from dragg.redis_client import RedisClient
 
 
 class MPCCalc:
-    def __init__(self, q, h, dt, disutility, redis_client, mpc_log):
+    def __init__(self, q, h, dt, redis_client, mpc_log):
         """
 
         :param q: queue.Queue
@@ -17,7 +17,7 @@ class MPCCalc:
         """
         self.q = q  # Queue
         self.dt = dt
-        self.horizon = h * self.dt  # Prediction horizon
+        self.horizon = max(1, h * self.dt)  # Prediction horizon
         self.mpc_log = mpc_log
         self.redis_client = redis_client
         self.home = None  # reset every time home retrieved from Queue
@@ -57,7 +57,6 @@ class MPCCalc:
         self.prev_optimal_vals = None  # set after timestep > 0, set_vals_for_current_run
         self.reward_price = np.zeros(self.horizon)
         self.mode = "run"
-        self.dis = disutility
 
     def redis_write_optimal_vals(self):
         key = self.home["name"]
@@ -189,13 +188,16 @@ class MPCCalc:
         if self.mode == "baseline" or self.mode == "forecast":
             self.constraints += [self.p_grid_baseline == self.p_grid] # null difference between optimal and forecast
             self.total_price = cp.Constant(np.array(self.base_price[:self.horizon]))
-            self.discomfort = 2.5 # hard constraints on temp when discomfort is 0 ( @kyri )
+            # self.discomfort = self.discomfort # hard constraints on temp when discomfort is 0 ( @kyri )
+            self.discomfort = 2.5
             self.disutility = 0.0 # penalizes shift from forecasted baseline
         else: # if self.mode == "run"
             self.constraints += [self.p_grid_baseline == self.baseline_p_grid_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
-            self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
-            self.disutility = self.dis # penalizes shift from forecasted baseline
+            # self.discomfort = self.discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
+            # self.disutility = self.disutility # penalizes shift from forecasted baseline
+            self.discomfort = 0.0
+            self.disutility = 0.25
 
             # self.discomfort = 2.5 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
             # self.disutility = 0 # penalizes shift from forecasted baseline
@@ -230,13 +232,13 @@ class MPCCalc:
     def set_base_p_grid(self):
         self.constraints += [
             # Set grid load
-            self.p_grid == self.p_load
+            self.p_grid == self.p_load # p_load = p_hvac + p_wh
         ]
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
 
     def set_battery_only_p_grid(self):
         self.constraints += [
-            # Set grid load
+            # Set grid load # try changing wf of batteries and discharge
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch
         ]
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))

@@ -59,11 +59,11 @@ class Aggregator:
             "pv_efficiency",
             "start_datetime",
             "end_datetime",
-            "prediction_horizons",
+            "mpc_prediction_horizons",
             "random_seed",
             "load_zone",
-            "step_size_coeff",
-            "max_load_threshold",
+            # "step_size_coeff", # removed for RL aggregator
+            # "max_load_threshold", # removed for RL aggregator
             "check_type"
         }
         self.timestep = None  # Set by redis_set_initial_values
@@ -92,7 +92,7 @@ class Aggregator:
         # self.redis_client = redis.Redis(connection_pool = self.redis_pool)
         self.redis_client = RedisClient()
         self.config = self._import_config()
-        self.step_size_coeff = self.config["step_size_coeff"]
+        # self.step_size_coeff = self.config["step_size_coeff"] # removed for RL aggregator
         self.check_type = self.config["check_type"]  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
 
         self.ts_data = self._import_ts_data()  # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
@@ -178,7 +178,6 @@ class Aggregator:
         url: http://www.ercot.com/mktinfo/prices.
         Only keeps SPP data, converts to $/kWh.
         Subtracts 1 hour from time to be inline with 23 hour day as required by pandas.
-
         :return: pandas.DataFrame, columns: ts, SPP
         """
         if not os.path.exists(self.tou_data_file):
@@ -208,12 +207,15 @@ class Aggregator:
         return df.reset_index(drop=True)
 
     def _build_tou_price(self):
-        sd_times = self.config["shoulder_times"]
-        pk_times = self.config["peak_times"]
-        op_price = float(self.config["offpeak_price"])
-        sd_price = float(self.config["shoulder_price"])
-        pk_price = float(self.config["peak_price"])
-        self.all_data['tou'] = self.all_data['ts'].apply(lambda x: pk_price if (x.hour <= pk_times[1] and x.hour >= pk_times[0]) else (sd_price if x.hour <= sd_times[1] and x.hour >= sd_times[0] else op_price))
+        try:
+            sd_times = self.config["shoulder_times"]
+            pk_times = self.config["peak_times"]
+            op_price = float(self.config["offpeak_price"])
+            sd_price = float(self.config["shoulder_price"])
+            pk_price = float(self.config["peak_price"])
+            self.all_data['tou'] = self.all_data['ts'].apply(lambda x: pk_price if (x.hour <= pk_times[1] and x.hour >= pk_times[0]) else (sd_price if x.hour <= sd_times[1] and x.hour >= sd_times[0] else op_price))
+        except:
+            self.all_data['tou'] = float(self.config["base_price"])
 
     def join_data(self):
         """
@@ -460,7 +462,7 @@ class Aggregator:
         if not self.start_dt >= self.all_data.index[0]:
             self.agg_log.logger.error("The start datetime must exist in the data provided.")
             sys.exit(1)
-        if not self.end_dt + timedelta(hours=max(self.config["prediction_horizons"])) <= self.all_data.index[-1]:
+        if not self.end_dt + timedelta(hours=max(self.config["mpc_prediction_horizons"])) <= self.all_data.index[-1]:
             self.agg_log.logger.error("The end datetime + the largest prediction horizon must exist in the data provided.")
             sys.exit(1)
 
@@ -603,12 +605,12 @@ class Aggregator:
         curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
         forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
         avg_forecast_error_basis = np.array([1, state["avg_fcst_error"], state["avg_fcst_error"]**2])
-        v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:]
-        w = np.outer(forecast_error_basis, action_basis).flatten()[1:]
-        x = np.outer(action_basis, time_basis).flatten()[1:]
-        y = np.outer(curr_error_basis, time_basis).flatten()[1:]
-        z = np.outer(action_basis, curr_error_basis).flatten()[1:]
-        phi = np.concatenate((v, w, x, y, z))
+        v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:] #14 (indexed to 13)
+        # w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #
+        x = np.outer(action_basis, time_basis).flatten()[1:] #14
+        y = np.outer(curr_error_basis, time_basis).flatten()[1:-1] #8 curr_error**2*cos(time)
+        z = np.outer(action_basis, curr_error_basis).flatten()[1:] #14
+        phi = np.concatenate((v, x, y, z))
 
         # phi = np.outer(phi, derivative_error).flatten()
         return phi
@@ -675,10 +677,10 @@ class Aggregator:
         self.phi_k = self._phi(self.state, self.action)
         next_action = self._get_greedyaction(self.next_state)
         self.phi_k1 = self._phi(self.next_state, next_action)
-        self.q_predicted = self.average_reward + self.theta @ self.phi_k
-        self.q_observed = self.reward + self.theta @ self.phi_k1
+        self.q_predicted = self.average_reward + self.theta @ self.phi_k # @ = dot product # should temp_theta
+        self.q_observed = self.reward + temp_theta @ self.phi_k1 # update experience replay
         self.delta = self.q_observed - self.q_predicted
-        self.delta = np.clip(self.delta, -1, 1)
+        self.delta = np.clip(self.delta, -1, 1) # stops theta diverging too soon
         # self.average_reward = self.average_reward + self.alpha*self.delta
         self.average_reward = self.cumulative_reward / (self.timestep + 1)
         self.theta = self.theta - self.alpha * self.delta * np.transpose(self.phi_k - self.phi_k1)
@@ -747,7 +749,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self, horizon=1):
-        worker = MPCCalc(self.queue, horizon, self.dt, self.mpc_disutility, self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, horizon, self.dt, self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
@@ -989,11 +991,14 @@ class Aggregator:
                  self.queue.put(home)
 
         forecast_horizon = self.config["rl_agg_forecast_horizon"]
-        forecast = []
-        for t in range(forecast_horizon):
-            worker = MPCCalc(self.queue, 8, self.dt, self.mpc_disutility, self.redis_client, self.forecast_log)
-            forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
-        return forecast # returns only first forecast value
+        if forecast_horizon < 1:
+            forecast = self.agg_load * np.ones(self.horizon)
+        else:
+            forecast = []
+            for t in range(forecast_horizon):
+                worker = MPCCalc(self.queue, self.horizon, self.dt, self.redis_client, self.forecast_log)
+                forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
+        return forecast # returns all forecast values in the horizon
 
     def get_best_action(self):
         results = []
@@ -1009,23 +1014,23 @@ class Aggregator:
 
     def _gen_setpoint(self, time):
         """ @kyri: setpoint of community """
-        if self.timestep > 0:
-            if self.state["time_of_day"] >= 2*self.dt and self.state["time_of_day"] <= 14*self.dt:
-                sp = 100
-            else:
-                sp = 10
-        else:
-            sp = 50
-
+        # if self.timestep > 0:
+        #     if self.state["time_of_day"] >= 2*self.dt and self.state["time_of_day"] <= 14*self.dt:
+        #         sp = 100
+        #     else:
+        #         sp = 10
+        # else:
+        #     sp = 50
+        sp = self.config['total_number_homes']*3
         return sp
         # return 55 # for a single house
 
     def test_response(self):
-        """ @kyri: to be changed for the response rate of the community """
-        c = 4
+        """ @kyri: to be changed for the response rate of the community (see mpc_disutility in new config.json)"""
+        c = 0.2
         if self.timestep == 0:
             self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
-        self.agg_load = max(1, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
+        self.agg_load = max(1, self.agg_load - self.mpc_disutility * self.reward_price[0] * self.agg_load) # can't go negative
         self.agg_load = min(self.agg_load, 50)
         # if (self.timestep + 201) % 200 == 0:
         #     self.agg_load = self.agg_setpoint
@@ -1113,10 +1118,10 @@ class Aggregator:
         # self.fourth = 0
         # self.timestep = 0
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
-        self.forecast_load = self.forecast_setpoint
+        self.forecast_load = [self.forecast_setpoint]
         self.prev_forecast_load = self.forecast_load
 
-        self.agg_load = self.forecast_load # approximate load for initial timestep
+        self.agg_load = self.forecast_load[0] # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
         self.action = 0
         self.prev_action = 0
@@ -1135,7 +1140,7 @@ class Aggregator:
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
             self.prev_forecast_load = self.forecast_load
-            self.forecast_load = self.agg_load # forecast current load at next timestep
+            self.forecast_load = [self.agg_load] # forecast current load at next timestep
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
 
             self.simplified_update_reward_price()
@@ -1176,22 +1181,23 @@ class Aggregator:
         self.create_homes()
         self.write_home_configs()
 
-        if self.config["run_baseline"]:
-            # Run baseline - no MPC, no aggregator
-            self.flush_redis()
-            self.case = "no_mpc" # no aggregator
-            self.horizon = 1
-            self.redis_set_initial_values()
-            self.reset_baseline_data()
-            self.set_baseline_initial_vals()
-            self.run_baseline(self.horizon)
-            self.summarize_baseline(self.horizon)
-            self.write_outputs(self.horizon)
+        """ run_baseline has been depricated. Use "run_rbo_mpc" with "mpc_prediction_horizons" of [0] instead """
+        # if self.config["run_baseline"]:
+        #     # Run baseline - no MPC, no aggregator
+        #     self.flush_redis()
+        #     self.case = "no_mpc" # no aggregator
+        #     self.horizon = 1
+        #     self.redis_set_initial_values()
+        #     self.reset_baseline_data()
+        #     self.set_baseline_initial_vals()
+        #     self.run_baseline(self.horizon)
+        #     self.summarize_baseline(self.horizon)
+        #     self.write_outputs(self.horizon)
 
         if self.config["run_rbo_mpc"]:
             # Run baseline MPC with N hour horizon, no aggregator
             self.case = "baseline" # no aggregator
-            for h in self.config["prediction_horizons"]:
+            for h in self.config["mpc_prediction_horizons"]:
                 self.flush_redis()
                 self.redis_set_initial_values()
                 self.reset_baseline_data()
@@ -1200,78 +1206,67 @@ class Aggregator:
                 self.summarize_baseline(h)
                 self.write_outputs(h)
 
-        if self.config["run_agg_mpc"]:
-            self.case = "agg_mpc"
-            self.horizon = self.config["agg_mpc_horizon"]
-            for threshold in self.config["max_load_threshold"]:
-                self.max_load_threshold = threshold
-                self.flush_redis()
-                self.redis_set_initial_values()
-                self.reset_baseline_data()
-                self.set_baseline_initial_vals()
-                self.run_agg_mpc(self.horizon)
-                self.summarize_baseline(self.horizon)
-                self.write_outputs(self.horizon)
+        """ temporarily removed for clarity (Cory's original aggregator)"""
+        # if self.config["run_agg_mpc"]:
+        #     self.case = "agg_mpc"
+        #     self.horizon = self.config["agg_mpc_horizon"]
+        #     for threshold in self.config["max_load_threshold"]:
+        #         self.max_load_threshold = threshold
+        #         self.flush_redis()
+        #         self.redis_set_initial_values()
+        #         self.reset_baseline_data()
+        #         self.set_baseline_initial_vals()
+        #         self.run_agg_mpc(self.horizon)
+        #         self.summarize_baseline(self.horizon)
+        #         self.write_outputs(self.horizon)
 
         if self.config["run_rl_agg"]:
             self.case = "rl_agg"
-            self.horizon = self.config["agg_mpc_horizon"]
-            self.max_load_threshold = self.config["max_load_threshold"][0]
 
-            epsilons = self.config["agg_exploration_rate"]
-            alphas = self.config["agg_learning_rate"]
-            betas = self.config["rl_agg_discount_factor"]
-            rl_agg_horizons = self.config["rl_agg_action_horizon"]
-            batch_sizes = self.config["batch_size"]
-            mpc_disutilitys = self.config["mpc_disutility"]
+            for h in self.config["mpc_prediction_horizons"]:
+                self.horizon = int(h)
+                for a in self.config["rl_learning_rate"]:
+                    self.alpha = float(a)
+                    for b in self.config["rl_discount_factor"]:
+                        self.beta = float(b)
+                        for e in self.config["rl_exploration_rate"]:
+                            self.epsilon_init = float(e)
+                            self.epsilon = self.epsilon_init
+                            for rl_h in self.config["rl_agg_action_horizon"]:
+                                self.rl_agg_horizon = int(rl_h)
+                                for bs in self.config["rl_batch_size"]:
+                                    self.batch_size = int(bs)
+                                    for md in self.config["mpc_disutility"]:
+                                        self.mpc_disutility = float(md)
+                                        self.flush_redis()
+                                        self.redis_set_initial_values()
+                                        self.reset_baseline_data()
+                                        self.set_baseline_initial_vals()
+                                        self.run_rl_agg(self.horizon)
+                                        self.summarize_baseline(self.horizon)
+                                        self.write_outputs(self.horizon)
 
-            for a in alphas:
+        if self.config["run_simplified"]:
+            self.case = "simplified"
+            self.horizon = self.config["mpc_prediction_horizons"][0] # arbitrary
+
+            for a in self.config["rl_learning_rate"]:
                 self.alpha = float(a)
-                for b in betas:
+                for b in self.config["rl_discount_factor"]:
                     self.beta = float(b)
-                    for e in epsilons:
+                    for e in self.config["rl_exploration_rate"]:
                         self.epsilon_init = float(e)
                         self.epsilon = self.epsilon_init
-                        for h in rl_agg_horizons:
-                            self.rl_agg_horizon = int(h)
-                            for bs in batch_sizes:
+                        for rl_h in self.config["rl_agg_action_horizon"]:
+                            self.rl_agg_horizon = int(rl_h)
+                            for bs in self.config["rl_batch_size"]:
                                 self.batch_size = int(bs)
-                                for md in mpc_disutilitys:
+                                for md in self.config["mpc_disutility"]:
                                     self.mpc_disutility = float(md)
                                     self.flush_redis()
                                     self.redis_set_initial_values()
                                     self.reset_baseline_data()
                                     self.set_baseline_initial_vals()
-                                    self.run_rl_agg(self.horizon)
+                                    self.run_rl_agg_simplified()
                                     self.summarize_baseline(self.horizon)
                                     self.write_outputs(self.horizon)
-
-        if self.config["run_simplified"]:
-            self.case = "simplified"
-            self.horizon = self.config["agg_mpc_horizon"]
-
-            epsilons = self.config["agg_exploration_rate"]
-            alphas = self.config["agg_learning_rate"]
-            betas = self.config["rl_agg_discount_factor"]
-            rl_agg_horizons = self.config["rl_agg_action_horizon"]
-            batch_sizes = self.config["batch_size"]
-
-            for a in alphas:
-                self.alpha = float(a)
-                for b in betas:
-                    self.beta = float(b)
-                    for e in epsilons:
-                        self.epsilon_init = float(e)
-                        self.epsilon = self.epsilon_init
-                        for h in rl_agg_horizons:
-                            self.rl_agg_horizon = int(h)
-                            for bs in batch_sizes:
-                                self.batch_size = int(bs)
-
-                                self.flush_redis()
-                                self.redis_set_initial_values()
-                                self.reset_baseline_data()
-                                self.set_baseline_initial_vals()
-                                self.run_rl_agg_simplified()
-                                self.summarize_baseline(self.horizon)
-                                self.write_outputs(self.horizon)
