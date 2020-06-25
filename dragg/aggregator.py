@@ -749,7 +749,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self, horizon=1):
-        worker = MPCCalc(self.queue, horizon, self.dt, self.discomfort, self.mpc_disutility, self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, horizon, self.dt, self.mpc_discomfort, self.mpc_disutility, self.case, self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
@@ -996,7 +996,7 @@ class Aggregator:
         else:
             forecast = []
             for t in range(forecast_horizon):
-                worker = MPCCalc(self.queue, self.horizon, self.dt, self.mpc_discomfort, self.mpc_disutility, self.redis_client, self.forecast_log)
+                worker = MPCCalc(self.queue, self.horizon, self.dt, self.mpc_discomfort, self.mpc_disutility, self.case, self.redis_client, self.forecast_log)
                 forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
         return forecast # returns all forecast values in the horizon
 
@@ -1198,13 +1198,17 @@ class Aggregator:
             # Run baseline MPC with N hour horizon, no aggregator
             self.case = "baseline" # no aggregator
             for h in self.config["mpc_prediction_horizons"]:
-                self.flush_redis()
-                self.redis_set_initial_values()
-                self.reset_baseline_data()
-                self.set_baseline_initial_vals()
-                self.run_baseline(h)
-                self.summarize_baseline(h)
-                self.write_outputs(h)
+                for c in self.config["mpc_discomfort"]:
+                    self.mpc_discomfort = float(c)
+                    for u in self.config["mpc_disutility"]:
+                        self.mpc_disutility = float(u)
+                        self.flush_redis()
+                        self.redis_set_initial_values()
+                        self.reset_baseline_data()
+                        self.set_baseline_initial_vals()
+                        self.run_baseline(h)
+                        self.summarize_baseline(h)
+                        self.write_outputs(h)
 
         """ temporarily removed for clarity (Cory's original aggregator)"""
         # if self.config["run_agg_mpc"]:

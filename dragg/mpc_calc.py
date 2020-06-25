@@ -8,7 +8,7 @@ from dragg.redis_client import RedisClient
 
 
 class MPCCalc:
-    def __init__(self, q, h, dt, discomfort, disutility, redis_client, mpc_log):
+    def __init__(self, q, h, dt, discomfort, disutility, case, redis_client, mpc_log):
         """
 
         :param q: queue.Queue
@@ -59,6 +59,7 @@ class MPCCalc:
         self.mode = "run"
         self._discomfort = discomfort
         self._disutility = disutility
+        self.case = case
 
     def redis_write_optimal_vals(self):
         key = self.home["name"]
@@ -196,11 +197,12 @@ class MPCCalc:
         else: # if self.mode == "run"
             self.constraints += [self.p_grid_baseline == self.baseline_p_grid_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
-            self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
-            self.disutility = self._disutility # penalizes shift from forecasted baseline
-
-            # self.discomfort = 2.5 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
-            # self.disutility = 0 # penalizes shift from forecasted baseline
+            if self.case == "rl_agg":
+                self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
+                self.disutility = self._disutility # penalizes shift from forecasted baseline
+            else:
+                self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
+                self.disutility = 0 # penalizes shift from forecasted baseline
 
     def add_battery_constraints(self):
         self.charge_mag = cp.Variable()

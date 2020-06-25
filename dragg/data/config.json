@@ -35,10 +35,10 @@
   "check_type": "all",
 
   "RUNS THE BASELINE CASE WITH RESIDENTIAL HEMS": null,
-  "run_rbo_mpc": true,
+  "run_rbo_mpc": false,
 
   "RUNS RL AGGREGATOR WITH RESIDENTAL HEMS TO DETERMINE REWARD PRICE": null,
-  "run_rl_agg": false,
+  "run_rl_agg": true,
 
   "RUNS THE SIMPLIFIED COMMUNITY RESPONSE (LINEAR MODEL)": null,
   "run_simplified": false,
