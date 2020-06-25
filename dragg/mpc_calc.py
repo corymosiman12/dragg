@@ -8,7 +8,7 @@ from dragg.redis_client import RedisClient
 
 
 class MPCCalc:
-    def __init__(self, q, h, dt, redis_client, mpc_log):
+    def __init__(self, q, h, dt, discomfort, disutility, redis_client, mpc_log):
         """
 
         :param q: queue.Queue
@@ -57,6 +57,8 @@ class MPCCalc:
         self.prev_optimal_vals = None  # set after timestep > 0, set_vals_for_current_run
         self.reward_price = np.zeros(self.horizon)
         self.mode = "run"
+        self._discomfort = discomfort
+        self._disutility = disutility
 
     def redis_write_optimal_vals(self):
         key = self.home["name"]
@@ -189,15 +191,13 @@ class MPCCalc:
             self.constraints += [self.p_grid_baseline == self.p_grid] # null difference between optimal and forecast
             self.total_price = cp.Constant(np.array(self.base_price[:self.horizon]))
             # self.discomfort = self.discomfort # hard constraints on temp when discomfort is 0 ( @kyri )
-            self.discomfort = 2.5
+            self.discomfort = self._discomfort
             self.disutility = 0.0 # penalizes shift from forecasted baseline
         else: # if self.mode == "run"
             self.constraints += [self.p_grid_baseline == self.baseline_p_grid_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
-            # self.discomfort = self.discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
-            # self.disutility = self.disutility # penalizes shift from forecasted baseline
-            self.discomfort = 0.0
-            self.disutility = 0.25
+            self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
+            self.disutility = self._disutility # penalizes shift from forecasted baseline
 
             # self.discomfort = 2.5 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
             # self.disutility = 0 # penalizes shift from forecasted baseline

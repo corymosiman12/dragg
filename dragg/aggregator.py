@@ -749,7 +749,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self, horizon=1):
-        worker = MPCCalc(self.queue, horizon, self.dt, self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, horizon, self.dt, self.discomfort, self.mpc_disutility, self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
@@ -996,7 +996,7 @@ class Aggregator:
         else:
             forecast = []
             for t in range(forecast_horizon):
-                worker = MPCCalc(self.queue, self.horizon, self.dt, self.redis_client, self.forecast_log)
+                worker = MPCCalc(self.queue, self.horizon, self.dt, self.mpc_discomfort, self.mpc_disutility, self.redis_client, self.forecast_log)
                 forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
         return forecast # returns all forecast values in the horizon
 
@@ -1238,13 +1238,15 @@ class Aggregator:
                                     self.batch_size = int(bs)
                                     for md in self.config["mpc_disutility"]:
                                         self.mpc_disutility = float(md)
-                                        self.flush_redis()
-                                        self.redis_set_initial_values()
-                                        self.reset_baseline_data()
-                                        self.set_baseline_initial_vals()
-                                        self.run_rl_agg(self.horizon)
-                                        self.summarize_baseline(self.horizon)
-                                        self.write_outputs(self.horizon)
+                                        for discomfort in self.config["mpc_discomfort"]:
+                                            self.mpc_discomfort = float(discomfort)
+                                            self.flush_redis()
+                                            self.redis_set_initial_values()
+                                            self.reset_baseline_data()
+                                            self.set_baseline_initial_vals()
+                                            self.run_rl_agg(self.horizon)
+                                            self.summarize_baseline(self.horizon)
+                                            self.write_outputs(self.horizon)
 
         if self.config["run_simplified"]:
             self.case = "simplified"
