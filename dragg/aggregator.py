@@ -572,8 +572,9 @@ class Aggregator:
         time_of_day = self.timestep % (24 * self.dt)
         forecast_error = self.forecast_load[0] - self.forecast_setpoint
         avg_forecast_error = sum(self.forecast_load) - self.forecast_setpoint / len(self.forecast_load)
+        avg_action = np.mean(self.reward_price)
 
-        return {"curr_error":current_error, "time_of_day":time_of_day, "int_error":integral_error, "fcst_error":forecast_error, "avg_fcst_error": avg_forecast_error}
+        return {"curr_error":current_error, "time_of_day":time_of_day, "int_error":integral_error, "fcst_error":forecast_error, "avg_fcst_error": avg_forecast_error, "avg_action": avg_action}
 
     def _reward(self, x):
         """
@@ -581,7 +582,8 @@ class Aggregator:
         :return: float
         """
 
-        reward = -50*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
+        # reward = -50*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
+        reward = -1*(self.state["curr_error"])**4
         # reward = -10*rbf(self.state["curr_error"], 0.1) + self.reward_price[-1]**2
 
         return reward
@@ -594,23 +596,26 @@ class Aggregator:
         self.memory.append(experience)
         return experience
 
-    def _phi(self, state, action):
+    def _phi(self, state, action, print=False):
         """
         @kyri: Phi = the basis functions for the Q-function, the values and length of phi are dynamic so any changes here should be fine.
         :return: a 1-D numpy array of arbitrary length
         """
 
-        action_basis = np.array([1, (action), (action)**2, ((action - 0.04))**2, ((action + 0.04))**2])
+        # action_basis = np.array([1, (action), (action)**2, ((action - 0.04))**2, ((action + 0.04))**2])
+        # action_basis = np.array([1, action, action**2])
         time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"] / 24), np.cos(2 * np.pi * state["time_of_day"] / 24)])
         curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
         forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
         avg_forecast_error_basis = np.array([1, state["avg_fcst_error"], state["avg_fcst_error"]**2])
-        v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:] #14 (indexed to 13)
-        # w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #
-        x = np.outer(action_basis, time_basis).flatten()[1:] #14
+        action_basis = np.array([1, state["avg_action"]-action, (state["avg_action"]-action)**2])
+
+        # v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:] #14 (indexed to 13)
+        w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #
+        # x = np.outer(action_basis, time_basis).flatten()[1:] #14
         y = np.outer(curr_error_basis, time_basis).flatten()[1:-1] #8 curr_error**2*cos(time)
         z = np.outer(action_basis, curr_error_basis).flatten()[1:] #14
-        phi = np.concatenate((v, x, y, z))
+        phi = np.concatenate((w, y, z))
 
         # phi = np.outer(phi, derivative_error).flatten()
         return phi
@@ -714,7 +719,7 @@ class Aggregator:
             avg_rp = self.reward_price[0]
         # self.actionspace = self.config["action_space"] - avg_rp
          # update epsilon
-        # if ((self.timestep+201) % 200) == 0: # every 200 timesteps
+        # if ((self.timestep+401) % 400) == 0: # every 200 timesteps
         #     self.epsilon = self.epsilon/2 # decrease exploration rate
         if np.random.uniform(0,1) >= self.epsilon: # the greedy action
             u_k = self._get_greedyaction(state)
@@ -796,14 +801,6 @@ class Aggregator:
         self.agg_mpc_data[self.timestep]["agg_cost"].append(self.agg_cost)
         self.agg_mpc_data[self.timestep]["agg_load"].append(self.agg_load)
 
-    def record_rl_agg_data(self):
-        self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
-        self.agg_log.logger.info(f"Desired Setpoint: {self.agg_setpoint:.20f}")
-        self.rl_agg_data[self.timestep]["reward_price"] = self.reward_price.tolist()
-        self.rl_agg_data[self.timestep]["agg_cost"] = self.agg_cost
-        self.rl_agg_data[self.timestep]["agg_load"] = self.agg_load
-        self.rl_agg_data[self.timestep]["is_greedy"] = self.is_greedy
-
     def record_rl_q_data(self):
         self.rl_q_data["timestep"].append(self.timestep)
         self.rl_q_data["theta"].append(self.theta.flatten().tolist())
@@ -813,15 +810,13 @@ class Aggregator:
         self.rl_q_data["action"].append(self.action)
         # self.rl_q_data["greedy_action"].append(self.greedy_action)
         # self.rl_q_data["best_action"].append(self.best_action)
-        # self.rl_q_data["second"].append(self.second)
-        # self.rl_q_data["third"].append(self.third)
-        # self.rl_q_data["fourth"].append(self.fourth)
-        self.rl_q_data["state"].append(self.state)
+        # self.rl_q_data["state"].append(self.state)
         self.rl_q_data["is_greedy"].append(self.is_greedy)
         self.rl_q_data["q_tables"].append(self.q_lookup.tolist())
         self.rl_q_data["average_reward"].append(self.average_reward)
         self.rl_q_data["cumulative_reward"].append(self.cumulative_reward)
         self.rl_q_data["reward"].append(self.reward)
+        self.rl_q_data["is_greedy"].append(self.is_greedy)
 
     def run_baseline(self, horizon=1):
         self.agg_log.logger.info(f"Performing baseline run for horizon: {horizon}")
@@ -893,11 +888,8 @@ class Aggregator:
             with open(f2, 'w+') as f:
                 json.dump(self.agg_mpc_data, f, indent=4)
 
-        else:
+        else: # self.case == "rl_agg" or self.case == "simplified"
             file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}-results.json"
-            f3 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}-iter-results.json")
-            with open(f3, 'w+') as f:
-                json.dump(self.rl_agg_data, f, indent=4)
             f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}-q-results.json")
             with open(f4, 'w+') as f:
                 json.dump(self.rl_q_data, f, indent=4)
@@ -956,18 +948,6 @@ class Aggregator:
         self.agg_log.logger.info(f"Horizon: {horizon}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
         self.check_baseline_vals()
 
-    def set_rl_agg_initial_vals(self): # initializes an empty list of important data the length of the simulation
-        self.q = np.array([])
-        temp = []
-        for h in range(self.hours * self.dt):
-            temp.append({
-                "timestep": h,
-                "reward_price": None,
-                "agg_cost": None,
-                "agg_load": None
-            })
-        return temp
-
     def set_rl_q_initial_vals(self):
         temp = {}
         temp["timestep"] = [-1]
@@ -976,8 +956,8 @@ class Aggregator:
         temp["q_obs"] = []
         temp["q_pred"] = []
         temp["action"] = []
-        temp["state"] = []
-        temp["best_action"] = []
+        # temp["state"] = []
+        # temp["best_action"] = []
         temp["is_greedy"] = []
         temp["q_tables"] = []
         temp["average_reward"] = []
@@ -999,18 +979,6 @@ class Aggregator:
                 worker = MPCCalc(self.queue, self.horizon, self.dt, self.mpc_discomfort, self.mpc_disutility, self.case, self.redis_client, self.forecast_log)
                 forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
         return forecast # returns all forecast values in the horizon
-
-    def get_best_action(self):
-        results = []
-        actions = np.arange(-0.02, 0.02, 0.01)
-        for action in actions:
-            result = abs(self._gen_forecast(action=action) - self.setpoint)
-            results.append(result)
-
-        results = np.array([results, actions])
-        ind = results[0,:].argsort()
-        self.best_action = results[1,ind[0]]
-        return self.best_action
 
     def _gen_setpoint(self, time):
         """ @kyri: setpoint of community """
@@ -1042,7 +1010,6 @@ class Aggregator:
     def run_rl_agg(self, horizon):
         self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.rl_agg_horizon}, learning rate: {self.alpha}, discount factor: {self.beta}, exploration rate: {self.epsilon}) with MPC HEMS for horizon: {self.horizon}")
         self.start_time = datetime.now()
-        self.rl_agg_data = self.set_rl_agg_initial_vals()
         self.rl_q_data = self.set_rl_q_initial_vals()
         # self.forecast_data = self.rl_initialize_forecast()
         self.baseline_agg_load_list = [0]
@@ -1082,7 +1049,6 @@ class Aggregator:
             self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
             self.collect_data()
 
-            self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
             self.reward = self._reward(self.next_state)
             self.cumulative_reward += self.reward
@@ -1148,7 +1114,6 @@ class Aggregator:
             self.test_response()
             self.collect_fake_data()
 
-            self.record_rl_agg_data() # record response to the broadcasted price
             self.next_state = self._calc_state() # this is the state at t = k+1
             self.reward = self._reward(self.state)
             self.cumulative_reward += self.reward
