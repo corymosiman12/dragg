@@ -23,7 +23,6 @@ class Reformat:
             quit()
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.json'))
         self.config = self._import_config()
-        self.pred_horizons = self.config["prediction_horizons"]
         self.add_date_ranges = date_ranges
         self.date_ranges = self._setup_date_ranges()
         self.date_folders = self.set_date_folders()
@@ -73,11 +72,11 @@ class Reformat:
 
     def _setup_mpc_params(self):
         n_houses = self.config["total_number_homes"]
-        mpc_horizon = set(self.config["mpc_prediction_horizons"])
+        mpc_horizon = self.config["mpc_prediction_horizons"]
         dt = self.config["mpc_hourly_steps"]
         interval_minutes = 60 // dt
         check_type = self.config["check_type"]
-        temp = {"n_houses": set([n_houses]), "mpc_horizon": set([mpc_horizon]), "dt": set([dt]), "interval_minutes": set([interval_minutes]), "check_type": set([check_type])}
+        temp = {"n_houses": set([n_houses]), "mpc_horizon": set(mpc_horizon), "dt": set([dt]), "interval_minutes": set([interval_minutes]), "check_type": set([check_type])}
         for key in temp:
             if key in self.add_mpc_params:
                 temp[key] |= set(self.add_mpc_params[key])
@@ -127,12 +126,10 @@ class Reformat:
                     results_file = rl_agg_path + "-results.json"
                     rl_agg_file = os.path.join(rl_agg_folder, results_file)
                     if os.path.isfile(rl_agg_file):
-                        iter_results = rl_agg_path + "-iter-results.json"
-                        iter_file = os.path.join(rl_agg_folder, iter_results)
                         q_results = rl_agg_path + "-q-results.json"
                         q_file = os.path.join(rl_agg_folder, q_results)
                         name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}"
-                        set = {"results": rl_agg_file, "q_results": q_file, "iter_results": iter_file, "name": name}
+                        set = {"results": rl_agg_file, "q_results": q_file, "name": name}
                         self.parametrics.append(set)
 
     def set_simplified_files(self):
@@ -146,12 +143,10 @@ class Reformat:
                     results_file = simplified_path + "-results.json"
                     simplified_file = os.path.join(simplified_folder, results_file)
                     if os.path.isfile(simplified_file):
-                        iter_results = simplified_path + "-iter-results.json"
-                        iter_file = os.path.join(simplified_folder, iter_results)
                         q_results = simplified_path + "-q-results.json"
                         q_file = os.path.join(simplified_folder, q_results)
                         name = f"Simplified Response - horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}"
-                        set = {"results": simplified_file, "q_results": q_file, "iter_results": iter_file, "name": name}
+                        set = {"results": simplified_file, "q_results": q_file, "name": name}
                         self.parametrics.append(set)
 
     def set_parametric_files(self):
@@ -398,7 +393,7 @@ class Reformat:
         flag = True
         for file in self.parametrics:
             if flag:
-                with open(file['iter_results']) as f:
+                with open(file['q_results']) as f:
                     data = json.load(f)
 
                 rtgs = {}
@@ -406,9 +401,7 @@ class Reformat:
                     rtgs[i] = []
 
                 is_greedy = [False]*(max(self.config["rl_agg_action_horizon"])*self.dt-1)
-                is_random = []
-                for timestep in data:
-                    is_greedy.append(timestep['is_greedy'])
+                is_greedy += data['is_greedy']
 
                 for t in range(self.timesteps):
                     rating = sum(is_greedy[t:t+max(self.config["rl_agg_action_horizon"])])
@@ -524,7 +517,7 @@ class Reformat:
     def rl2baseline(self):
         fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig = self.plot_baseline(fig)
-        fig = self.plot_greedy(fig)
+        # fig = self.plot_greedy(fig)
         fig = self.plot_parametric(fig)
         fig = self.plot_baseline_error(fig)
         fig = self.plot_parametric_error(fig)
