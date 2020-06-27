@@ -1,7 +1,7 @@
 {
   "THE FOLLOWING ARE VALUES FOR HOME NUMBER AND TYPE": null,
   "total_number_homes": 20,
-  "homes_battery": 0,
+  "homes_battery": 10,
   "homes_pv": 0,
   "homes_pv_battery": 0,
 
@@ -44,14 +44,16 @@
   "run_simplified": false,
 
   "THE FOLLOWING ARE PARAMETERS ON RESIDENTAL HEMS": null,
+  "DISCOMFORT FACTOR DETERMINES HOW CLOSE TO SETPOINT THE BASELINE IS": null,
+  "DISUTILITY FACTOR DETERMINES HOW CLOSE THE RL RESPONSIVE HEMS IS TO BASELINE": null,
   "mpc_prediction_horizons": [4],
   "mpc_hourly_steps": 4,
   "mpc_discomfort": [2.5],
   "mpc_disutility": [0.25],
 
   "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,
-  "rl_learning_rate": [0.1],
-  "rl_exploration_rate": [0.31],
+  "rl_learning_rate": [0.01],
+  "rl_exploration_rate": [0.1],
   "rl_discount_factor": [0.0],
   "rl_batch_size": [32],
 
