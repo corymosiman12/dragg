@@ -121,7 +121,7 @@ class MPCCalc:
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
-        self.p_grid_baseline = cp.Variable(self.horizon, name="p_grid_forecast")
+        self.p_load_baseline = cp.Variable(self.horizon, name="p_grid_baseline")
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -189,13 +189,13 @@ class MPCCalc:
             # self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_max"]))
 
         if self.mode == "baseline" or self.mode == "forecast":
-            self.constraints += [self.p_grid_baseline == self.p_grid] # null difference between optimal and forecast
+            self.constraints += [self.p_load_baseline == self.p_load] # null difference between optimal and forecast
             self.total_price = cp.Constant(np.array(self.base_price[:self.horizon]))
             # self.discomfort = self.discomfort # hard constraints on temp when discomfort is 0 ( @kyri )
             self.discomfort = self._discomfort
             self.disutility = 0.0 # penalizes shift from forecasted baseline
         else: # if self.mode == "run"
-            self.constraints += [self.p_grid_baseline == self.baseline_p_grid_opt]
+            self.constraints += [self.p_load_baseline == self.baseline_p_load_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
             if self.case == "rl_agg":
                 self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
@@ -236,28 +236,28 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load # p_load = p_hvac + p_wh
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
 
     def set_battery_only_p_grid(self):
         self.constraints += [
             # Set grid load # try changing wf of batteries and discharge
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
 
     def set_pv_only_p_grid(self):
         self.constraints += [
             # Set grid load
             self.p_grid == self.p_load - self.p_pv
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
 
     def set_pv_battery_p_grid(self):
         self.constraints += [
             # Set grid load
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch - self.p_pv
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_grid - self.p_grid_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
 
     def solve_mpc(self):
         # self.obj = cp.Minimize(cp.sum((self.total_price) * self.p_grid[0:self.horizon]))
@@ -293,7 +293,7 @@ class MPCCalc:
             self.mpc_log.logger.info(f"{self.home['name']}; Cost {self.prob.value}; p_grid: {self.p_grid.value[0]}; init_temp_in: {self.temp_in.value[0]}; curr_temp_in: {self.temp_in.value[1]}")
             self.redis_write_optimal_vals()
         elif self.mode == "baseline":
-            self.baseline_p_grid_opt = self.p_grid.value
+            self.baseline_p_load_opt = self.p_load.value
         else:
             self.forecast_p_grid = self.p_grid.value
 
