@@ -434,8 +434,6 @@ class Aggregator:
         for home in self.all_homes:
             self.baseline_data[home["name"]] = {
                 "type": home["type"],
-                "baseline_price": [],
-                "reward_price": [],
                 "temp_in_opt": [],
                 "temp_wh_opt": [],
                 "p_grid_opt": [],
@@ -571,10 +569,13 @@ class Aggregator:
         change_rp = sum(self.reward_price)/(self.rl_agg_horizon * self.dt) - self.reward_price[-1]
         time_of_day = self.timestep % (24 * self.dt)
         forecast_error = self.forecast_load[0] - self.forecast_setpoint
-        avg_forecast_error = sum(self.forecast_load) - self.forecast_setpoint / len(self.forecast_load)
-        avg_action = np.mean(self.reward_price)
+        forecast_trend = self.forecast_load[0] - self.forecast_load[-1]
 
-        return {"curr_error":current_error, "time_of_day":time_of_day, "int_error":integral_error, "fcst_error":forecast_error, "avg_fcst_error": avg_forecast_error, "avg_action": avg_action}
+        return {"curr_error":current_error,
+        "time_of_day":time_of_day,
+        "int_error":integral_error,
+        "fcst_error":forecast_error,
+        "forecast_trend": forecast_trend}
 
     def _reward(self, x):
         """
@@ -582,8 +583,8 @@ class Aggregator:
         :return: float
         """
 
-        # reward = -50*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
-        reward = -1*(self.state["curr_error"])**4
+        reward = -1*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
+        # reward = -1*abs(self.state["curr_error"])
         # reward = -10*rbf(self.state["curr_error"], 0.1) + self.reward_price[-1]**2
 
         return reward
@@ -592,7 +593,7 @@ class Aggregator:
         return self.theta @ self._phi(state, action)
 
     def _experience(self):
-        experience = {"state": self.state, "action": self.action, "next_state": self.next_state, "reward": self.reward}
+        experience = {"state": self.state, "action": self.action, "next_state": self.next_state, "next_greedy_action": self.next_greedy_action, "reward": self.reward}
         self.memory.append(experience)
         return experience
 
@@ -602,22 +603,21 @@ class Aggregator:
         :return: a 1-D numpy array of arbitrary length
         """
 
-        # action_basis = np.array([1, (action), (action)**2, ((action - 0.04))**2, ((action + 0.04))**2])
-        # action_basis = np.array([1, action, action**2])
-        time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"] / 24), np.cos(2 * np.pi * state["time_of_day"] / 24)])
+        # action_basis = np.array([1, (action), (action)**2, ((action - 0.02))**2, ((action + 0.02))**2])
+        action_basis = np.array([1, action, action**2])
+        time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"]), np.cos(2 * np.pi * state["time_of_day"])])
         curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
         forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
-        avg_forecast_error_basis = np.array([1, state["avg_fcst_error"], state["avg_fcst_error"]**2])
-        action_basis = np.array([1, state["avg_action"]-action, (state["avg_action"]-action)**2])
+        forecast_trend_basis = np.array([1, state["forecast_trend"], state["forecast_trend"]**2])
 
         # v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:] #14 (indexed to 13)
-        w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #
-        # x = np.outer(action_basis, time_basis).flatten()[1:] #14
-        y = np.outer(curr_error_basis, time_basis).flatten()[1:-1] #8 curr_error**2*cos(time)
+        w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #8
         z = np.outer(action_basis, curr_error_basis).flatten()[1:] #14
-        phi = np.concatenate((w, y, z))
+        phi = np.concatenate((w, z))
+        phi = np.outer(phi, time_basis).flatten()[1:]
 
-        # phi = np.outer(phi, derivative_error).flatten()
+        phi = np.clip(phi, -100, 150)
+
         return phi
 
     def _qvalue(self):
@@ -627,7 +627,7 @@ class Aggregator:
         return q_k
 
     def _get_greedyaction(self, state_k):
-        self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1]+0.01, 0.01)
+        self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1]+0.009, 0.01) # to make actionspace inclusive
         self.nActions = len(self.q_lookup)
         self.q_lookup = np.column_stack((self.q_lookup, self.q_lookup))
         for i in range(len(self.q_lookup)):
@@ -655,9 +655,10 @@ class Aggregator:
         return temp_theta
 
     def update_qfunction_greedygq(self, temp_theta, theta):
+        """ depricated """
         self.phi_k = self._phi(self.state, self.action)
         # next_action = self._get_greedyaction(self.next_state)
-        next_action = self.next_action
+        next_action = self.next_greedy_action
         self.phi_k1 = self._phi(self.next_state, next_action) # phi_bar according to Maei & Sutton notation
         self.q_predicted = self.theta @ self.phi_k
         self.q_observed = self._reward(self.state) + self.beta * (temp_theta @ self.phi_k1)
@@ -673,28 +674,28 @@ class Aggregator:
 
             self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
             self.delta = self.q_observed - self.q_predicted
-            # self.delta = np.clip(self.delta, -2, 2)
+            self.delta = np.clip(self.delta, -1, 1)
             self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
             k = (1 - self.beta) * (1 - self.lam)
             self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
 
     def update_qfunction(self, temp_theta, theta):
         self.phi_k = self._phi(self.state, self.action)
-        next_action = self._get_greedyaction(self.next_state)
+        next_action = self.next_greedy_action
         self.phi_k1 = self._phi(self.next_state, next_action)
-        self.q_predicted = self.average_reward + self.theta @ self.phi_k # @ = dot product # should temp_theta
-        self.q_observed = self.reward + temp_theta @ self.phi_k1 # update experience replay
+        self.q_predicted = self.theta @ self.phi_k # @ = dot product # should temp_theta
+        self.q_observed = self.reward + self.beta * temp_theta @ self.phi_k1 - self.average_reward # update experience replay
         self.delta = self.q_observed - self.q_predicted
+        self.average_reward = self.average_reward + self.alpha*self.delta
         self.delta = np.clip(self.delta, -1, 1) # stops theta diverging too soon
-        # self.average_reward = self.average_reward + self.alpha*self.delta
-        self.average_reward = self.cumulative_reward / (self.timestep + 1)
+
         self.theta = self.theta - self.alpha * self.delta * np.transpose(self.phi_k - self.phi_k1)
 
     def update_theta(self, theta, exp):
         phi_k = self._phi(exp["state"], exp["action"])
-        phi_k1 = self._phi(exp["next_state"], self._get_greedyaction(exp["next_state"]))
+        phi_k1 = self._phi(exp["next_state"], exp["next_greedy_action"])
         q_predicted = theta @ phi_k
-        q_observed = exp["reward"] - self.average_reward + self.beta * theta @ phi_k1
+        q_observed = exp["reward"] + self.beta * theta @ phi_k1 - self.average_reward
         delta = q_predicted - q_observed
         delta = np.clip(delta, -1, 1)
         theta = theta - self.alpha * delta * np.transpose(phi_k - phi_k1)
@@ -717,12 +718,11 @@ class Aggregator:
             avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
         else:
             avg_rp = self.reward_price[0]
-        # self.actionspace = self.config["action_space"] - avg_rp
-         # update epsilon
-        # if ((self.timestep+401) % 400) == 0: # every 200 timesteps
+        # update epsilon
+        # if ((self.timestep+(48*self.dt+1)) % (48*self.dt)) == 0: # every other day
         #     self.epsilon = self.epsilon/2 # decrease exploration rate
         if np.random.uniform(0,1) >= self.epsilon: # the greedy action
-            u_k = self._get_greedyaction(state)
+            u_k = self.next_greedy_action
             self.is_greedy = True
             self.agg_log.logger.info("Selecting greedy action.")
         else: # exploration
@@ -816,7 +816,6 @@ class Aggregator:
         self.rl_q_data["average_reward"].append(self.average_reward)
         self.rl_q_data["cumulative_reward"].append(self.cumulative_reward)
         self.rl_q_data["reward"].append(self.reward)
-        self.rl_q_data["is_greedy"].append(self.is_greedy)
 
     def run_baseline(self, horizon=1):
         self.agg_log.logger.info(f"Performing baseline run for horizon: {horizon}")
@@ -989,7 +988,7 @@ class Aggregator:
         #         sp = 10
         # else:
         #     sp = 50
-        sp = self.config['total_number_homes']*3
+        sp = self.config['total_number_homes']*2.5
         return sp
         # return 55 # for a single house
 
@@ -1028,7 +1027,7 @@ class Aggregator:
         self.lam = 0.9
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
-        self.theta = 0.5*np.ones(n) # theta initialization
+        self.theta = 0.0*np.ones(n) # theta initialization
         self.cumulative_reward = 0
         self.average_reward = 0
         self.e = np.zeros(n)
@@ -1052,15 +1051,17 @@ class Aggregator:
             self.next_state = self._calc_state() # this is the state at t = k+1
             self.reward = self._reward(self.next_state)
             self.cumulative_reward += self.reward
-            self._experience()
+
 
             temp_theta = self.experience_replay()
 
             # self.next_action = self.get_best_action()
-            self.next_action = self._get_action(self.next_state) # necessary for SARSA learning
+            self.next_greedy_action = self._get_greedyaction(self.next_state) # necessary for SARSA learning
+            self.next_action = self._get_action(self.next_state)
             self.update_qfunction(temp_theta, self.theta)
             self.record_rl_q_data()
 
+            self._experience()
             self.timestep += 1
             self.state = self.next_state
             self.prev_action = self.action
@@ -1117,14 +1118,16 @@ class Aggregator:
             self.next_state = self._calc_state() # this is the state at t = k+1
             self.reward = self._reward(self.state)
             self.cumulative_reward += self.reward
-            self._experience()
+
 
             temp_theta = self.experience_replay()
 
-            self.next_action = self._get_action(self.next_state) # necessary for SARSA learning
+            self.next_greedy_action = self._get_greedyaction(self.next_state) # necessary for SARSA learning
+            self.next_action = self._get_action(self.next_state)
             self.update_qfunction(temp_theta, self.theta)
             self.record_rl_q_data()
 
+            self._experience()
             self.timestep += 1
             self.state = self.next_state
             self.action = self.next_action
