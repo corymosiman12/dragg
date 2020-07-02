@@ -772,8 +772,8 @@ class Aggregator:
 
     def set_baseline_initial_vals(self):
         for home in self.all_homes:
-            self.baseline_data[home["name"]]["temp_in_opt"].append(self.config["temp_in_init"])
-            self.baseline_data[home["name"]]["temp_wh_opt"].append(self.config["temp_wh_init"])
+            self.baseline_data[home["name"]]["temp_in_opt"].append(self.config["temp_sp_dist"][0])
+            self.baseline_data[home["name"]]["temp_wh_opt"].append(self.config["wh_sp_dist"][0])
             if 'battery' in home["type"]:
                 self.baseline_data[home["name"]]["e_batt_opt"].append(self.config["battery_cap_bounds"][0] * self.config["battery_capacity"])
 
