@@ -118,7 +118,7 @@ class Reformat:
                 if os.path.isfile(file):
                     temp = {"results": file, "name": ""}
                     self.baselines.append(temp)
-                    flag = True
+                flag = True
 
     def set_rl_files(self):
         counter = 1
