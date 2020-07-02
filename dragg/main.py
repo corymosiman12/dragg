@@ -7,20 +7,22 @@ import os
 import sys
 
 if __name__ == "__main__":
-    a = Aggregator()
-    a.run()
+    # a = Aggregator()
+    # a.run()
 
-    agg_params = {"alpha": [0.1], "beta":[], "epsilon":[0.3], "rl_horizon":[]} # set parameters from earlier runs
+    agg_params = {"alpha": [0.001], "beta":[], "epsilon":[0.3], "rl_horizon":[], "mpc_disutility":[]} # set parameters from earlier runs
     mpc_params = {}
-    date_ranges = {}
+    date_ranges = {"end_datetime": "2015-03-01 00"}
     include_runs = {"baseline", "rl_agg"}
     r = Reformat(agg_params=agg_params, include_runs=include_runs, date_ranges=date_ranges)
 
     r.rl2baseline()
-    r.rl_thetas()
-    r.rl_qvals()
+    r.rl2baseline_error()
+    # r.rl_thetas()
+    # r.rl_qvals()
+    # r.plot_single_home2("Myles-XQ5IA") # pv_battery
     # if r.config["run_rl_agg"] or r.config["run_agg_mpc"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
-    r.plot_single_home2("Myles-XQ5IA") # pv_battery
+
         # r.plo1t_single_home2(type="base")
 
         # r.plot_all_homes()

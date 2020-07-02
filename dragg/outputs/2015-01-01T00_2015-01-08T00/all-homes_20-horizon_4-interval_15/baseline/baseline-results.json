@@ -107983,7 +107983,7 @@
         "case": "baseline",
         "start_datetime": "2015-01-01 00",
         "end_datetime": "2015-01-08 00",
-        "solve_time": 1246.079432,
+        "solve_time": 1154.845446,
         "horizon": 4,
         "num_homes": 20,
         "p_max_aggregate": 109.99999999414308,
