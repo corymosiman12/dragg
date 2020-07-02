@@ -3,6 +3,7 @@ import sys
 import json
 from datetime import datetime, timedelta
 import numpy as np
+import pandas as pd
 import itertools as it
 import random
 
@@ -35,7 +36,7 @@ class Reformat:
         self.mpc_params = self._setup_mpc_params()
         self.mpc_folders = self.set_mpc_folders()
         self.baselines = []
-        self.set_base_files()
+        self.set_base_file()
 
         self.add_agg_params = agg_params
         self.agg_params = self._setup_agg_params()
@@ -44,7 +45,7 @@ class Reformat:
         self.set_parametric_files()
 
         self.start_dt = self.date_ranges["start_datetime"][0]
-        self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_action_horizon"])*self.timesteps)]
+        self.x_lims = [self.start_dt + timedelta(minutes=x*self.dt_minutes) for x in range(self.timesteps + max(self.config["rl_agg_action_horizon"])*self.dt)]
 
         np.random.seed(self.config["random_seed"])
 
@@ -86,6 +87,7 @@ class Reformat:
         temp = []
         keys, values = zip(*self.date_ranges.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+        permutations = sorted(permutations, key=lambda i: i['end_datetime'], reverse=True)
         for i in permutations:
             date_folder = os.path.join(self.outputs_dir, f"{i['start_datetime'].strftime('%Y-%m-%dT%H')}_{i['end_datetime'].strftime('%Y-%m-%dT%H')}")
             if os.path.isdir(date_folder):
@@ -106,16 +108,20 @@ class Reformat:
                     temp.append(mpc_folder)
         return temp
 
-    def set_base_files(self):
+    def set_base_file(self):
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+        flag = False
         for j in self.mpc_folders:
-            file = os.path.join(j, "baseline", "baseline-results.json")
-            if os.path.isfile(file):
-                temp = {"results": file, "name": "baseline"}
-                self.baselines.append(temp)
+            while not flag:
+                file = os.path.join(j, "baseline", "baseline-results.json")
+                if os.path.isfile(file):
+                    temp = {"results": file, "name": ""}
+                    self.baselines.append(temp)
+                    flag = True
 
     def set_rl_files(self):
+        counter = 1
         for i in self.mpc_folders:
             rl_agg_folder = os.path.join(i, "rl_agg")
             keys, values = zip(*self.agg_params.items())
@@ -128,7 +134,14 @@ class Reformat:
                     if os.path.isfile(rl_agg_file):
                         q_results = rl_agg_path + "-q-results.json"
                         q_file = os.path.join(rl_agg_folder, q_results)
-                        name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}"
+                        name = ""
+                        for k,v in j.items():
+                            if len(self.agg_params[k]) > 1:
+                                name += f"{k} = {v}, "
+                        if name=="":
+                            name += f"RL {counter}"
+                            counter += 1
+                        # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}"
                         set = {"results": rl_agg_file, "q_results": q_file, "name": name}
                         self.parametrics.append(set)
 
@@ -400,31 +413,12 @@ class Reformat:
                 for i in range(max(self.config["rl_agg_action_horizon"])+1):
                     rtgs[i] = []
 
-                is_greedy = [False]*(max(self.config["rl_agg_action_horizon"])*self.dt-1)
+                is_greedy = [False]*(max(self.config["rl_agg_action_horizon"])*self.dt)
                 is_greedy += data['is_greedy']
+                is_random = [int(not(i)) for i in is_greedy]
 
-                for t in range(self.timesteps):
-                    rating = sum(is_greedy[t:t+max(self.config["rl_agg_action_horizon"])])
-                    rtgs[rating].append(t)
-                    if not is_greedy[t]:
-                        is_random.append(t)
-
-                num_decisions = max(float(max(self.config["rl_agg_action_horizon"])),1)
-                for i in rtgs:
-                    if i > 0.75*num_decisions:
-                        color = 'green'
-                    elif i > 0.5*num_decisions:
-                        color = 'yellow'
-                    else:
-                        color = 'red'
-
-                    opacity = abs(i-(0.5*num_decisions))/num_decisions
-
-                    times = rtgs[i]
-                    fig.add_trace(go.Bar(name=f"{i} Greedy Actions", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in times], y=[1]*len(rtgs[i]),marker={'color':color, 'opacity':opacity}), secondary_y=True)
-
-                fig.add_trace(go.Bar(name="Random Action - Current", x=[self.start_dt + timedelta(minutes=t*self.dt_minutes) for t in is_random], y=[1]*len(is_random), marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
-                fig.add_trace(go.Bar(name="Random Action - Forecast", x=[self.start_dt + timedelta(minutes=(t-(max(self.config["rl_agg_action_horizon"])-1)*self.dt)*self.dt_minutes) for t in is_random], y=[1]*len(is_random), marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
+                fig.add_trace(go.Bar(name="Random Action - Current", x=self.x_lims, y=is_random, marker={'color':'purple', 'opacity':0.3}), secondary_y=True)
+                # fig.add_trace(go.Bar(name="Random Action - Forecast", x=self.x_lims, y=, marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
             flag = False
         return fig
 
@@ -434,48 +428,51 @@ class Reformat:
                 data = json.load(f)
 
             name = file["name"]
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - Baseline - {name}"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - Baseline - {name}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - Baseline - {name}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - Baseline - {name}", visible='legendonly'))
         return fig
 
     def plot_parametric(self, fig):
+        if self.parametrics[0]:
+            with open(self.parametrics[0]["results"]) as f:
+                rldata = json.load(f)
+
+            fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
+
         for file in self.parametrics:
             with open(file["results"]) as f:
                 data = json.load(f)
 
             name = file["name"]
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["p_grid_aggregate"][1:], name=f"Agg Load - RL - {name}"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(data["Summary"]["p_grid_aggregate"][1:]), name=f"Cumulative Agg Load - RL - {name}"))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:self.timesteps+1]),np.arange(self.timesteps)+1), name=f"Avg Load - RL - {name}"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(data["Summary"]["p_grid_aggregate"][1:]), name=f"Cumulative Agg Load - RL - {name}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:self.timesteps+1]),np.arange(self.timesteps)+1), name=f"Avg Load - RL - {name}", visible='legendonly'))
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["Summary"]["RP"], name=f"RP - RL - {name}", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["RP"])[:self.timesteps], np.arange(self.timesteps) + 1), name=f"Average RP"), secondary_y=True)
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(data["Summary"]["RP"])[:self.timesteps], np.arange(self.timesteps) + 1), name=f"Average RP", visible='legendonly'), secondary_y=True)
             # fig.add_trace(go.Scatter(x=self.x_lims, y=np.add(data["Summary"]["TOU"], data["Summary"]["RP"]).tolist(), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
 
         return fig
 
     def plot_baseline_error(self, fig):
-        flag = True
-        for file in self.parametrics:
-            if True:
-                with open(file["results"]) as f:
-                    rldata = json.load(f)
+        if self.parametrics[0]:
+            with open(self.parametrics[0]["results"]) as f:
+                rldata = json.load(f)
 
-                fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
 
-            for file in self.baselines:
-                with open(file["results"]) as f:
-                    data = json.load(f)
+        for file in self.baselines:
+            with open(file["results"]) as f:
+                data = json.load(f)
 
-                baseline_load = data["Summary"]["p_grid_aggregate"]
-                baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
-                baseline_error = np.subtract(baseline_load[:self.timesteps], baseline_setpoint[:self.timesteps])
-                fig.add_trace(go.Scatter(x=self.x_lims, y=(baseline_error), name="Error - Baseline", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=abs(baseline_error), name="Abs Error - Baseline", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Abs Cummulative Error - Baseline", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(baseline_error), name="Cummulative Error - Baseline", line_shape='hv'))
-                fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(baseline_error)[:self.timesteps],np.arange(self.timesteps) + 1), name=f"Average Error - Baseline", line_shape='hv'))
-
-            flag = False
+            baseline_load = data["Summary"]["p_grid_aggregate"]
+            baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
+            baseline_error = np.subtract(baseline_load[:self.timesteps], baseline_setpoint[:self.timesteps])
+            fig.add_trace(go.Scatter(x=self.x_lims, y=(baseline_error), name="Error - Baseline", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=abs(baseline_error), name="Abs Error - Baseline", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(baseline_error)), name="Abs Cummulative Error - Baseline", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(baseline_error), name="Cummulative Error - Baseline", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(baseline_error)[:self.timesteps],np.arange(self.timesteps) + 1), name=f"Average Error - Baseline", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.square(baseline_error)), name="L2 Norm Cummulative Error - Baseline", line_shape='hv'))
 
         return fig
 
@@ -488,11 +485,12 @@ class Reformat:
             rl_load = data["Summary"]["p_grid_aggregate"][1:]
             rl_setpoint = data["Summary"]["p_grid_setpoint"]
             rl_error = np.subtract(rl_load, rl_setpoint)
-            fig.add_trace(go.Scatter(x=self.x_lims, y=(rl_error), name=f"Error - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=abs(rl_error), name=f"Abs Error - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=(rl_error), name=f"Error - {name}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=abs(rl_error), name=f"Abs Error - {name}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Abs Error - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(rl_error), name=f"Cummulative Error - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(rl_error)[:self.timesteps],np.arange(self.timesteps) + 1), name=f"Average Error - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(rl_error), name=f"Cummulative Error - {name}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.divide(np.cumsum(rl_error)[:self.timesteps],np.arange(self.timesteps) + 1), name=f"Average Error - {name}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=np.cumsum(np.square(rl_error)), name=f"L2 Norm Cummulative Error - {name}", line_shape='hv'))
 
         return fig
 
@@ -502,26 +500,34 @@ class Reformat:
                 data = json.load(f)
 
             name = file["name"]
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name=f"Average Reward - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name=f"Cumulative Reward - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["average_reward"], name=f"Average Reward - {name}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=self.x_lims, y=data["cumulative_reward"], name=f"Cumulative Reward - {name}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=self.x_lims, y=data["reward"], name=f"Reward - {name}", line_shape='hv'))
             try:
-                fig.add_trace(go.Scatter(x=self.x_lims, y=data["best_action"], name="Best Action", line_shape='hv'), secondary_y=True)
-                fig.add_trace(go.Scatter(x=self.x_lims, y=data["second"], name="second Action", line_shape='hv'), secondary_y=True)
-                fig.add_trace(go.Scatter(x=self.x_lims, y=data["third"], name="third Action", line_shape='hv'), secondary_y=True)
-                fig.add_trace(go.Scatter(x=self.x_lims, y=data["fourth"], name="fourth Action", line_shape='hv'), secondary_y=True)
+                fig.add_trace(go.Scatter(x=self.x_lims, y=data["best_action"], name="Best Action", line_shape='hv', visible='legendonly'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=data["second"], name="second Action", line_shape='hv', visible='legendonly'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=data["third"], name="third Action", line_shape='hv', visible='legendonly'))
+                fig.add_trace(go.Scatter(x=self.x_lims, y=data["fourth"], name="fourth Action", line_shape='hv', visible='legendonly'))
             except:
                 pass
         return fig
 
     def rl2baseline(self):
         fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+        fig = self.plot_greedy(fig)
         fig = self.plot_baseline(fig)
-        # fig = self.plot_greedy(fig)
         fig = self.plot_parametric(fig)
+
+        fig.show()
+
+    def rl2baseline_error(self):
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+
         fig = self.plot_baseline_error(fig)
         fig = self.plot_parametric_error(fig)
         fig = self.plot_rewards(fig)
+
         fig.show()
 
     def rl_qtables(self, rl_q_file):
@@ -568,21 +574,34 @@ class Reformat:
         fig.show()
 
     def rl_thetas(self):
+        fig = make_subplots(rows=2, cols=len(self.parametrics))
+        for n in range(len(self.parametrics)):
+            with open(self.parametrics[n]["q_results"]) as f:
+                data = json.load(f)
+
+            theta = data["theta"]
+            phi = data["phi"]
+
+            # x = np.arange(self.hours)
+            for i in range(len(data["theta"][0])):
+                y = []
+                z = []
+                for j in range(self.hours*self.dt):
+                    y.append(theta[j][i])
+                    z.append(phi[j][i])
+                fig.add_trace(go.Scatter(x=self.x_lims, y=y, name=f"Theta_{i} - {self.parametrics[n]['name']}", line_shape='hv', legendgroup=self.parametrics[n]['name']),1,n+1)
+                fig.add_trace(go.Scatter(x=self.x_lims, y=z, name=f"Phi_{i} - {self.parametrics[n]['name']}", line_shape='hv'),2,n+1)
+
+        fig.show()
+
+    def rl_phis(self):
         fig = make_subplots()
         for file in self.parametrics:
             with open(file["q_results"]) as f:
                 data = json.load(f)
 
-            theta = data["theta"]
+        phi = data["phi"]
 
-            # x = np.arange(self.hours)
-            for i in range(len(data["theta"][0])):
-                y = []
-                for j in range(self.hours*self.dt):
-                    y.append(theta[j][i])
-                fig.add_trace(go.Scatter(x=self.x_lims, y=y, name=f"Theta_{i} - {file['name']}", legendgroup=file['name']))
-
-        fig.show()
 
     def reward_prices_over_time(self):
         file = os.path.join(self.outputs_dir, "agg_mpc", "2015-01-01T00_2015-01-02T00-agg_mpc_all-homes_20-horizon_8-iter-results.json")
