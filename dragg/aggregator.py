@@ -298,6 +298,9 @@ class Aggregator:
         )
         home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
         home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
+        self.home_hvac_temp_init = []
+        for i in range(len(home_hvac_temp_in_min_dist)):
+            self.home_hvac_temp_init.append(home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i]))
 
         # Define water heater parameters
         wh_r_dist = np.random.uniform(
@@ -327,6 +330,9 @@ class Aggregator:
         )
         home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
         home_wh_temp_max_dist = home_wh_temp_sp_dist + 0.5 * home_wh_temp_db_dist
+        self.home_wh_temp_init = []
+        for i in range(len(home_wh_temp_max_dist)):
+            self.home_wh_temp_init.append(home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i]))
 
         all_homes = []
 
@@ -362,7 +368,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i])
+                    "temp_in_init": self.home_hvac_temp_init[i],
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -371,7 +377,7 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i])
+                    "temp_wh_init": self.home_wh_temp_init[i]
                 },
                 "battery": battery,
                 "pv": pv
@@ -522,14 +528,7 @@ class Aggregator:
 
         # min_runtime = self.config["min_runtime_mins"]
         self.e_batt_init = self.config["battery_capacity"] * self.config["battery_cap_bounds"][0]
-        # self.redis_client.conn.hset("initial_values", "temp_in_init", self.config["temp_in_init"])
-        # self.redis_client.conn.hset("initial_values", "temp_wh_init", self.config["temp_wh_init"])
         self.redis_client.conn.hset("initial_values", "e_batt_init", self.e_batt_init)
-        # self.redis_client.conn.hset("initial_values", "temp_in_min", self.config["temp_sp"][0])
-        # self.redis_client.conn.hset("initial_values", "temp_in_max", self.config["temp_sp"][1])
-        # self.redis_client.conn.hset("initial_values", "temp_wh_min", self.config["wh_sp"][0])
-        # self.redis_client.conn.hset("initial_values", "temp_wh_max", self.config["wh_sp"][1])
-        # self.redis_client.conn.hset("initial_values", "min_runtime_mins", min_runtime)
         self.redis_client.conn.set("start_hour_index", self.start_hour_index)
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
@@ -771,11 +770,13 @@ class Aggregator:
         return action
 
     def set_baseline_initial_vals(self):
+        i = 0
         for home in self.all_homes:
-            self.baseline_data[home["name"]]["temp_in_opt"].append(self.config["temp_sp_dist"][0])
-            self.baseline_data[home["name"]]["temp_wh_opt"].append(self.config["wh_sp_dist"][0])
+            self.baseline_data[home["name"]]["temp_in_opt"].append(self.home_hvac_temp_init[i]) #stopgap
+            self.baseline_data[home["name"]]["temp_wh_opt"].append(self.home_wh_temp_init[i])
             if 'battery' in home["type"]:
                 self.baseline_data[home["name"]]["e_batt_opt"].append(self.config["battery_cap_bounds"][0] * self.config["battery_capacity"])
+            i += 1
 
     def check_baseline_vals(self):
         for home, vals in self.baseline_data.items():
@@ -1044,6 +1045,7 @@ class Aggregator:
         self.agg_cost = self.agg_load * self.reward_price[0]
 
     def run_rl_agg(self, horizon):
+
         self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.rl_agg_horizon}, learning rate: {self.alpha}, discount factor: {self.beta}, exploration rate: {self.epsilon}) with MPC HEMS for horizon: {self.horizon}")
         self.start_time = datetime.now()
         self.rl_q_data = self.set_rl_q_initial_vals()
@@ -1082,6 +1084,7 @@ class Aggregator:
             for home in self.all_homes: # uncomment these for the actual model response
                  if self.check_type == "all" or home["type"] == self.check_type:
                      self.queue.put(home)
+
             self.run_iteration(horizon) # community response to broadcasted price (done in a single iteration)
             self.collect_data()
 
