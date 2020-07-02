@@ -1,7 +1,7 @@
 {
   "THE FOLLOWING ARE VALUES FOR HOME NUMBER AND TYPE": null,
   "total_number_homes": 20,
-  "homes_battery": 10,
+  "homes_battery": 0,
   "homes_pv": 0,
   "homes_pv_battery": 0,
 
@@ -29,7 +29,7 @@
 
   "THE FOLLOWING ARE SIMULATION PARAMETERS": null,
   "start_datetime": "2015-01-01 00",
-  "end_datetime": "2015-01-01 12",
+  "end_datetime": "2015-02-01 00",
   "random_seed": 12,
   "load_zone": "LZ_HOUSTON",
   "check_type": "all",
@@ -47,13 +47,13 @@
   "DISCOMFORT FACTOR DETERMINES HOW CLOSE TO SETPOINT THE BASELINE IS": null,
   "DISUTILITY FACTOR DETERMINES HOW CLOSE THE RL RESPONSIVE HEMS IS TO BASELINE": null,
   "mpc_prediction_horizons": [4],
-  "mpc_hourly_steps": 4,
+  "mpc_hourly_steps": 2,
   "mpc_discomfort": [2.5],
-  "mpc_disutility": [0.25],
+  "mpc_disutility": [0.5],
 
   "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,
-  "rl_learning_rate": [0.01],
-  "rl_exploration_rate": [0.1],
+  "rl_learning_rate": [0.001],
+  "rl_exploration_rate": [0.3],
   "rl_discount_factor": [0.0],
   "rl_batch_size": [32],
 
@@ -63,6 +63,6 @@
   "NUMBER OF TIMESTEPS FOR WHICH THE AGGREGATOR FORECASTS THE PREDICTED ENERGY CONSUMPTION (where 0 assumes the load from the last timestep)":null,
   "rl_agg_forecast_horizon": 1,
 
-  "base_price": 0.10,
-  "action_space": [-0.05, 0.05]
+  "base_price": 0.13,
+  "action_space": [-0.10, 0.10]
 }
