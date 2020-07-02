@@ -71,12 +71,6 @@ class MPCCalc:
         self.prev_optimal_vals = self.redis_client.conn.hgetall(key)
 
     def setup_base_problem(self, mode="tou"):
-        if self.timestep == 0:
-            self.temp_in_init = cp.Constant(self.t_in_init)
-            self.temp_wh_init = cp.Constant(self.t_wh_init)
-        else:
-            self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
-            self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
 
         self.home_r = cp.Constant(float(self.home["hvac"]["r"]))
         self.home_c = cp.Constant(float(self.home["hvac"]["c"]))
@@ -104,24 +98,32 @@ class MPCCalc:
         self.oat = cp.Constant(self.oat_current)
         self.ghi = cp.Constant(self.ghi_current)
 
-        # tot_price = np.array(self.reward_price) + base_price[:self.horizon]
-        # rp_forecast = np.zeros(self.horizon)
-        # self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + base_price[:self.horizon])
-
         # Water heater temperature constraints
-        self.temp_wh_min = cp.Constant(float(self.initial_values["temp_wh_min"]))
-        self.temp_wh_max = cp.Constant(float(self.initial_values["temp_wh_max"]))
-        self.temp_wh_sp = (self.temp_wh_min + self.temp_wh_max)/2
+        self.temp_wh_min = cp.Constant(float(self.home["wh"]["temp_wh_min"]))
+        self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
+        self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
+        self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
+
         self.wf_wh = self.wh_p/2
 
         # Home temperature constraints
-        self.temp_in_min = cp.Constant(float(self.initial_values["temp_in_min"]))
-        self.temp_in_max = cp.Constant(float(self.initial_values["temp_in_max"]))
-        self.temp_in_sp = cp.Constant((float(self.initial_values["temp_in_min"]) + float(self.initial_values["temp_in_max"])) / 2)
+        self.temp_in_min = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
+        self.temp_in_max = cp.Constant(float(self.home["hvac"]["temp_in_max"]))
+        self.temp_in_sp = cp.Constant(float(self.home["hvac"]["temp_in_sp"]))
+        self.t_in_init = float(self.home["hvac"]["temp_in_init"])
+
         # set setpoint according to "season"
         self.wf_temp = self.hvac_p_h
 
         self.p_load_baseline = cp.Variable(self.horizon, name="p_grid_baseline")
+
+        if self.timestep == 0:
+            self.temp_in_init = cp.Constant(self.t_in_init)
+            self.temp_wh_init = cp.Constant(self.t_wh_init)
+        else:
+            self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
+            self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
+
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -144,6 +146,7 @@ class MPCCalc:
         self.p_batt_ch = cp.Variable(self.horizon)
         self.p_batt_disch = cp.Variable(self.horizon)
         self.e_batt = cp.Variable(self.h_plus)
+        self.e_batt_baseline = cp.Variable(self.h_plus, name="e_batt_baseline")
 
     def setup_pv_problem(self):
         # Define constants
@@ -160,15 +163,12 @@ class MPCCalc:
             self.temp_wh[0] == self.temp_wh_init,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
             self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
-            # self.temp_in[1:self.h_plus] >= self.temp_in_min,
-            # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
+            self.temp_in[1:self.h_plus] >= self.temp_in_min,
+            self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
-            # self.temp_in[1:self.h_plus] <= self.temp_in_max,
-            # self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
-
-            self.temp_in[1:self.h_plus] <= 21,
-            self.temp_wh[1:self.h_plus] <= 48,
+            self.temp_in[1:self.h_plus] <= self.temp_in_max,
+            self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
 
             self.hvac_cool_on <= 1,
             self.hvac_cool_on >= 0,
@@ -219,6 +219,11 @@ class MPCCalc:
             self.p_load + self.p_batt_ch + self.p_batt_disch >= 0
         ]
 
+        if self.mode == "baseline" or self.mode == "forecast":
+            self.constraints += [self.e_batt_baseline == self.e_batt]
+        else:
+            self.constraints += [self.e_batt_baseline == self.baseline_e_batt_opt]
+
     def add_pv_constraints(self):
         self.constraints += [
             # PV constraints.  GHI provided in W/m2 - convert to kWh
@@ -236,14 +241,24 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load # p_load = p_hvac + p_wh
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt))
+                    + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) # relevent without RL and to make baseline for RL run
+                    + self.disutility * cp.norm(self.p_load - self.p_load_baseline)) # RL agent
+
+        # HEMS agent runs twice:
+        # run 1: utilizes the discomfort factor that minimizes difference of temperature and setpoint Values
+        # run 2: utilizes the first run as a target for p_grid and tries to match the predicted load
 
     def set_battery_only_p_grid(self):
         self.constraints += [
             # Set grid load # try changing wf of batteries and discharge
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
+                    + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50)
+                    + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp))
+                    + self.disutility * cp.norm(self.p_load - self.p_load_baseline)
+                    + self.disutility * self.batt_cons * cp.norm(self.e_batt - self.e_batt_baseline))
 
     def set_pv_only_p_grid(self):
         self.constraints += [
@@ -294,8 +309,12 @@ class MPCCalc:
             self.redis_write_optimal_vals()
         elif self.mode == "baseline":
             self.baseline_p_load_opt = self.p_load.value
+            if 'battery' in self.type:
+                self.baseline_e_batt_opt = self.e_batt.value
         else:
             self.forecast_p_grid = self.p_grid.value
+            if 'battery' in self.type:
+                self.forecast_e_batt_opt = self.e_batt.value
 
     def mpc_base(self):
         self.setup_base_problem()
@@ -335,7 +354,7 @@ class MPCCalc:
 
     def redis_get_initial_values(self):
         self.start_hour_index = self.redis_client.conn.get('start_hour_index')
-        self.initial_values = self.redis_client.conn.hgetall("initial_values")
+        # self.initial_values = self.redis_client.conn.hgetall("initial_values")
         self.current_values = self.redis_client.conn.hgetall("current_values")
         self.all_ghi = self.redis_client.conn.lrange('GHI', 0, -1)
         self.all_oat = self.redis_client.conn.lrange('OAT', 0, -1)
@@ -344,9 +363,9 @@ class MPCCalc:
 
     def cast_redis_init_vals(self):
         self.start_hour_index = int(float(self.start_hour_index))
-        self.t_in_init = float(self.initial_values["temp_in_init"])
-        self.t_wh_init = float(self.initial_values["temp_wh_init"])
-        self.e_b_init = float(self.initial_values["e_batt_init"])
+        # self.t_in_init = float(self.initial_values["temp_in_init"])
+        # self.t_wh_init = float(self.initial_values["temp_wh_init"])
+        # self.e_b_init = float(self.initial_values["e_batt_init"])
         self.all_ghi = [float(i) for i in self.all_ghi]
         self.all_oat = [float(i) for i in self.all_oat]
         self.all_spp = [float(i) for i in self.all_spp]

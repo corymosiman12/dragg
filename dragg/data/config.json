@@ -13,7 +13,6 @@
   "wh_r_dist": [18.7, 25.3],
   "wh_c_dist": [4.25, 5.75],
   "wh_p_dist": [2, 2],
-  "alpha_beta_dist": [2.25, 2.75],
   "battery_max_rate": 5,
   "battery_capacity": 13.5,
   "battery_cap_bounds": [0.15, 0.85],
@@ -22,14 +21,16 @@
   "battery_cons_penalty":0.005,
   "pv_area": 32,
   "pv_efficiency": 0.2,
-  "temp_in_init": 19.3,
+  "temp_in_init": [19.3],
   "temp_wh_init": 45.75,
-  "temp_sp": [18, 22],
-  "wh_sp": [45.5, 48.5],
+  "temp_sp_dist": [18, 22],
+  "temp_deadband_dist": [1, 6],
+  "wh_sp_dist": [45.5, 48.5],
+  "wh_deadband_dist": [1, 2],
 
   "THE FOLLOWING ARE SIMULATION PARAMETERS": null,
   "start_datetime": "2015-01-01 00",
-  "end_datetime": "2015-02-01 00",
+  "end_datetime": "2015-01-05 00",
   "random_seed": 12,
   "load_zone": "LZ_HOUSTON",
   "check_type": "all",
@@ -48,7 +49,7 @@
   "DISUTILITY FACTOR DETERMINES HOW CLOSE THE RL RESPONSIVE HEMS IS TO BASELINE": null,
   "mpc_prediction_horizons": [4],
   "mpc_hourly_steps": 2,
-  "mpc_discomfort": [2.5],
+  "mpc_discomfort": [0],
   "mpc_disutility": [0.5],
 
   "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,
@@ -63,6 +64,6 @@
   "NUMBER OF TIMESTEPS FOR WHICH THE AGGREGATOR FORECASTS THE PREDICTED ENERGY CONSUMPTION (where 0 assumes the load from the last timestep)":null,
   "rl_agg_forecast_horizon": 1,
 
-  "base_price": 0.13,
-  "action_space": [-0.10, 0.10]
+  "base_price": 0.10,
+  "action_space": [-0.05, 0.05]
 }

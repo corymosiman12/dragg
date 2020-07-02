@@ -286,6 +286,18 @@ class Aggregator:
             self.config["home_hvac_p_heat_dist"][1],
             self.config["total_number_homes"]
         )
+        home_hvac_temp_in_sp_dist = np.random.uniform(
+            self.config["temp_sp_dist"][0],
+            self.config["temp_sp_dist"][1],
+            self.config["total_number_homes"]
+        )
+        home_hvac_temp_in_db_dist = np.random.uniform(
+            self.config["temp_deadband_dist"][0],
+            self.config["temp_deadband_dist"][1],
+            self.config["total_number_homes"]
+        )
+        home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
+        home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
 
         # Define water heater parameters
         wh_r_dist = np.random.uniform(
@@ -303,17 +315,19 @@ class Aggregator:
             self.config["wh_p_dist"][1],
             self.config["total_number_homes"]
         )
+        home_wh_temp_sp_dist = np.random.uniform(
+            self.config["wh_sp_dist"][0],
+            self.config["wh_sp_dist"][1],
+            self.config["total_number_homes"]
+        )
+        home_wh_temp_db_dist = np.random.uniform(
+            self.config["wh_deadband_dist"][0],
+            self.config["wh_deadband_dist"][1],
+            self.config["total_number_homes"]
+        )
+        home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
+        home_wh_temp_max_dist = home_wh_temp_sp_dist + 0.5 * home_wh_temp_db_dist
 
-        alpha_dist = np.random.uniform(
-            self.config["alpha_beta_dist"][0],
-            self.config["alpha_beta_dist"][1],
-            self.config["total_number_homes"]
-        )
-        beta_dist = np.random.uniform(
-            self.config["alpha_beta_dist"][0],
-            self.config["alpha_beta_dist"][1],
-            self.config["total_number_homes"]
-        )
         all_homes = []
 
         # PV values are constant
@@ -340,18 +354,24 @@ class Aggregator:
             all_homes.append({
                 "name": names.get_first_name() + '-' + res,
                 "type": "pv_battery",
-                "alpha": alpha_dist[i],
-                "beta": beta_dist[i],
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
                     "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i]
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i])
                 },
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i]
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i])
                 },
                 "battery": battery,
                 "pv": pv
@@ -364,18 +384,24 @@ class Aggregator:
             all_homes.append({
                 "name": names.get_first_name() + '-' + res,
                 "type": "pv_only",
-                "alpha": alpha_dist[i],
-                "beta": beta_dist[i],
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
                     "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i]
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i])
                 },
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i]
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i])
                 },
                 "pv": pv
             })
@@ -387,18 +413,24 @@ class Aggregator:
             all_homes.append({
                 "name": names.get_first_name() + '-' + res,
                 "type": "battery_only",
-                "alpha": alpha_dist[i],
-                "beta": beta_dist[i],
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
                     "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i]
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i])
                 },
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i]
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i])
                 },
                 "battery": battery
             })
@@ -410,18 +442,24 @@ class Aggregator:
             all_homes.append({
                 "name": names.get_first_name() + '-' + res,
                 "type": "base",
-                "alpha": alpha_dist[i],
-                "beta": beta_dist[i],
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
                     "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i]
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i])
                 },
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i]
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i])
                 }
             })
             i += 1
@@ -481,17 +519,16 @@ class Aggregator:
         """
         self.timestep = 0
         # self.reward_price = np.zeros(self.rl_agg_horizon)
-        temp_sp = self.config["temp_sp"]
-        wh_sp = self.config["wh_sp"]
+
         # min_runtime = self.config["min_runtime_mins"]
         self.e_batt_init = self.config["battery_capacity"] * self.config["battery_cap_bounds"][0]
-        self.redis_client.conn.hset("initial_values", "temp_in_init", self.config["temp_in_init"])
-        self.redis_client.conn.hset("initial_values", "temp_wh_init", self.config["temp_wh_init"])
+        # self.redis_client.conn.hset("initial_values", "temp_in_init", self.config["temp_in_init"])
+        # self.redis_client.conn.hset("initial_values", "temp_wh_init", self.config["temp_wh_init"])
         self.redis_client.conn.hset("initial_values", "e_batt_init", self.e_batt_init)
-        self.redis_client.conn.hset("initial_values", "temp_in_min", temp_sp[0])
-        self.redis_client.conn.hset("initial_values", "temp_in_max", temp_sp[1])
-        self.redis_client.conn.hset("initial_values", "temp_wh_min", wh_sp[0])
-        self.redis_client.conn.hset("initial_values", "temp_wh_max", wh_sp[1])
+        # self.redis_client.conn.hset("initial_values", "temp_in_min", self.config["temp_sp"][0])
+        # self.redis_client.conn.hset("initial_values", "temp_in_max", self.config["temp_sp"][1])
+        # self.redis_client.conn.hset("initial_values", "temp_wh_min", self.config["wh_sp"][0])
+        # self.redis_client.conn.hset("initial_values", "temp_wh_max", self.config["wh_sp"][1])
         # self.redis_client.conn.hset("initial_values", "min_runtime_mins", min_runtime)
         self.redis_client.conn.set("start_hour_index", self.start_hour_index)
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
