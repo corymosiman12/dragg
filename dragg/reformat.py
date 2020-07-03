@@ -130,7 +130,6 @@ class Reformat:
             for j in permutations:
                 if os.path.isdir(rl_agg_folder):
                     rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_disutil-{float(j['mpc_disutility'])}_discomf-{float(j['mpc_discomfort'])}"
-                    print(rl_agg_path)
                     results_file = rl_agg_path + "-results.json"
                     rl_agg_file = os.path.join(rl_agg_folder, results_file)
                     if os.path.isfile(rl_agg_file):

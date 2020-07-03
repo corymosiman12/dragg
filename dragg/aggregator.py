@@ -334,6 +334,45 @@ class Aggregator:
         for i in range(len(home_wh_temp_max_dist)):
             self.home_wh_temp_init.append(home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i]))
 
+        # define water heater draw events
+        home_wh_size_dist = np.random.uniform(
+            self.config["wh_size_dist"][0],
+            self.config["wh_size_dist"][1],
+            self.config["total_number_homes"]
+        )
+        home_wh_size_dist = (home_wh_size_dist + 10) // 20 * 20 # more even numbers
+
+        ndays = self.num_timesteps // (24 * self.dt) + 1
+        daily_timesteps = 24 * self.dt
+
+        home_wh_all_draw_timing_dist = []
+        home_wh_all_draw_size_dist = []
+        for i in range(self.config["total_number_homes"]):
+            n_daily_draws = np.random.randint(self.config["wh_n_big_draw_dist"][0], self.config["wh_n_big_draw_dist"][1]+1)
+            typ_draw_times = np.random.randint(0, 24*self.dt, n_daily_draws)
+            perturbations = np.array([])
+            for d in range(ndays):
+                perturbations = np.concatenate((perturbations, (np.random.randint(-1 * self.dt, self.dt, n_daily_draws) + (d * daily_timesteps))))
+            big_draw_times = (np.tile(typ_draw_times, ndays) + perturbations)
+            big_draw_sizes = (np.random.uniform(self.config["wh_big_draw_size_dist"][0], self.config["wh_big_draw_size_dist"][1], ndays * n_daily_draws))
+
+            n_daily_draws = np.random.randint(self.config["wh_n_small_draw_dist"][0], self.config["wh_n_small_draw_dist"][1]+1)
+            typ_draw_times = np.random.randint(0, 24*self.dt, n_daily_draws)
+            perturbations = np.array([])
+            for d in range(ndays):
+                perturbations = np.concatenate((perturbations, (np.random.randint(-3 * self.dt, 3 * self.dt, n_daily_draws) + (d * daily_timesteps))))
+            small_draw_times = (np.tile(typ_draw_times, ndays) + perturbations)
+            small_draw_sizes = (np.random.uniform(self.config["wh_small_draw_size_dist"][0], self.config["wh_small_draw_size_dist"][1], ndays * n_daily_draws))
+
+            all_draw_times = np.concatenate((big_draw_times, small_draw_times))
+            all_draw_sizes = np.concatenate((big_draw_sizes, small_draw_sizes))
+            ind = np.argsort(all_draw_times)
+            all_draw_times = all_draw_times[ind].tolist()
+            all_draw_sizes = all_draw_sizes[ind].tolist()
+
+            home_wh_all_draw_timing_dist.append(all_draw_times)
+            home_wh_all_draw_size_dist.append(all_draw_sizes)
+
         all_homes = []
 
         # PV values are constant
@@ -368,7 +407,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": self.home_hvac_temp_init[i],
+                    "temp_in_init": self.home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -377,7 +416,10 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": self.home_wh_temp_init[i]
+                    "temp_wh_init": self.home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    "draw_times": home_wh_all_draw_timing_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i]
                 },
                 "battery": battery,
                 "pv": pv
@@ -398,7 +440,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i])
+                    "temp_in_init": self.home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -407,7 +449,10 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i])
+                    "temp_wh_init": self.home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    "draw_times": home_wh_all_draw_timing_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i]
                 },
                 "pv": pv
             })
@@ -427,7 +472,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i])
+                    "temp_in_init": self.home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -436,7 +481,10 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i])
+                    "temp_wh_init": self.home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    "draw_times": home_wh_all_draw_timing_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i]
                 },
                 "battery": battery
             })
@@ -456,7 +504,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i])
+                    "temp_in_init": self.home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -465,7 +513,10 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i])
+                    "temp_wh_init": self.home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    "draw_times": home_wh_all_draw_timing_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i]
                 }
             })
             i += 1

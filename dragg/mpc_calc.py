@@ -103,6 +103,16 @@ class MPCCalc:
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
         self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
+        self.wh_size = cp.Constant(float(self.home["wh"]["tank_size"]))
+        self.tap_temp = cp.Constant(12) # assumed cold tap water is about 55 deg F
+
+        # Do water draws with no prior knowledge
+        draw_times = np.array(self.home["wh"]["draw_times"])
+        if self.timestep in draw_times:
+            ind = np.where(draw_times == self.timestep)[0]
+            self.draw_size = cp.Constant(sum(np.array(self.home["wh"]["draw_sizes"])[ind]))
+        else:
+            self.draw_size = cp.Constant(0)
 
         self.wf_wh = self.wh_p/2
 
@@ -160,7 +170,7 @@ class MPCCalc:
     def add_base_constraints(self):
         self.constraints = [
             self.temp_in[0] == self.temp_in_init,
-            self.temp_wh[0] == self.temp_wh_init,
+            self.temp_wh[0] == ((self.wh_size - self.draw_size) * self.temp_wh_init + self.draw_size * self.tap_temp) / self.wh_size,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
             self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
             # self.temp_in[1:self.h_plus] >= self.temp_in_min,
@@ -182,11 +192,9 @@ class MPCCalc:
         # set constraints on HVAC by season
         if max(self.oat_current) <= 26: # "winter"
             self.constraints += [self.hvac_cool_on == 0]
-            # self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_min"]))
 
         if min(self.oat_current) >= 15: # "summer"
             self.constraints += [self.hvac_heat_on == 0]
-            # self.temp_in_sp = cp.Constant(float(self.initial_values["temp_in_max"]))
 
         if self.mode == "baseline" or self.mode == "forecast":
             self.constraints += [self.p_load_baseline == self.p_load] # null difference between optimal and forecast
@@ -195,6 +203,7 @@ class MPCCalc:
             self.discomfort = self._discomfort
             self.disutility = 0.0 # penalizes shift from forecasted baseline
         else: # if self.mode == "run"
+            self.baseline_p_load_opt = 0 # change for disutility factor
             self.constraints += [self.p_load_baseline == self.baseline_p_load_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
             if self.case == "rl_agg":
@@ -204,6 +213,9 @@ class MPCCalc:
             else:
                 self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
                 self.disutility = 0 # penalizes shift from forecasted baseline
+
+        # water draw events
+
 
     def add_battery_constraints(self):
         self.charge_mag = cp.Variable()
@@ -424,7 +436,7 @@ class MPCCalc:
             if self.timestep > 0:
                 self.redis_get_prev_optimal_vals()
 
-            self.get_baseline()
+            # self.get_baseline()
             self.cast_redis_curr_rps()
             self.mode = "run" # return to mode "run"
 

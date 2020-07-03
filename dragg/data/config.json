@@ -12,7 +12,7 @@
   "home_hvac_p_heat_dist": [2, 13.5],
   "wh_r_dist": [18.7, 25.3],
   "wh_c_dist": [4.25, 5.75],
-  "wh_p_dist": [2, 8],
+  "wh_p_dist": [5, 8],
   "battery_max_rate": 5,
   "battery_capacity": 13.5,
   "battery_cap_bounds": [0.15, 0.85],
@@ -25,6 +25,13 @@
   "temp_deadband_dist": [1, 3],
   "wh_sp_dist": [45.5, 48.5],
   "wh_deadband_dist": [1, 6],
+
+  "!!! NEW !!! THESE ARE PARAMETERS FOR WATER DRAWS -- uses metric (liters)": null,
+  "wh_size_dist": [180, 300],
+  "wh_n_big_draw_dist": [2, 4],
+  "wh_n_small_draw_dist": [10, 20],
+  "wh_big_draw_size_dist": [20, 30],
+  "wh_small_draw_size_dist": [0.1, 15],
 
   "THE FOLLOWING ARE SIMULATION PARAMETERS": null,
   "start_datetime": "2015-01-01 00",
@@ -47,7 +54,7 @@
   "DISUTILITY FACTOR DETERMINES HOW CLOSE THE RL RESPONSIVE HEMS IS TO BASELINE": null,
   "mpc_prediction_horizons": [4],
   "mpc_hourly_steps": 2,
-  "mpc_discomfort": [1.5, 2],
+  "mpc_discomfort": [1.5],
   "mpc_disutility": [0.5],
 
   "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,
