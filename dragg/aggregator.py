@@ -917,7 +917,7 @@ class Aggregator:
             os.makedirs(agg_output)
 
         if self.case == "baseline" or self.case == "no_mpc":
-            file_name = f"{self.case}-results.json"
+            file_name = f"{self.case}_discomf-{self.mpc_discomfort}-results.json"
 
         elif self.case == "agg_mpc":
             file_name = "results.json"
@@ -926,8 +926,8 @@ class Aggregator:
                 json.dump(self.agg_mpc_data, f, indent=4)
 
         else: # self.case == "rl_agg" or self.case == "simplified"
-            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}-results.json"
-            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}-q-results.json")
+            file_name = f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}_discomf-{self.mpc_discomfort}-results.json"
+            f4 = os.path.join(agg_output, f"agg_horizon_{self.rl_agg_horizon}-alpha_{self.alpha}-epsilon_{self.epsilon_init}-beta_{self.beta}_batch-{self.batch_size}_disutil-{self.mpc_disutility}_discomf-{self.mpc_discomfort}-q-results.json")
             with open(f4, 'w+') as f:
                 json.dump(self.rl_q_data, f, indent=4)
 

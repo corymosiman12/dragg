@@ -28,7 +28,7 @@
 
   "THE FOLLOWING ARE SIMULATION PARAMETERS": null,
   "start_datetime": "2015-01-01 00",
-  "end_datetime": "2015-02-01 00",
+  "end_datetime": "2015-01-08 00",
   "random_seed": 12,
   "load_zone": "LZ_HOUSTON",
   "check_type": "all",
@@ -47,7 +47,7 @@
   "DISUTILITY FACTOR DETERMINES HOW CLOSE THE RL RESPONSIVE HEMS IS TO BASELINE": null,
   "mpc_prediction_horizons": [4],
   "mpc_hourly_steps": 2,
-  "mpc_discomfort": [2.5],
+  "mpc_discomfort": [1.5, 2],
   "mpc_disutility": [0.5],
 
   "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,

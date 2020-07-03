@@ -198,7 +198,8 @@ class MPCCalc:
             self.constraints += [self.p_load_baseline == self.baseline_p_load_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
             if self.case == "rl_agg":
-                self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
+                self.discomfort = self._discomfort
+                # self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
                 self.disutility = self._disutility # penalizes shift from forecasted baseline
             else:
                 self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
@@ -243,7 +244,8 @@ class MPCCalc:
         ]
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
                     + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) # relevent without RL and to make baseline for RL run
-                    + self.disutility * cp.norm(self.p_load - self.p_load_baseline)) # RL agent
+                    # + self.disutility * cp.norm(self.p_load - self.p_load_baseline)
+                    ) # RL agent
 
         # HEMS agent runs twice:
         # run 1: utilizes the discomfort factor that minimizes difference of temperature and setpoint Values

@@ -65,7 +65,8 @@ class Reformat:
         batch_sizes = set(self.config["rl_batch_size"])
         rl_horizons = set(self.config["rl_agg_action_horizon"])
         mpc_disutil = set(self.config["mpc_disutility"])
-        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons, "mpc_disutility": mpc_disutil}
+        mpc_discomf = set(self.config["mpc_discomfort"])
+        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons, "mpc_disutility": mpc_disutil, "mpc_discomfort": mpc_discomf}
         for key in temp:
             if key in self.add_agg_params:
                 temp[key] |= set(self.add_agg_params[key])
@@ -77,7 +78,8 @@ class Reformat:
         dt = self.config["mpc_hourly_steps"]
         interval_minutes = 60 // dt
         check_type = self.config["check_type"]
-        temp = {"n_houses": set([n_houses]), "mpc_horizon": set(mpc_horizon), "dt": set([dt]), "interval_minutes": set([interval_minutes]), "check_type": set([check_type])}
+        mpc_discomf = set(self.config["mpc_discomfort"])
+        temp = {"n_houses": set([n_houses]), "mpc_horizon": set(mpc_horizon), "dt": set([dt]), "interval_minutes": set([interval_minutes]), "check_type": set([check_type]), "mpc_discomfort": mpc_discomf}
         for key in temp:
             if key in self.add_mpc_params:
                 temp[key] |= set(self.add_mpc_params[key])
@@ -105,20 +107,19 @@ class Reformat:
             for i in permutations:
                 mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_horizon']}-interval_{i['interval_minutes']}")
                 if os.path.isdir(mpc_folder):
-                    temp.append(mpc_folder)
+                    if not mpc_folder in temp:
+                        temp.append(mpc_folder)
         return temp
 
     def set_base_file(self):
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
-        flag = False
         for j in self.mpc_folders:
-            while not flag:
-                file = os.path.join(j, "baseline", "baseline-results.json")
+            for k in permutations:
+                file = os.path.join(j, "baseline", f"baseline_discomf-{float(k['mpc_discomfort'])}-results.json")
                 if os.path.isfile(file):
-                    temp = {"results": file, "name": ""}
+                    temp = {"results": file, "name": f"Baseline {float(k['mpc_discomfort'])}"}
                     self.baselines.append(temp)
-                flag = True
 
     def set_rl_files(self):
         counter = 1
@@ -128,7 +129,8 @@ class Reformat:
             permutations = [dict(zip(keys, v)) for v in it.product(*values)]
             for j in permutations:
                 if os.path.isdir(rl_agg_folder):
-                    rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_disutil-{j['mpc_disutility']}"
+                    rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_disutil-{float(j['mpc_disutility'])}_discomf-{float(j['mpc_discomfort'])}"
+                    print(rl_agg_path)
                     results_file = rl_agg_path + "-results.json"
                     rl_agg_file = os.path.join(rl_agg_folder, results_file)
                     if os.path.isfile(rl_agg_file):
@@ -141,7 +143,7 @@ class Reformat:
                         if name=="":
                             name += f"RL {counter}"
                             counter += 1
-                        # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}"
+                        # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}, discomf={j['mpc_discomfort']}"
                         set = {"results": rl_agg_file, "q_results": q_file, "name": name}
                         self.parametrics.append(set)
 
