@@ -163,12 +163,12 @@ class MPCCalc:
             self.temp_wh[0] == self.temp_wh_init,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
             self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
-            self.temp_in[1:self.h_plus] >= self.temp_in_min,
-            self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
+            # self.temp_in[1:self.h_plus] >= self.temp_in_min,
+            # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
-            self.temp_in[1:self.h_plus] <= self.temp_in_max,
-            self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
+            # self.temp_in[1:self.h_plus] <= self.temp_in_max,
+            # self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
 
             self.hvac_cool_on <= 1,
             self.hvac_cool_on >= 0,
