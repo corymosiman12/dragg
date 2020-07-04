@@ -97,6 +97,9 @@ class Reformat:
                 hours = int(hours.total_seconds() / 3600)
                 new_folder = {"folder": date_folder, "hours": hours}
                 temp.append(new_folder)
+        if len(temp) == 0:
+            self.ref_log.logger.error("No files found for the date ranges specified.")
+            exit()
         return temp
 
     def set_mpc_folders(self):
@@ -145,6 +148,8 @@ class Reformat:
                         # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}, discomf={j['mpc_discomfort']}"
                         set = {"results": rl_agg_file, "q_results": q_file, "name": name}
                         self.parametrics.append(set)
+        if len(self.parametrics) == 0:
+            self.ref_log.logger.warning("Parameterized RL aggregator runs are empty for this config file.")
 
     def set_simplified_files(self):
         for i in self.mpc_folders:
@@ -262,6 +267,8 @@ class Reformat:
     def plot_single_home_base(self, name, fig, data, summary, fname):
         fig.add_trace(go.Scatter(x=self.x_lims, y=data["temp_in_opt"][0:self.timesteps], name=f"Tin (C) - {fname}"))
         fig.add_trace(go.Scatter(x=self.x_lims, y=data["temp_wh_opt"][0:self.timesteps], name=f"Twh (C) - {fname}"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["temp_in_sp"] * np.ones(self.timesteps), name=f"Tin_sp (C) - {fname}"))
+        fig.add_trace(go.Scatter(x=self.x_lims, y=data["temp_wh_sp"] * np.ones(self.timesteps), name=f"Twh_sp (C) - {fname}"))
         fig.add_trace(go.Scatter(x=self.x_lims, y=data["p_grid_opt"][0:self.timesteps], name=f"Pgrid (kW) - {fname}", line_shape='hv'))
         fig.add_trace(go.Scatter(x=self.x_lims, y=data["p_load_opt"][0:self.timesteps], name=f"Pload (kW) - {fname}", line_shape='hv'))
         fig.add_trace(go.Scatter(x=self.x_lims, y=data["hvac_cool_on_opt"][0:self.timesteps], name=f"HVAC Cool Cmd - {fname}", line_shape='hv'), secondary_y=True)
@@ -514,6 +521,10 @@ class Reformat:
         return fig
 
     def rl2baseline(self):
+        if len(self.parametrics) == 0:
+            self.reg_log.logger.error("No parameterized RL aggregator runs found for comparison to baseline.")
+            return
+
         fig = make_subplots(specs=[[{"secondary_y": True}]])
 
         fig = self.plot_greedy(fig)

@@ -99,7 +99,7 @@ class MPCCalc:
         self.ghi = cp.Constant(self.ghi_current)
 
         # Water heater temperature constraints
-        self.temp_wh_min = cp.Constant(float(self.home["wh"]["temp_wh_min"]))
+        self.temp_wh_min = float(self.home["wh"]["temp_wh_min"])
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
         self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
@@ -132,8 +132,8 @@ class MPCCalc:
             self.temp_wh_init = cp.Constant(self.t_wh_init)
         else:
             self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
-            self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
-
+            # self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
+            self.temp_wh_init = cp.Constant(((self.wh_size.value - self.draw_size.value) * float(self.prev_optimal_vals["temp_wh_opt"]) + self.draw_size.value * self.tap_temp.value) / self.wh_size.value)
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -173,12 +173,12 @@ class MPCCalc:
             self.temp_wh[0] == ((self.wh_size - self.draw_size) * self.temp_wh_init + self.draw_size * self.tap_temp) / self.wh_size,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
             self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
-            # self.temp_in[1:self.h_plus] >= self.temp_in_min,
-            # self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
+            self.temp_in[1:self.h_plus] >= self.temp_in_min,
+            self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
-            # self.temp_in[1:self.h_plus] <= self.temp_in_max,
-            # self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
+            self.temp_in[1:self.h_plus] <= self.temp_in_max,
+            self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
 
             self.hvac_cool_on <= 1,
             self.hvac_cool_on >= 0,
@@ -198,7 +198,9 @@ class MPCCalc:
 
         if self.mode == "baseline" or self.mode == "forecast":
             self.constraints += [self.p_load_baseline == self.p_load] # null difference between optimal and forecast
-            self.total_price = cp.Constant(np.array(self.base_price[:self.horizon]))
+            weights = np.arange(self.horizon)
+            bp = np.array(self.base_price[:self.horizon]) + weights
+            self.total_price = cp.Constant(bp)
             # self.discomfort = self.discomfort # hard constraints on temp when discomfort is 0 ( @kyri )
             self.discomfort = self._discomfort
             self.disutility = 0.0 # penalizes shift from forecasted baseline
@@ -257,7 +259,7 @@ class MPCCalc:
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
                     + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) # relevent without RL and to make baseline for RL run
                     # + self.disutility * cp.norm(self.p_load - self.p_load_baseline)
-                    ) # RL agent
+                    # ) # RL agent
 
         # HEMS agent runs twice:
         # run 1: utilizes the discomfort factor that minimizes difference of temperature and setpoint Values
@@ -296,8 +298,16 @@ class MPCCalc:
         self.prob.solve(solver=cp.ECOS, verbose=False)
 
     def cleanup_and_finish(self):
-        if self.prob.status != "optimal":
+        n_iterations = 0
+        while self.prob.status != "optimal" and n_iterations < 10:
             self.mpc_log.logger.error(f"Couldn't solve problem for {self.home['name']} of type {self.home['type']}: {self.prob.status}")
+            self.temp_in_min -= 1
+            self.temp_wh_min -= 1
+            self.add_base_constraints()
+            self.set_base_p_grid()
+            self.solve_mpc()
+            n_iterations +=1
+
         if self.mode == "run":
             # self.mpc_log.logger.info(f"Status for {self.home['name']}: {self.prob.status}")
             self.optimal_vals = {

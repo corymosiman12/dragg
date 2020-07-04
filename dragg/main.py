@@ -10,7 +10,7 @@ if __name__ == "__main__":
     a = Aggregator()
     a.run()
 
-    agg_params = {"alpha": [0.001], "beta":[], "epsilon":[0.31], "rl_horizon":[], "mpc_disutility":[]} # set parameters from earlier runs
+    agg_params = {"alpha": [0.001], "beta":[], "epsilon":[], "rl_horizon":[], "mpc_disutility":[]} # set parameters from earlier runs
     mpc_params = {}
     date_ranges = {}
     include_runs = {"baseline", "rl_agg"}
@@ -18,8 +18,8 @@ if __name__ == "__main__":
 
     r.rl2baseline()
     r.rl2baseline_error()
-    r.rl_thetas()
-    r.rl_qvals()
+    # r.rl_thetas()
+    # r.rl_qvals()
     r.plot_single_home2("Crystal-RXXFA") # pv_battery
     # if r.config["run_rl_agg"] or r.config["run_agg_mpc"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
 

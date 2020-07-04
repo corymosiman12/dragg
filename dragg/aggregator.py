@@ -298,9 +298,9 @@ class Aggregator:
         )
         home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
         home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
-        self.home_hvac_temp_init = []
+        home_hvac_temp_init = []
         for i in range(len(home_hvac_temp_in_min_dist)):
-            self.home_hvac_temp_init.append(home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i]))
+            home_hvac_temp_init.append(home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i]))
 
         # Define water heater parameters
         wh_r_dist = np.random.uniform(
@@ -330,9 +330,9 @@ class Aggregator:
         )
         home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
         home_wh_temp_max_dist = home_wh_temp_sp_dist + 0.5 * home_wh_temp_db_dist
-        self.home_wh_temp_init = []
+        home_wh_temp_init = []
         for i in range(len(home_wh_temp_max_dist)):
-            self.home_wh_temp_init.append(home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i]))
+            home_wh_temp_init.append(home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i]))
 
         # define water heater draw events
         home_wh_size_dist = np.random.uniform(
@@ -389,7 +389,9 @@ class Aggregator:
             "capacity_upper": self.config["battery_cap_bounds"][1] * self.config["battery_capacity"],
             "ch_eff": self.config["battery_charge_eff"],
             "disch_eff": self.config["battery_discharge_eff"],
-            "batt_cons": self.config["battery_cons_penalty"]
+            "batt_cons": self.config["battery_cons_penalty"],
+            "e_batt_init": np.random.uniform(self.config["battery_cap_bounds"][0] * self.config["battery_capacity"],
+                                            self.config["battery_cap_bounds"][1] * self.config["battery_capacity"])
         }
 
         i = 0
@@ -407,7 +409,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": self.home_hvac_temp_init[i]
+                    "temp_in_init": home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -416,7 +418,7 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": self.home_wh_temp_init[i],
+                    "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i]
@@ -440,7 +442,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": self.home_hvac_temp_init[i]
+                    "temp_in_init": home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -449,7 +451,7 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": self.home_wh_temp_init[i],
+                    "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i]
@@ -472,7 +474,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": self.home_hvac_temp_init[i]
+                    "temp_in_init": home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -481,7 +483,7 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": self.home_wh_temp_init[i],
+                    "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i]
@@ -504,7 +506,7 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": self.home_hvac_temp_init[i]
+                    "temp_in_init": home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -513,7 +515,7 @@ class Aggregator:
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": self.home_wh_temp_init[i],
+                    "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i]
@@ -529,8 +531,10 @@ class Aggregator:
         for home in self.all_homes:
             self.baseline_data[home["name"]] = {
                 "type": home["type"],
-                "temp_in_opt": [],
-                "temp_wh_opt": [],
+                "temp_in_sp": home["hvac"]["temp_in_sp"],
+                "temp_wh_sp": home["wh"]["temp_wh_sp"],
+                "temp_in_opt": [home["hvac"]["temp_in_init"]],
+                "temp_wh_opt": [home["wh"]["temp_wh_init"]],
                 "p_grid_opt": [],
                 "p_load_opt": [],
                 "hvac_cool_on_opt": [],
@@ -542,7 +546,7 @@ class Aggregator:
                 self.baseline_data[home["name"]]["p_pv_opt"] = []
                 self.baseline_data[home["name"]]["u_pv_curt_opt"] = []
             if 'battery' in home["type"]:
-                self.baseline_data[home["name"]]["e_batt_opt"] = []
+                self.baseline_data[home["name"]]["e_batt_opt"] = [home["battery"]["e_batt_init"]]
                 self.baseline_data[home["name"]]["p_batt_ch"] = []
                 self.baseline_data[home["name"]]["p_batt_disch"] = []
 
@@ -820,15 +824,6 @@ class Aggregator:
         action = u_k
         return action
 
-    def set_baseline_initial_vals(self):
-        i = 0
-        for home in self.all_homes:
-            self.baseline_data[home["name"]]["temp_in_opt"].append(self.home_hvac_temp_init[i]) #stopgap
-            self.baseline_data[home["name"]]["temp_wh_opt"].append(self.home_wh_temp_init[i])
-            if 'battery' in home["type"]:
-                self.baseline_data[home["name"]]["e_batt_opt"].append(self.config["battery_cap_bounds"][0] * self.config["battery_capacity"])
-            i += 1
-
     def check_baseline_vals(self):
         for home, vals in self.baseline_data.items():
             if self.check_type == 'all':
@@ -849,9 +844,9 @@ class Aggregator:
         # Block in Queue until all tasks are done
         self.queue.join()
 
-        self.agg_log.logger.info("Workers complete")
-        self.agg_log.logger.info(f"Number of threads: {threading.active_count()}")
-        self.agg_log.logger.info(f"Length of queue: {self.queue.qsize()}")
+        self.agg_log.logger.info(f"Workers complete for timestep {self.timestep} of {self.num_timesteps}.")
+        self.agg_log.logger.info(f"Number of threads: {threading.active_count()}.")
+        self.agg_log.logger.info(f"Length of queue: {self.queue.qsize()}.")
 
     def collect_data(self):
         agg_load = 0
@@ -1264,7 +1259,7 @@ class Aggregator:
                         self.flush_redis()
                         self.redis_set_initial_values()
                         self.reset_baseline_data()
-                        self.set_baseline_initial_vals()
+                        # self.set_baseline_initial_vals()
                         self.run_baseline(h)
                         self.summarize_baseline(h)
                         self.write_outputs(h)
@@ -1306,7 +1301,7 @@ class Aggregator:
                                             self.flush_redis()
                                             self.redis_set_initial_values()
                                             self.reset_baseline_data()
-                                            self.set_baseline_initial_vals()
+                                            # self.set_baseline_initial_vals()
                                             self.run_rl_agg(self.horizon)
                                             self.summarize_baseline(self.horizon)
                                             self.write_outputs(self.horizon)
@@ -1331,7 +1326,7 @@ class Aggregator:
                                     self.flush_redis()
                                     self.redis_set_initial_values()
                                     self.reset_baseline_data()
-                                    self.set_baseline_initial_vals()
+                                    # self.set_baseline_initial_vals()
                                     self.run_rl_agg_simplified()
                                     self.summarize_baseline(self.horizon)
                                     self.write_outputs(self.horizon)
