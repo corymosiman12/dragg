@@ -259,7 +259,7 @@ class MPCCalc:
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
                     + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) # relevent without RL and to make baseline for RL run
                     # + self.disutility * cp.norm(self.p_load - self.p_load_baseline)
-                    # ) # RL agent
+                    ) # RL agent
 
         # HEMS agent runs twice:
         # run 1: utilizes the discomfort factor that minimizes difference of temperature and setpoint Values
