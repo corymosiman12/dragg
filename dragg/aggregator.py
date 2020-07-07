@@ -770,10 +770,6 @@ class Aggregator:
         return theta
 
     def rl_update_reward_price(self):
-        # if self.rl_agg_horizon > 1:
-        #     avg_rp = np.sum(self.reward_price[1:]) / (self.rl_agg_horizon - 1)
-        # else:
-        #     avg_rp = np.sum(0)
         self.reward_price[:-1] = self.reward_price[1:]
         self.reward_price[-1] = np.round(self.action,2)
 
@@ -1042,16 +1038,8 @@ class Aggregator:
 
     def _gen_setpoint(self, time):
         """ @kyri: setpoint of community """
-        # if self.timestep > 0:
-        #     if self.state["time_of_day"] >= 2*self.dt and self.state["time_of_day"] <= 14*self.dt:
-        #         sp = 100
-        #     else:
-        #         sp = 10
-        # else:
-        #     sp = 50
         sp = self.config['total_number_homes']*2.5
         return sp
-        # return 55 # for a single house
 
     def test_response(self):
         """ @kyri: to be changed for the response rate of the community (see mpc_disutility in new config.json)"""
@@ -1222,17 +1210,17 @@ class Aggregator:
                         self.summarize_baseline(h)
                         self.write_outputs(h)
 
-        if self.config["run_agg_mpc"]:
-            self.case = "agg_mpc"
-            self.horizon = self.config["agg_mpc_horizon"]
-            for threshold in self.config["max_load_threshold"]:
-                self.max_load_threshold = threshold
-                self.flush_redis()
-                self.redis_set_initial_values()
-                self.reset_baseline_data()
-                self.run_agg_mpc(self.horizon)
-                self.summarize_baseline(self.horizon)
-                self.write_outputs(self.horizon)
+        # if self.config["run_agg_mpc"]:
+        #     self.case = "agg_mpc"
+        #     self.horizon = self.config["agg_mpc_horizon"]
+        #     for threshold in self.config["max_load_threshold"]:
+        #         self.max_load_threshold = threshold
+        #         self.flush_redis()
+        #         self.redis_set_initial_values()
+        #         self.reset_baseline_data()
+        #         self.run_agg_mpc(self.horizon)
+        #         self.summarize_baseline(self.horizon)
+        #         self.write_outputs(self.horizon)
 
         if self.config["run_rl_agg"]:
             self.case = "rl_agg"
