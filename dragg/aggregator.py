@@ -754,8 +754,9 @@ class Aggregator:
         self.q_predicted = self.theta @ self.phi_k # @ = dot product # should temp_theta
         self.q_observed = self.reward + self.beta * temp_theta @ self.phi_k1 - self.average_reward # update experience replay
         self.delta = self.q_observed - self.q_predicted
-        self.average_reward = self.average_reward + self.alpha*self.delta
+
         self.delta = np.clip(self.delta, -1, 1) # stops theta diverging too soon
+        self.average_reward = self.average_reward + self.alpha*self.delta
 
         self.theta = self.theta - self.alpha * self.delta * np.transpose(self.phi_k - self.phi_k1)
 
