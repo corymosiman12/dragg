@@ -55,7 +55,7 @@
   "mpc_prediction_horizons": [4],
   "mpc_hourly_steps": 4,
   "mpc_discomfort": [0.75],
-  "mpc_disutility": [0.5],
+  "mpc_disutility": [0.1],
 
   "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,
   "rl_learning_rate": [0.001],
