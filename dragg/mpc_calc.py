@@ -119,7 +119,7 @@ class MPCCalc:
         # Home temperature constraints
         self.temp_in_min = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
         self.temp_in_max = cp.Constant(float(self.home["hvac"]["temp_in_max"]))
-        self.temp_in_sp = cp.Constant(float(self.home["hvac"]["temp_in_sp"]))
+        self.temp_in_sp = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
         self.t_in_init = float(self.home["hvac"]["temp_in_init"])
 
         # set setpoint according to "season"
@@ -198,8 +198,7 @@ class MPCCalc:
 
         if self.mode == "baseline" or self.mode == "forecast":
             self.constraints += [self.p_load_baseline == self.p_load] # null difference between optimal and forecast
-            weights = np.arange(self.horizon)
-            bp = np.array(self.base_price[:self.horizon]) + weights
+            bp = np.array(self.base_price[:self.horizon])
             self.total_price = cp.Constant(bp)
             # self.discomfort = self.discomfort # hard constraints on temp when discomfort is 0 ( @kyri )
             self.discomfort = self._discomfort
@@ -209,8 +208,8 @@ class MPCCalc:
             self.constraints += [self.p_load_baseline == self.baseline_p_load_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
             if self.case == "rl_agg":
-                self.discomfort = self._discomfort
-                # self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
+                # self.discomfort = self._discomfort
+                self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
                 self.disutility = self._disutility # penalizes shift from forecasted baseline
             else:
                 self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
@@ -446,7 +445,7 @@ class MPCCalc:
             if self.timestep > 0:
                 self.redis_get_prev_optimal_vals()
 
-            # self.get_baseline()
+            self.get_baseline()
             self.cast_redis_curr_rps()
             self.mode = "run" # return to mode "run"
 

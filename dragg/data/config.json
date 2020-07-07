@@ -35,13 +35,13 @@
 
   "THE FOLLOWING ARE SIMULATION PARAMETERS": null,
   "start_datetime": "2015-01-01 00",
-  "end_datetime": "2015-01-03 00",
+  "end_datetime": "2015-01-15 00",
   "random_seed": 12,
   "load_zone": "LZ_HOUSTON",
   "check_type": "all",
 
   "RUNS THE BASELINE CASE WITH RESIDENTIAL HEMS": null,
-  "run_rbo_mpc": true,
+  "run_rbo_mpc": false,
 
   "RUNS RL AGGREGATOR WITH RESIDENTAL HEMS TO DETERMINE REWARD PRICE": null,
   "run_rl_agg": true,
@@ -53,13 +53,13 @@
   "DISCOMFORT FACTOR DETERMINES HOW CLOSE TO SETPOINT THE BASELINE IS": null,
   "DISUTILITY FACTOR DETERMINES HOW CLOSE THE RL RESPONSIVE HEMS IS TO BASELINE": null,
   "mpc_prediction_horizons": [4],
-  "mpc_hourly_steps": 2,
-  "mpc_discomfort": [0.5, 1.5, 2.5],
+  "mpc_hourly_steps": 4,
+  "mpc_discomfort": [0.75],
   "mpc_disutility": [0.5],
 
   "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,
   "rl_learning_rate": [0.001],
-  "rl_exploration_rate": [0.3],
+  "rl_exploration_rate": [0.32],
   "rl_discount_factor": [0.0],
   "rl_batch_size": [32],
 

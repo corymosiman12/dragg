@@ -648,7 +648,6 @@ class Aggregator:
         return rp
 
     def _calc_state(self):
-        # TODO: include the magnitude of the current load
         current_error = (self.agg_load - self.agg_setpoint) #/ self.agg_setpoint
         if self.timestep > 0:
             integral_error = self.state["int_error"] + current_error # calls previous state
@@ -657,7 +656,7 @@ class Aggregator:
             integral_error = 0
             derivative_error = 0
         derivative_action = self.action - self.prev_action
-        change_rp = sum(self.reward_price)/(self.rl_agg_horizon * self.dt) - self.reward_price[-1]
+        change_rp = self.reward_price[0] - self.reward_price[-1]
         time_of_day = self.timestep % (24 * self.dt)
         forecast_error = self.forecast_load[0] - self.forecast_setpoint
         forecast_trend = self.forecast_load[0] - self.forecast_load[-1]
@@ -666,7 +665,8 @@ class Aggregator:
         "time_of_day":time_of_day,
         "int_error":integral_error,
         "fcst_error":forecast_error,
-        "forecast_trend": forecast_trend}
+        "forecast_trend": forecast_trend,
+        "delta_action": change_rp}
 
     def _reward(self, x):
         """
@@ -675,8 +675,7 @@ class Aggregator:
         """
 
         reward = -1*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
-        # reward = -1*abs(self.state["curr_error"])
-        # reward = -10*rbf(self.state["curr_error"], 0.1) + self.reward_price[-1]**2
+        # reward = -self.state["curr_error"]**2
 
         return reward
 
@@ -696,15 +695,18 @@ class Aggregator:
 
         # action_basis = np.array([1, (action), (action)**2, ((action - 0.02))**2, ((action + 0.02))**2])
         action_basis = np.array([1, action, action**2])
+        delta_action_basis = np.array([1, state["delta_action"], state["delta_action"]**2])
         time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"]), np.cos(2 * np.pi * state["time_of_day"])])
         curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
         forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
         forecast_trend_basis = np.array([1, state["forecast_trend"], state["forecast_trend"]**2])
 
         # v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:] #14 (indexed to 13)
+        w = np.outer(curr_error_basis, delta_action_basis).flatten()[1:]
+        v = np.outer(forecast_trend_basis, action_basis).flatten()[1:]
         w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #8
         z = np.outer(action_basis, curr_error_basis).flatten()[1:] #14
-        phi = np.concatenate((w, z))
+        phi = np.concatenate((v, w, z))
         phi = np.outer(phi, time_basis).flatten()[1:]
 
         phi = np.clip(phi, -100, 150)
@@ -744,31 +746,6 @@ class Aggregator:
         else:
             temp_theta = self.theta
         return temp_theta
-
-    def update_qfunction_greedygq(self, temp_theta, theta):
-        """ depricated """
-        self.phi_k = self._phi(self.state, self.action)
-        # next_action = self._get_greedyaction(self.next_state)
-        next_action = self.next_greedy_action
-        self.phi_k1 = self._phi(self.next_state, next_action) # phi_bar according to Maei & Sutton notation
-        self.q_predicted = self.theta @ self.phi_k
-        self.q_observed = self._reward(self.state) + self.beta * (temp_theta @ self.phi_k1)
-
-        if self.timestep >= 0: #optional delay on learning
-            if self.is_greedy:
-                learning_policy = 1 # pi (policy)
-                behavior_policy = (1-self.epsilon) + self.epsilon / self.nActions # b (policy), using stochastic probabilities
-            else:
-                learning_policy = 0
-                behavior_policy = self.epsilon / self.nActions
-            responsibility = learning_policy / behavior_policy # rho
-
-            self.e = self.phi_k + (1-self.beta) * self.lam * responsibility * self.e # eligibility trace update
-            self.delta = self.q_observed - self.q_predicted
-            self.delta = np.clip(self.delta, -1, 1)
-            self.w = self.w + self.alpha * (self.delta * self.e - (self.w @ self.phi_k) * self.phi_k)
-            k = (1 - self.beta) * (1 - self.lam)
-            self.theta = self.theta + self.alpha * (self.delta * self.e - k * (self.w @ self.phi_k)) # coeff vector theta update
 
     def update_qfunction(self, temp_theta, theta):
         self.phi_k = self._phi(self.state, self.action)
@@ -1109,14 +1086,11 @@ class Aggregator:
         self.state = self._calc_state()
         # self.timestep += 1
 
-        self.lam = 0.9
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
-        self.theta = 0.0*np.ones(n) # theta initialization
+        self.theta = 1.0*np.ones(n) # theta initialization
         self.cumulative_reward = 0
         self.average_reward = 0
-        self.e = np.zeros(n)
-        self.w = np.zeros(n)
 
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
@@ -1181,14 +1155,11 @@ class Aggregator:
         self.state = self._calc_state()
         # self.timestep += 1
 
-        self.lam = 0.9
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
         self.theta = 0.5*np.ones(n) # theta initialization
         self.cumulative_reward = 0
         self.average_reward = 0
-        self.e = np.zeros(n)
-        self.w = np.zeros(n)
 
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
@@ -1235,21 +1206,9 @@ class Aggregator:
         self.create_homes()
         self.write_home_configs()
 
-        """ run_baseline has been depricated. Use "run_rbo_mpc" with "mpc_prediction_horizons" of [0] instead """
-        # if self.config["run_baseline"]:
-        #     # Run baseline - no MPC, no aggregator
-        #     self.flush_redis()
-        #     self.case = "no_mpc" # no aggregator
-        #     self.horizon = 1
-        #     self.redis_set_initial_values()
-        #     self.reset_baseline_data()
-        #     self.set_baseline_initial_vals()
-        #     self.run_baseline(self.horizon)
-        #     self.summarize_baseline(self.horizon)
-        #     self.write_outputs(self.horizon)
-
         if self.config["run_rbo_mpc"]:
             # Run baseline MPC with N hour horizon, no aggregator
+            # Run baseline with 1 hour horizon for non-MPC HEMS
             self.case = "baseline" # no aggregator
             for h in self.config["mpc_prediction_horizons"]:
                 for c in self.config["mpc_discomfort"]:
@@ -1259,24 +1218,21 @@ class Aggregator:
                         self.flush_redis()
                         self.redis_set_initial_values()
                         self.reset_baseline_data()
-                        # self.set_baseline_initial_vals()
                         self.run_baseline(h)
                         self.summarize_baseline(h)
                         self.write_outputs(h)
 
-        """ temporarily removed for clarity (Cory's original aggregator)"""
-        # if self.config["run_agg_mpc"]:
-        #     self.case = "agg_mpc"
-        #     self.horizon = self.config["agg_mpc_horizon"]
-        #     for threshold in self.config["max_load_threshold"]:
-        #         self.max_load_threshold = threshold
-        #         self.flush_redis()
-        #         self.redis_set_initial_values()
-        #         self.reset_baseline_data()
-        #         self.set_baseline_initial_vals()
-        #         self.run_agg_mpc(self.horizon)
-        #         self.summarize_baseline(self.horizon)
-        #         self.write_outputs(self.horizon)
+        if self.config["run_agg_mpc"]:
+            self.case = "agg_mpc"
+            self.horizon = self.config["agg_mpc_horizon"]
+            for threshold in self.config["max_load_threshold"]:
+                self.max_load_threshold = threshold
+                self.flush_redis()
+                self.redis_set_initial_values()
+                self.reset_baseline_data()
+                self.run_agg_mpc(self.horizon)
+                self.summarize_baseline(self.horizon)
+                self.write_outputs(self.horizon)
 
         if self.config["run_rl_agg"]:
             self.case = "rl_agg"
@@ -1301,7 +1257,6 @@ class Aggregator:
                                             self.flush_redis()
                                             self.redis_set_initial_values()
                                             self.reset_baseline_data()
-                                            # self.set_baseline_initial_vals()
                                             self.run_rl_agg(self.horizon)
                                             self.summarize_baseline(self.horizon)
                                             self.write_outputs(self.horizon)
@@ -1326,7 +1281,6 @@ class Aggregator:
                                     self.flush_redis()
                                     self.redis_set_initial_values()
                                     self.reset_baseline_data()
-                                    # self.set_baseline_initial_vals()
                                     self.run_rl_agg_simplified()
                                     self.summarize_baseline(self.horizon)
                                     self.write_outputs(self.horizon)
