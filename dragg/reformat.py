@@ -15,10 +15,10 @@ from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, agg_params={}, mpc_params={}, date_ranges={}, include_runs={}, log=Logger("reformat")):
+    def __init__(self, outputs_dir={'outputs'}, agg_params={}, mpc_params={}, date_ranges={}, include_runs={}, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = 'data'
-        self.outputs_dir = 'outputs'
+        self.outputs_dir = outputs_dir
         if not os.path.isdir(self.outputs_dir):
             self.ref_log.error("Outputs directory does not exist.")
             quit()
@@ -82,13 +82,14 @@ class Reformat:
         keys, values = zip(*self.date_ranges.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         permutations = sorted(permutations, key=lambda i: i['end_datetime'], reverse=True)
-        for i in permutations:
-            date_folder = os.path.join(self.outputs_dir, f"{i['start_datetime'].strftime('%Y-%m-%dT%H')}_{i['end_datetime'].strftime('%Y-%m-%dT%H')}")
-            if os.path.isdir(date_folder):
-                hours = i['end_datetime'] - i['start_datetime']
-                hours = int(hours.total_seconds() / 3600)
-                new_folder = {"folder": date_folder, "hours": hours, "start_dt": i['start_datetime']}
-                temp.append(new_folder)
+        for j in self.outputs_dir:
+            for i in permutations:
+                date_folder = os.path.join(j, f"{i['start_datetime'].strftime('%Y-%m-%dT%H')}_{i['end_datetime'].strftime('%Y-%m-%dT%H')}")
+                if os.path.isdir(date_folder):
+                    hours = i['end_datetime'] - i['start_datetime']
+                    hours = int(hours.total_seconds() / 3600)
+                    new_folder = {"folder": date_folder, "hours": hours, "start_dt": i['start_datetime'], "name": j}
+                    temp.append(new_folder)
         if len(temp) == 0:
             self.ref_log.logger.error("No files found for the date ranges specified.")
             exit()
@@ -105,7 +106,7 @@ class Reformat:
                 if os.path.isdir(mpc_folder):
                     timesteps = j['hours']*i['mpc_hourly_steps']
                     x_lims = [j['start_dt'] + timedelta(minutes=x*interval_minutes) for x in range(timesteps + max(self.config["rl_agg_action_horizon"])*i['mpc_hourly_steps'])]
-                    name = ""
+                    name = j['name']
                     for k,v in i.items():
                         if len(self.mpc_params[k]) > 1:
                             name += f"{k} = {v}, "
@@ -558,6 +559,7 @@ class Reformat:
         fig = self.plot_baseline_error(fig)
         fig = self.plot_parametric_error(fig)
         fig = self.plot_rewards(fig)
+        fig.update_layout(title_text="RL and Baseline Error")
 
         fig.show()
 

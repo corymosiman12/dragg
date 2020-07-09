@@ -12,9 +12,10 @@ if __name__ == "__main__":
 
     agg_params = {"alpha": [0.001], "beta":[], "epsilon":[0.33], "rl_horizon":[], "mpc_disutility":[]} # set parameters from earlier runs
     mpc_params = {"mpc_hourly_steps": [4]}
-    # date_ranges = {"end_datetime": "2015-03-01 00"}
-    date_ranges = {}
+    date_ranges = {"end_datetime": "2015-01-15 00"}
+    # date_ranges = {}
     include_runs = {"baseline", "rl_agg"}
+    outputs_dir = {"polynomial_basis"}
     r = Reformat(agg_params=agg_params, mpc_params=mpc_params, include_runs=include_runs, date_ranges=date_ranges)
 
     r.rl2baseline()

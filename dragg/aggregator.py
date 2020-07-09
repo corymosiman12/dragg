@@ -692,15 +692,15 @@ class Aggregator:
         :return: a 1-D numpy array of arbitrary length
         """
 
-        # # action_basis = np.array([1, (action), (action)**2, ((action - 0.02))**2, ((action + 0.02))**2])
-        # action_basis = np.array([1, action, action**2])
-        # delta_action_basis = np.array([1, state["delta_action"], state["delta_action"]**2])
-        # time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"]), np.cos(2 * np.pi * state["time_of_day"])])
-        # curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
-        # forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
-        # forecast_trend_basis = np.array([1, state["forecast_trend"], state["forecast_trend"]**2])
-        #
-        # # v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:] #14 (indexed to 13)
+        # action_basis = np.array([1, (action), (action)**2, ((action - 0.02))**2, ((action + 0.02))**2])
+        action_basis = np.array([1, action, action**2])
+        delta_action_basis = np.array([1, state["delta_action"], state["delta_action"]**2])
+        time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"]), np.cos(2 * np.pi * state["time_of_day"])])
+        curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
+        forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
+        forecast_trend_basis = np.array([1, state["forecast_trend"], state["forecast_trend"]**2])
+
+        # v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:] #14 (indexed to 13)
         # w = np.outer(curr_error_basis, delta_action_basis).flatten()[1:]
         # v = np.outer(forecast_trend_basis, action_basis).flatten()[1:]
         # w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #8
@@ -709,9 +709,10 @@ class Aggregator:
         # phi = np.outer(phi, time_basis).flatten()[1:]
         #
         # phi = np.clip(phi, -100, 150)
+        # return phi
 
-        # return np.array([1, state["percent_error"], state["percent_error"]**2, np.sin(2 * np.pi * state["time_of_day"]), np.cos(2 * np.pi * state["time_of_day"])])
-        # error_normalized = np.clip(state["percent_error"] + 0.5, 0, 1)
+        # # return np.array([1, state["percent_error"], state["percent_error"]**2, np.sin(2 * np.pi * state["time_of_day"]), np.cos(2 * np.pi * state["time_of_day"])])
+        # # error_normalized = np.clip(state["percent_error"] + 0.5, 0, 1)
         c = [0, 0.5, 1, 2, 4]
         # scale state values to roughly 1
         vals = [state["curr_error"] / self.agg_setpoint, state["forecast_trend"], state["time_of_day"], action*10+.5]
@@ -726,7 +727,7 @@ class Aggregator:
                 x.append(np.cos(arg))
         x = np.array(x)
         return x
-        # return phi
+
 
     def _qvalue(self):
         q_k = self._reward(self.state) + self.beta * self._q(self.next_state, self._get_greedyaction(self.next_state)) # off policy learning (Q-learning)
