@@ -668,9 +668,6 @@ class Aggregator:
         "forecast_trend": forecast_trend,
         "delta_action": change_rp}
 
-        # return {"forecast":  self.forecast_load - self.agg_setpoint,
-        #         "curr_error": self.agg_load - self.agg_setpoint}
-
     def _reward(self, x):
         """
         @kyri: Reward "function" should encourage the RL agent to move towards a state with curr_error = 0
@@ -678,7 +675,6 @@ class Aggregator:
         """
 
         reward = -1*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
-        # reward = -self.state["curr_error"]**2
 
         return reward
 
@@ -739,17 +735,6 @@ class Aggregator:
         # x = np.array(x)
         # return x
 
-    # def _qvalue(self, state, action):
-    #     # q value = value + advantage - avg_advantage
-    #     phi = self._phi(state, action)
-    #     all_actions = np.arange(self.actionspace[0], self.actionspace[1]+0.009, 0.01)
-    #     n_actions = len(all_actions)
-    #     for a in all_actions:
-    #         phi = self._phi(state, action)
-    #         v += 1/n_actions * self.temp_theta @ phi
-    #
-    #     return q
-
     def _q(self, state, action):
         return self.theta @ self._phi(state, action)
 
@@ -802,20 +787,6 @@ class Aggregator:
             temp_theta = self.theta
         return temp_theta
 
-    # def update_qfunction(self, temp_theta, theta):
-    #     self.xu_k = self._phi(self.state, self.action)
-    #     next_action = self.next_greedy_action
-    #     self.xu_k1 = self._phi(self.next_state, next_action)
-    #     self.q_predicted = self.theta @ self.xu_k # @ = dot product # should temp_theta
-    #     self.q_observed = self.reward + self.beta * temp_theta @ self.xu_k1 - self.average_reward # update experience replay
-    #     # self.q_observed = self.observe_q(self.state, self.action)
-    #     self.delta = self.q_observed - self.q_predicted
-    #
-    #     self.delta = np.clip(self.delta, -1, 1) # stops theta diverging too soon
-    #     self.average_reward = self.average_reward + self.alpha*self.delta
-    #
-    #     self.theta = self.theta - self.alpha * self.delta * np.transpose(self.xu_k - self.xu_k1)
-
     def _value(self, state):
         return self.w @ self._state_basis(state)
 
@@ -845,8 +816,8 @@ class Aggregator:
         self.theta_sigma += self.alpha_theta * delta * self.z_theta_sigma
 
     def update_qfunction(self, theta):
-        self.q_predicted = theta @ self._phi(self.state, self.action)
-        self.q_observed = self.reward + self.beta * theta @ self._phi(self.next_state, self.next_action)
+        self.q_predicted = theta @ self._phi(self.state, self.action) # recorded for analysis
+        self.q_observed = self.reward + self.beta * theta @ self._phi(self.next_state, self.next_action) # recorded for analysis
         temp_theta = deepcopy(theta)
 
         if len(self.memory) > self.batch_size:
@@ -870,7 +841,7 @@ class Aggregator:
             clf = Ridge(alpha = 0.01)
             clf.fit(batch_phi, batch_y)
             temp_theta = clf.coef_
-            theta = self.tau * temp_theta + (1-self.tau) * theta
+            theta = self.alpha * temp_theta + (1-self.alpha) * theta
 
         return theta
 
@@ -1123,8 +1094,6 @@ class Aggregator:
         temp["q_obs"] = []
         temp["q_pred"] = []
         temp["action"] = []
-        # temp["state"] = []
-        # temp["best_action"] = []
         temp["is_greedy"] = []
         temp["q_tables"] = []
         temp["average_reward"] = []
@@ -1159,8 +1128,6 @@ class Aggregator:
             self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
         self.agg_load = max(1, self.agg_load - self.mpc_disutility * self.reward_price[0] * self.agg_load) # can't go negative
         self.agg_load = min(self.agg_load, 50)
-        # if (self.timestep + 201) % 200 == 0:
-        #     self.agg_load = self.agg_setpoint
         if self.reward_price[0] >= -0.02 and self.reward_price[0] <= 0.02:
             self.agg_load = self.agg_load + 0.5*(self.agg_setpoint - self.agg_load)
         #self.agg_load = max(200,self.agg_load) # can't go above 200
@@ -1174,7 +1141,6 @@ class Aggregator:
         # self.forecast_data = self.rl_initialize_forecast()
         self.baseline_agg_load_list = [0]
 
-        # self.best_action = 0
         self.forecast_load = self._gen_forecast()
         self.prev_forecast_load = self.forecast_load
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
@@ -1254,11 +1220,6 @@ class Aggregator:
         # self.forecast_data = self.rl_initialize_forecast()
         self.baseline_agg_load_list = [0]
 
-        # self.best_action = 0
-        # self.second = 0
-        # self.third = 0
-        # self.fourth = 0
-        # self.timestep = 0
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
         self.forecast_load = [self.forecast_setpoint]
         self.prev_forecast_load = self.forecast_load
@@ -1272,7 +1233,9 @@ class Aggregator:
 
         self.is_greedy=True
         n = len(self._phi(self.state, self.action))
-        self.theta = 0.5*np.ones(n) # theta initialization
+        self.theta = -1*np.ones(n) # theta initialization
+        self.theta_a = np.random.normal(-1, 0.3, n)
+        self.theta_b = np.random.normal(-1, 0.3, n)
         self.cumulative_reward = 0
         self.average_reward = 0
 
@@ -1291,12 +1254,16 @@ class Aggregator:
             self.reward = self._reward(self.state)
             self.cumulative_reward += self.reward
 
-
-            temp_theta = self.experience_replay()
-
+            if self.timestep % 2 == 0:
+                self.theta = self.theta_a
+            else:
+                self.theta = self.theta_b
             self.next_greedy_action = self._get_greedyaction(self.next_state) # necessary for SARSA learning
             self.next_action = self._get_action(self.next_state)
-            self.update_qfunction(temp_theta, self.theta)
+            if self.timestep % 2 == 0:
+                self.theta_a = self.update_qfunction(self.theta)
+            else:
+                self.theta_b = self.update_qfunction(self.theta)
             self.record_rl_q_data()
 
             self._experience()
