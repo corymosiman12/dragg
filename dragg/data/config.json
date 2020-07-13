@@ -52,15 +52,15 @@
   "THE FOLLOWING ARE PARAMETERS ON RESIDENTAL HEMS": null,
   "DISCOMFORT FACTOR DETERMINES HOW CLOSE TO SETPOINT THE BASELINE IS": null,
   "DISUTILITY FACTOR DETERMINES HOW CLOSE THE RL RESPONSIVE HEMS IS TO BASELINE": null,
-  "mpc_prediction_horizons": [4],
+  "mpc_prediction_horizons": [1],
   "mpc_hourly_steps": 4,
   "mpc_discomfort": [0.75],
-  "mpc_disutility": [0.0, 0.5],
+  "mpc_disutility": [0.0],
 
   "THE FOLLOWING ARE REINFORCEMENT LEARNING PARAMETERS": null,
   "rl_learning_rate": [0.001],
   "rl_exploration_rate": [0.3],
-  "rl_discount_factor": [0.0],
+  "rl_discount_factor": [0.2],
   "rl_batch_size": [32],
 
   "NUMBER OF HOURS IN ADVANCE RL AGENT CALCULATES REWARD PRICE (where 0 provides only the next RP)": null,
@@ -70,5 +70,5 @@
   "rl_agg_forecast_horizon": 1,
 
   "base_price": 0.10,
-  "action_space": [-0.05, 0.05]
+  "action_space": [-0.05, 0.05],
 }
