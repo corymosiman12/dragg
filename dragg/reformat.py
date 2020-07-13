@@ -15,43 +15,41 @@ from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, outputs_dir={'outputs'}, agg_params={}, mpc_params={}, date_ranges={}, include_runs={}, log=Logger("reformat")):
+    def __init__(self, add_outputs={}, agg_params={}, mpc_params={}, date_ranges={}, include_runs={}, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = 'data'
-        self.outputs_dir = outputs_dir
-        if not os.path.isdir(self.outputs_dir):
-            self.ref_log.error("Outputs directory does not exist.")
+        self.outputs_dir = set()
+        outputs = {'outputs'}
+        outputs.update(add_outputs)
+        for path in outputs:
+            if os.path.isdir(path):
+                self.outputs_dir.add(path)
+        if len(self.outputs_dir) == 0:
+            self.ref_log.logger.error("No outputs directory found.")
             quit()
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.json'))
         self.config = self._import_config()
-        self.add_date_ranges = date_ranges
-        self.date_ranges = self._setup_date_ranges()
-        self.date_folders = self.set_date_folders()
 
-        self.add_mpc_params = mpc_params
-        self.mpc_params = self._setup_mpc_params()
-        self.mpc_folders = self.set_mpc_folders()
-        self.baselines = []
-        self.set_base_file()
-
-        self.add_agg_params = agg_params
-        self.agg_params = self._setup_agg_params()
         self.include_runs = include_runs
+
+        self.date_folders = self.set_date_folders(date_ranges)
+        self.mpc_folders = self.set_mpc_folders(mpc_params)
+        self.baselines = self.set_base_file()
         self.parametrics = []
-        self.set_parametric_files()
+        self.parametrics = self.set_parametric_files(agg_params)
 
         np.random.seed(self.config["random_seed"])
 
-    def _setup_date_ranges(self):
+    def add_date_ranges(self, additional_params):
         start_dates = [datetime.strptime(self.config["start_datetime"], '%Y-%m-%d %H')]
         end_dates = set([datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')])
         temp = {"start_datetime": start_dates, "end_datetime": end_dates}
         for key in temp:
-            if key in self.add_date_ranges:
-                temp[key].add(datetime.strptime(self.add_date_ranges[key], '%Y-%m-%d %H'))
-        return temp
+            if key in additional_params:
+                temp[key].add(datetime.strptime(additional_params[key], '%Y-%m-%d %H'))
+        self.date_ranges = temp
 
-    def _setup_agg_params(self):
+    def add_agg_params(self, additional_params):
         alphas = set(self.config["rl_learning_rate"])
         epsilons = set(self.config["rl_exploration_rate"])
         betas = set(self.config["rl_discount_factor"])
@@ -61,23 +59,24 @@ class Reformat:
         mpc_discomf = set(self.config["mpc_discomfort"])
         temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons, "mpc_disutility": mpc_disutil, "mpc_discomfort": mpc_discomf}
         for key in temp:
-            if key in self.add_agg_params:
-                temp[key] |= set(self.add_agg_params[key])
-        return temp
+            if key in additional_params:
+                temp[key] |= set(additional_params[key])
+        self.agg_params = temp
 
-    def _setup_mpc_params(self):
+    def add_mpc_params(self, additional_params):
         n_houses = self.config["total_number_homes"]
         mpc_horizon = self.config["mpc_prediction_horizons"]
         dt = self.config["mpc_hourly_steps"]
         check_type = self.config["check_type"]
         mpc_discomf = set(self.config["mpc_discomfort"])
-        temp = {"n_houses": set([n_houses]), "mpc_horizon": set(mpc_horizon), "mpc_hourly_steps": set([dt]), "check_type": set([check_type]), "mpc_discomfort": mpc_discomf}
+        temp = {"n_houses": set([n_houses]), "mpc_prediction_horizons": set(mpc_horizon), "mpc_hourly_steps": set([dt]), "check_type": set([check_type]), "mpc_discomfort": mpc_discomf}
         for key in temp:
-            if key in self.add_mpc_params:
-                temp[key] |= set(self.add_mpc_params[key])
-        return temp
+            if key in additional_params:
+                temp[key] |= set(additional_params[key])
+        self.mpc_params = temp
 
-    def set_date_folders(self):
+    def set_date_folders(self, additional_params):
+        self.add_date_ranges(additional_params)
         temp = []
         keys, values = zip(*self.date_ranges.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
@@ -88,21 +87,22 @@ class Reformat:
                 if os.path.isdir(date_folder):
                     hours = i['end_datetime'] - i['start_datetime']
                     hours = int(hours.total_seconds() / 3600)
-                    new_folder = {"folder": date_folder, "hours": hours, "start_dt": i['start_datetime'], "name": j}
+                    new_folder = {"folder": date_folder, "hours": hours, "start_dt": i['start_datetime'], "name": j+" "}
                     temp.append(new_folder)
         if len(temp) == 0:
             self.ref_log.logger.error("No files found for the date ranges specified.")
             exit()
         return temp
 
-    def set_mpc_folders(self):
+    def set_mpc_folders(self, additional_params):
+        self.add_mpc_params(additional_params)
         temp = []
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         for j in self.date_folders:
             for i in permutations:
                 interval_minutes = 60 // i['mpc_hourly_steps']
-                mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_horizon']}-interval_{interval_minutes}")
+                mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_prediction_horizons']}-interval_{interval_minutes}")
                 if os.path.isdir(mpc_folder):
                     timesteps = j['hours']*i['mpc_hourly_steps']
                     x_lims = [j['start_dt'] + timedelta(minutes=x*interval_minutes) for x in range(timesteps + max(self.config["rl_agg_action_horizon"])*i['mpc_hourly_steps'])]
@@ -116,6 +116,7 @@ class Reformat:
         return temp
 
     def set_base_file(self):
+        temp = []
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         for j in self.mpc_folders:
@@ -124,10 +125,13 @@ class Reformat:
                 file = os.path.join(path, "baseline", f"baseline_discomf-{float(i['mpc_discomfort'])}-results.json")
                 if os.path.isfile(file):
                     name = f"Baseline - {j['name']}"
-                    temp = {"results": file, "name": name, "parent": j}
-                    self.baselines.append(temp)
+                    set = {"results": file, "name": name, "parent": j}
+                    temp.append(set)
+        return temp
 
-    def set_rl_files(self):
+    def set_rl_files(self, additional_params):
+        temp = []
+        self.add_agg_params(additional_params)
         counter = 1
         for i in self.mpc_folders:
             path = i['path']
@@ -151,11 +155,14 @@ class Reformat:
                             counter += 1
                         # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}, discomf={j['mpc_discomfort']}"
                         set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"]}
-                        self.parametrics.append(set)
-        if len(self.parametrics) == 0:
+                        temp.append(set)
+
+        if not temp:
             self.ref_log.logger.warning("Parameterized RL aggregator runs are empty for this config file.")
+        return temp
 
     def set_simplified_files(self):
+        temp = []
         for i in self.mpc_folders:
             path = i['path']
             simplified_folder = os.path.join(path, "simplified")
@@ -171,13 +178,15 @@ class Reformat:
                         q_file = os.path.join(simplified_folder, q_results)
                         name = f"Simplified Response - horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}"
                         set = {"results": simplified_file, "q_results": q_file, "name": name, "parent": i}
-                        self.parametrics.append(set)
+                        temp.append(set)
+        return temp
 
-    def set_parametric_files(self):
+    def set_parametric_files(self, additional_params):
         if self.config["run_rl_agg"] or "rl_agg" in self.include_runs:
-            self.set_rl_files()
+            self.parametrics += self.set_rl_files(additional_params)
         if self.config["run_simplified"] or "simplified" in self.include_runs:
-            self.set_simplified_files()
+            self.parametrics += self.set_simplified_files()
+        return self.parametrics
 
     def set_other_files(self, otherfile):
         self.parametrics.append(otherfile)
@@ -464,7 +473,10 @@ class Reformat:
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:file["parent"]["ts"]+1]),np.arange(file["parent"]["ts"])+1), name=f"Avg Load - RL - {name}", visible='legendonly'))
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["RP"], name=f"RP - RL - {name}", line_shape='hv'), secondary_y=True)
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["RP"])[:file["parent"]["ts"]], np.arange(file["parent"]["ts"]) + 1), name=f"Average RP", visible='legendonly'), secondary_y=True)
-            self.plot_greedy(fig, file)
+            try:
+                self.plot_greedy(fig, file)
+            except:
+                pass
             # fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.add(data["Summary"]["TOU"], data["Summary"]["RP"]).tolist(), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
 
         return fig
@@ -484,9 +496,10 @@ class Reformat:
             with open(file["results"]) as f:
                 data = json.load(f)
 
-            scale = max_ts // file['parent']['ts']
+            scale = max(max_ts // file['parent']['ts'], 1)
             baseline_load = np.repeat(data["Summary"]["p_grid_aggregate"], scale)
-            baseline_setpoint = rldata["Summary"]["p_grid_setpoint"]
+            scale = max(file['parent']['ts'] // max_ts, 1)
+            baseline_setpoint = np.repeat(rldata["Summary"]["p_grid_setpoint"], scale)
             baseline_error = np.subtract(baseline_load, baseline_setpoint)
             fig.add_trace(go.Scatter(x=max_x_lims, y=(baseline_error), name=f"Error - {file['name']}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=max_x_lims, y=abs(baseline_error), name=f"Abs Error - {file['name']}", line_shape='hv', visible='legendonly'))
@@ -537,7 +550,10 @@ class Reformat:
                 fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["fourth"], name="fourth Action", line_shape='hv', visible='legendonly'))
             except:
                 pass
-            self.plot_greedy(fig, file)
+            try:
+                self.plot_greedy(fig, file)
+            except:
+                pass
         return fig
 
     def rl2baseline(self):
