@@ -37,6 +37,7 @@ class MPCCalc:
         self.temp_in_init = None
         self.temp_wh_init = None
         self.p_load = None
+        self.plug_load = None
         self.temp_in = None
         self.temp_wh = None
         self.p_grid = None
@@ -135,6 +136,12 @@ class MPCCalc:
             # self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
             self.temp_wh_init = cp.Constant(((self.wh_size.value - self.draw_size.value) * float(self.prev_optimal_vals["temp_wh_opt"]) + self.draw_size.value * self.tap_temp.value) / self.wh_size.value)
 
+        # add a simplified model of the homes plug load
+        # assume ~40% of home energy use is for plug loads
+        # assume each home averages ~2.5 kW using HVAC + WH
+        # plug load averages 1.5 kW
+        self.plug_load = cp.Constant(np.random.normal(1.5, 0.1, self.horizon))
+
     def setup_battery_problem(self):
         if self.timestep == 0:
             self.e_batt_init = cp.Constant(self.e_b_init)
@@ -214,8 +221,6 @@ class MPCCalc:
             else:
                 self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
                 self.disutility = 0 # penalizes shift from forecasted baseline
-
-        # water draw events
 
 
     def add_battery_constraints(self):
