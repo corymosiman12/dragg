@@ -1,0 +1,76 @@
+[community]
+# Refers to the community makeup of house types.
+# Remaining homes will be considered of type "base" (hvac + wh)
+total_number_homes = 20
+homes_battery = 0
+homes_pv = 0
+homes_pv_battery = 0
+
+[home]
+# Refers to the construction of home and home subsystems.
+# Parameters to be selected randomly between _dist values.
+  [home.hvac]
+  r_dist = [6.8, 9.2]
+  c_dist = [4.25, 5.75]
+  p_cool_dist = [2, 9]
+  p_heat_dist = [2.0, 13.5]
+  temp_sp_dist = [18, 22]
+  temp_deadband_dist = [6, 6]
+
+  [home.wh]
+  r_dist = [18.7, 25.3]
+  c_dist = [4.25, 5.75]
+  p_dist = [5, 8]
+  sp_dist = [45.5, 48.5]
+  deadband_dist = [4, 10]
+  size_dist = [300, 300]
+
+    [home.wh.waterdraws]
+    n_big_draw_dist = [0, 0]
+    n_small_draw_dist = [10, 20]
+    big_draw_size_dist = [15, 20]
+    small_draw_size_dist = [0.1, 0.5]
+
+  [home.battery]
+  max_rate = 5
+  capacity = 13.5
+  cap_bounds = [0.15, 0.85]
+  charge_eff = 0.95
+  discharge_eff = 0.99
+  cons_penalty = 0.005
+
+  [home.pv]
+  area = 32
+  efficiency = 0.2
+
+  [home.hems]
+  # Refers to mpc parameters on all homes
+  prediction_horizons = [1] # in hours, where 0 is just the next timestep (no MPC)
+  discomfort = [0.75] # L2 norm penalization of deviations from setpoint
+  disutility = [0.0] # L2 norm penalization from anticipated energy use
+
+[simulation]
+  start_datetime = "2015-01-01 00"
+  end_datetime = "2015-02-01 00"
+  random_seed = 12
+  load_zone = "LZ_HOUSTON"
+  check_type = "all"
+  run_rbo_mpc = true # runs homes with MPC (no reward price signal)
+  run_rl_agg = true # runs homes with MPC responding to RL aggregator
+  run_rl_simplified = false # runs linear model responding to RL aggregator
+
+[rl]
+  [rl.parameters]
+    # Refers to parameterization of the RL agent and impacts how it learns
+    learning_rate = [0.005] # Suggested ~0.001
+    exploration_rate = [0.3] # Suggested ~0.3
+    discount_factor = [0.2] # Suggested <0.5
+    batch_size = [32] # Suggested ~30
+
+  [rl.utility]
+    # Refers to parameters that change how the electric utility uses the RL agent
+    rl_agg_action_horizon = [4] # Determines the price for the nth hour, ahead of current time
+    rl_agg_forecast_horizon = 1 # Determines the number of hours the utility agent forecasts
+    base_price = 0.10 # Base price for utility ($/kWh)
+    action_space = [-0.05, 0.05] # Max/min price signal
+    hourly_steps = 4 # Subhourly steps for the utility to send price signal
