@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import toml
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
@@ -27,7 +28,7 @@ class Reformat:
         if len(self.outputs_dir) == 0:
             self.ref_log.logger.error("No outputs directory found.")
             quit()
-        self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.json'))
+        self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
         self.config = self._import_config()
 
         self.include_runs = include_runs
@@ -38,11 +39,11 @@ class Reformat:
         self.parametrics = []
         self.parametrics = self.set_parametric_files(agg_params)
 
-        np.random.seed(self.config["random_seed"])
+        np.random.seed(self.config['simulation']['random_seed'])
 
     def add_date_ranges(self, additional_params):
-        start_dates = [datetime.strptime(self.config["start_datetime"], '%Y-%m-%d %H')]
-        end_dates = set([datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')])
+        start_dates = [datetime.strptime(self.config['simulation']['start_datetime'], '%Y-%m-%d %H')]
+        end_dates = set([datetime.strptime(self.config['simulation']['end_datetime'], '%Y-%m-%d %H')])
         temp = {"start_datetime": start_dates, "end_datetime": end_dates}
         for key in temp:
             if key in additional_params:
@@ -50,13 +51,13 @@ class Reformat:
         self.date_ranges = temp
 
     def add_agg_params(self, additional_params):
-        alphas = set(self.config["rl_learning_rate"])
-        epsilons = set(self.config["rl_exploration_rate"])
-        betas = set(self.config["rl_discount_factor"])
-        batch_sizes = set(self.config["rl_batch_size"])
-        rl_horizons = set(self.config["rl_agg_action_horizon"])
-        mpc_disutil = set(self.config["mpc_disutility"])
-        mpc_discomf = set(self.config["mpc_discomfort"])
+        alphas = set(self.config['rl']['parameters']['learning_rate'])
+        epsilons = set(self.config['rl']['parameters']['exploration_rate'])
+        betas = set(self.config['rl']['parameters']['discount_factor'])
+        batch_sizes = set(self.config['rl']['parameters']['batch_size'])
+        rl_horizons = set(self.config['rl']['utility']['rl_agg_action_horizon'])
+        mpc_disutil = set(self.config['home']['hems']['disutility'])
+        mpc_discomf = set(self.config['home']['hems']['discomfort'])
         temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons, "mpc_disutility": mpc_disutil, "mpc_discomfort": mpc_discomf}
         for key in temp:
             if key in additional_params:
@@ -64,11 +65,11 @@ class Reformat:
         self.agg_params = temp
 
     def add_mpc_params(self, additional_params):
-        n_houses = self.config["total_number_homes"]
-        mpc_horizon = self.config["mpc_prediction_horizons"]
-        dt = self.config["mpc_hourly_steps"]
-        check_type = self.config["check_type"]
-        mpc_discomf = set(self.config["mpc_discomfort"])
+        n_houses = self.config['community']['total_number_homes']
+        mpc_horizon = self.config['home']['hems']['prediction_horizons']
+        dt = self.config['rl']['utility']['hourly_steps']
+        check_type = self.config['simulation']['check_type']
+        mpc_discomf = set(self.config['home']['hems']['discomfort'])
         temp = {"n_houses": set([n_houses]), "mpc_prediction_horizons": set(mpc_horizon), "mpc_hourly_steps": set([dt]), "check_type": set([check_type]), "mpc_discomfort": mpc_discomf}
         for key in temp:
             if key in additional_params:
@@ -105,7 +106,7 @@ class Reformat:
                 mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_prediction_horizons']}-interval_{interval_minutes}")
                 if os.path.isdir(mpc_folder):
                     timesteps = j['hours']*i['mpc_hourly_steps']
-                    x_lims = [j['start_dt'] + timedelta(minutes=x*interval_minutes) for x in range(timesteps + max(self.config["rl_agg_action_horizon"])*i['mpc_hourly_steps'])]
+                    x_lims = [j['start_dt'] + timedelta(minutes=x*interval_minutes) for x in range(timesteps + max(self.config['rl']['utility']['rl_agg_action_horizon'])*i['mpc_hourly_steps'])]
                     name = j['name']
                     for k,v in i.items():
                         if len(self.mpc_params[k]) > 1:
@@ -157,7 +158,7 @@ class Reformat:
                         set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"]}
                         temp.append(set)
 
-        if not temp:
+        if len(temp) == 0:
             self.ref_log.logger.warning("Parameterized RL aggregator runs are empty for this config file.")
         return temp
 
@@ -182,9 +183,9 @@ class Reformat:
         return temp
 
     def set_parametric_files(self, additional_params):
-        if self.config["run_rl_agg"] or "rl_agg" in self.include_runs:
+        if self.config['simulation']['run_rl_agg'] or "rl_agg" in self.include_runs:
             self.parametrics += self.set_rl_files(additional_params)
-        if self.config["run_simplified"] or "simplified" in self.include_runs:
+        if self.config['simulation']['run_rl_simplified'] or "simplified" in self.include_runs:
             self.parametrics += self.set_simplified_files()
         return self.parametrics
 
@@ -218,7 +219,7 @@ class Reformat:
             self.ref_log.logger.error(f"Configuration file does not exist: {self.config_file}")
             sys.exit(1)
         with open(self.config_file, 'r') as f:
-            data = json.load(f)
+            data = toml.load(f)
         return data
 
     def _config_summary(self):
@@ -500,7 +501,7 @@ class Reformat:
             baseline_load = np.repeat(data["Summary"]["p_grid_aggregate"], scale)
             scale = max(file['parent']['ts'] // max_ts, 1)
             baseline_setpoint = np.repeat(rldata["Summary"]["p_grid_setpoint"], scale)
-            baseline_error = np.subtract(baseline_load, baseline_setpoint)
+            baseline_error = np.subtract(baseline_load, baseline_setpoint[:len(baseline_load)])
             fig.add_trace(go.Scatter(x=max_x_lims, y=(baseline_error), name=f"Error - {file['name']}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=max_x_lims, y=abs(baseline_error), name=f"Abs Error - {file['name']}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(np.abs(baseline_error)), name=f"Abs Cummulative Error - {file['name']}", line_shape='hv'))
@@ -522,6 +523,7 @@ class Reformat:
             rl_load = data["Summary"]["p_grid_aggregate"][1:]
             rl_setpoint = data["Summary"]["p_grid_setpoint"]
             scale = max_ts // file['parent']['ts']
+            # scale = 1
             rl_load = np.repeat(rl_load, scale)
             rl_setpoint = np.repeat(rl_setpoint, scale)
             rl_error = np.subtract(rl_load, rl_setpoint)
@@ -529,7 +531,7 @@ class Reformat:
             fig.add_trace(go.Scatter(x=max_x_lims, y=abs(rl_error), name=f"Abs Error - {name}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Abs Error - {name}", line_shape='hv'))
             fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(rl_error), name=f"Cummulative Error - {name}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=max_x_lims, y=np.divide(np.cumsum(rl_error),np.arange(max_ts)+1), name=f"Average Error - {name}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=max_x_lims, y=np.divide(np.cumsum(rl_error),np.arange(len(rl_error))+1), name=f"Average Error - {name}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(np.square(rl_error)), name=f"L2 Norm Cummulative Error - {name}", line_shape='hv'))
 
         return fig
@@ -617,30 +619,31 @@ class Reformat:
             with open(file["q_results"]) as f:
                 data = json.load(f)
 
+
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["q_pred"], name=f"Q predicted - {file['name']}", marker={'opacity':0.2}))
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["q_obs"], name=f"Q observed - {file['name']}"))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["q_pred"], name=f"Q predicted - {file['name']}"))
 
         fig.show()
 
     def rl_thetas(self):
-        fig = make_subplots(rows=2, cols=len(self.parametrics))
+        fig = make_subplots()
         counter = 1
         for file in self.parametrics:
             with open(file["q_results"]) as f:
                 data = json.load(f)
 
             theta = data["theta"]
-            phi = data["phi"]
+            # phi = data["phi"]
 
             # x = np.arange(self.hours)
             for i in range(len(data["theta"][0])):
                 y = []
-                z = []
+                # z = []
                 for j in range(file['parent']['ts']):
                     y.append(theta[j][i])
-                    z.append(phi[j][i])
-                fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=y, name=f"Theta_{i} - {file['name']}", line_shape='hv', legendgroup=file['name']),1,counter)
-                fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=z, name=f"Phi_{i} - {file['name']}", line_shape='hv'),2,counter)
+                    # z.append(phi[j][i])
+                fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=y, name=f"Theta_{i} - {file['name']}", line_shape='hv', legendgroup=file['name']))
+                # fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=z, name=f"Phi_{i} - {file['name']}", line_shape='hv'),2,counter)
             counter += 1
 
         fig.show()
@@ -800,11 +803,10 @@ def main():
 
     r.rl2baseline()
     r.rl_thetas()
-    if r.config["run_rl_agg"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
-        r.plot_single_home2("Crystal-RXXFA") # pv_battery
-        # r.plot_single_home2(type="base")
+    r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    # r.plot_single_home2(type="base")
 
-        r.plot_all_homes()
+    # r.plot_all_homes()
 
 if __name__ == "__main__":
     main()

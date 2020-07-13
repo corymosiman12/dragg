@@ -25,11 +25,11 @@ homes_pv_battery = 0
   deadband_dist = [4, 10]
   size_dist = [300, 300]
 
-    [home.wh.waterdraws]
-    n_big_draw_dist = [0, 0]
-    n_small_draw_dist = [10, 20]
-    big_draw_size_dist = [15, 20]
-    small_draw_size_dist = [0.1, 0.5]
+  [home.wh.waterdraws]
+  n_big_draw_dist = [0, 0]
+  n_small_draw_dist = [10, 20]
+  big_draw_size_dist = [15, 20]
+  small_draw_size_dist = [0.1, 0.5]
 
   [home.battery]
   max_rate = 5
@@ -45,13 +45,13 @@ homes_pv_battery = 0
 
   [home.hems]
   # Refers to mpc parameters on all homes
-  prediction_horizons = [1] # in hours, where 0 is just the next timestep (no MPC)
+  prediction_horizon = [1] # in hours, where 0 is just the next timestep (no MPC)
   discomfort = [0.75] # L2 norm penalization of deviations from setpoint
   disutility = [0.0] # L2 norm penalization from anticipated energy use
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-02-01 00"
+  end_datetime = "2015-01-08 00"
   random_seed = 12
   load_zone = "LZ_HOUSTON"
   check_type = "all"
