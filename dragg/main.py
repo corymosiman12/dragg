@@ -7,8 +7,8 @@ import os
 import sys
 
 if __name__ == "__main__":
-    # a = Aggregator("twin_q")
-    # a.run()
+    a = Aggregator("twin_q")
+    a.run()
 
     agg_params = {"alpha": [0.001], "beta":[0.0], "epsilon":[0.32], "rl_horizon":[], "mpc_disutility":[]} # set parameters from earlier runs
     mpc_params = {"mpc_hourly_steps": [4], "mpc_prediction_horizons": [1,2,4]}
@@ -22,8 +22,8 @@ if __name__ == "__main__":
     # r.rl2baseline()
     # r.rl2baseline_error()
     # r.rl_thetas()
-    # r.rl_qvals()
-    r.plot_single_home2("Crystal-RXXFA") # pv_battery
+    r.rl_qvals()
+    # r.plot_single_home2("Crystal-RXXFA") # pv_battery
     # if r.config["run_rl_agg"] or r.config["run_agg_mpc"] or r.config["run_rbo_mpc"]: # plots the home response if the actual community response is simulated
 
         # r.plo1t_single_home2(type="base")
