@@ -66,7 +66,7 @@ class Reformat:
 
     def add_mpc_params(self, additional_params):
         n_houses = self.config['community']['total_number_homes']
-        mpc_horizon = self.config['home']['hems']['prediction_horizons']
+        mpc_horizon = self.config['home']['hems']['prediction_horizon']
         dt = self.config['rl']['utility']['hourly_steps']
         check_type = self.config['simulation']['check_type']
         mpc_discomf = set(self.config['home']['hems']['discomfort'])
@@ -648,13 +648,15 @@ class Reformat:
 
         fig.show()
 
-    def rl_phis(self):
+    def all_rps(self):
         fig = make_subplots()
         for file in self.parametrics:
-            with open(file["q_results"]) as f:
+            with open(file['results']) as f:
                 data = json.load(f)
 
-        phi = data["phi"]
+            fig.add_trace(go.Histogram(x=data['Summary']['RP'], name=f"{file['name']}"))
+
+        fig.show()
 
 
     def reward_prices_over_time(self):
