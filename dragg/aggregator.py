@@ -18,6 +18,7 @@ import dccp
 import itertools as it
 import redis
 from sklearn.linear_model import Ridge
+import scipy.stats
 
 # Local
 from dragg.mpc_calc import MPCCalc
@@ -645,10 +646,6 @@ class Aggregator:
                 self.redis_client.conn.lpop("reward_price")
                 self.redis_client.conn.rpush("reward_price", val)
 
-    def update_reward_price(self):
-        rp = self.reward_price + self.step_size_coeff * self.marginal_demand
-        return rp
-
     def _calc_state(self):
         current_error = (self.agg_load - self.agg_setpoint) #/ self.agg_setpoint
         if self.timestep > 0:
@@ -676,7 +673,7 @@ class Aggregator:
         :return: float
         """
 
-        reward = -1*self.state["curr_error"]**2 + 10*self.reward_price[-1]**2
+        reward = -1*self.state["curr_error"]**2 #+ self.reward_price[-1]**2
 
         return reward
 
@@ -757,69 +754,42 @@ class Aggregator:
 
     def _get_policyaction(self, state):
         pi = []
-        a_range = np.arange(self.actionspace[0], self.actionspace[1]+0.009, 0.01)
-
         x_k = self._state_basis(self.state)
         mu = self.theta_mu @ x_k
-        arg = self.theta_sigma @ x_k
-        sigma = np.exp(arg)
-        for action in a_range:
-            arg = -1*(action - mu)**2/(2*sigma**2)
-            pi.append((sigma * np.sqrt(2*np.pi))**-1 * np.exp(arg))
-        print(pi)
-        if sum(pi) == 0:
-            pi = np.ones(len(a_range))
+        mu = np.clip(mu, self.actionspace[0], self.actionspace[1])
+        # arg = self.theta_sigma @ x_k
+        # sigma = np.exp(arg)
+        sigma = self.config['rl']['parameters']['variance']
 
-        pi = pi / (sum(pi))
-        pi = np.clip(pi, 0,1)
-        print(pi)
-        action = np.random.choice(a_range, p=pi)
+        action = scipy.stats.norm.rvs(loc=mu, scale=sigma)
+        action = np.clip(action, self.actionspace[0], self.actionspace[1])
+
         return action
-
-    def experience_replay(self):
-        num_memories = len(self.memory)
-        if num_memories > self.batch_size: # experience replay
-            temp_theta = deepcopy(self.theta)
-            batch = random.sample(self.memory, self.batch_size)
-            for experience in batch:
-                temp_theta = self.update_theta(temp_theta, experience)
-            if num_memories > self.memory_size:
-                self.memory.remove(self.memory[0]) # remove oldest memory
-        else:
-            temp_theta = self.theta
-        return temp_theta
 
     def _value(self, state):
         return self.w @ self._state_basis(state)
 
-    def _pi(self, state, action):
-        x_k = self._state_basis(self.state)
-        mu = self.theta_mu @ x_k
-        arg = self.theta_sigma @ x_k
-        sigma = np.exp(arg)
-        arg = -1*(action - mu)**2/(2*sigma**2)
-        pi = (sigma * np.sqrt(2*np.pi))**-1 * np.exp(arg)
-        return pi
-
     def update_policy(self):
         x_k = self._state_basis(self.state)
         x_k1 = self._state_basis(self.next_state)
-        delta = self.reward - self.average_reward + self._value(self.next_state) - self._value(self.state)
+        delta = self.q_predicted - self.q_observed
+        delta = np.clip(delta, -1, 1)
         self.average_reward += self.alpha_r * delta
         self.z_w = self.lam_w * self.z_w + (x_k1 - x_k)
         mu = self.theta_mu @ x_k
-        sigma = np.exp(self.theta_sigma @ x_k)
+        # sigma = np.exp(self.theta_sigma @ x_k)
+        sigma = self.config['rl']['parameters']['variance']
         grad_pi_mu = (sigma**2) * (self.action - mu) * x_k
-        grad_pi_sigma = ((self.action - mu)**2 / sigma**2 - 1) * x_k
+        # grad_pi_sigma = ((self.action - mu)**2 / sigma**2 - 1) * x_k
         self.z_theta_mu = self.lam_theta * self.z_theta_mu + (grad_pi_mu)
-        self.z_theta_sigma = self.lam_theta * self.z_theta_sigma + (grad_pi_sigma)
+        # self.z_theta_sigma = self.lam_theta * self.z_theta_sigma + (grad_pi_sigma)
         self.w += self.alpha_w * delta * self.z_w # update reward function
         self.theta_mu += self.alpha_theta * delta * self.z_theta_mu
-        self.theta_sigma += self.alpha_theta * delta * self.z_theta_sigma
+        # self.theta_sigma += self.alpha_theta * delta * self.z_theta_sigma
 
     def update_qfunction(self, theta):
         self.q_predicted = theta @ self._phi(self.state, self.action) # recorded for analysis
-        self.q_observed = self.reward + self.beta * theta @ self._phi(self.next_state, self.next_action) # recorded for analysis
+        self.q_observed = self.reward - self.average_reward + self.beta * theta @ self._phi(self.next_state, self.next_action) # recorded for analysis
         temp_theta = deepcopy(theta)
 
         if len(self.memory) > self.batch_size:
@@ -830,7 +800,8 @@ class Aggregator:
                 x = exp["state"]
                 x1 = exp["next_state"]
                 u = exp["action"]
-                u1 = self._get_greedyaction(x)
+                # u1 = self._get_greedyaction(x1)
+                u1 = self._get_policyaction(x1)
                 xu_k = self._phi(x,u)
                 xu_k1 = self._phi(x1,u1)
                 q1_a = self.theta_a @ xu_k1
@@ -840,16 +811,26 @@ class Aggregator:
                 batch_phi.append(xu_k)
             batch_y = np.array(batch_y)
             batch_phi = np.array(batch_phi)
+
+            if np.isnan(batch_y).any():
+                print("problem in y")
+                if np.isnan(self.theta_a).any() or np.isnan(self.theta_b).any():
+                    print("problem in theta")
+            if np.isnan(batch_phi).any():
+                print("problem in phi")
+
             clf = Ridge(alpha = 0.01)
             clf.fit(batch_phi, batch_y)
             temp_theta = clf.coef_
             theta = self.alpha * temp_theta + (1-self.alpha) * theta
 
+            if (self.timestep + 1) % 10 == 0:
+                self.update_policy()
         return theta
 
     def rl_update_reward_price(self):
         self.reward_price[:-1] = self.reward_price[1:]
-        self.reward_price[-1] = np.round(self.action,2)
+        self.reward_price[-1] = self.action/100
 
     def _get_action(self, state): # action is the change in RP from the average RP in the last h timesteps
         if self.rl_agg_horizon > 1:
@@ -908,29 +889,6 @@ class Aggregator:
         self.agg_load = agg_load
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
-
-    def collect_fake_data(self):
-        self.baseline_agg_load_list.append(self.agg_load)
-
-    def check_agg_mpc_data(self):
-        self.agg_load = 0
-        self.agg_cost = 0
-        for home in self.all_homes:
-            if self.check_type == 'all' or home["type"] == self.check_type:
-                vals = self.redis_client.conn.hgetall(home["name"])
-                self.agg_load += float(vals["p_grid_opt"])
-                self.agg_cost += float(vals["cost_opt"])
-        self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
-        self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
-        self.agg_log.logger.info(f"Max Threshold: {self.max_load_threshold:.20f}")
-        self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}")
-        if self.marginal_demand == 0:
-            self.converged = True
-
-    def update_agg_mpc_data(self):
-        self.agg_mpc_data[self.timestep]["reward_price"].append(self.reward_price)
-        self.agg_mpc_data[self.timestep]["agg_cost"].append(self.agg_cost)
-        self.agg_mpc_data[self.timestep]["agg_load"].append(self.agg_load)
 
     def record_rl_q_data(self):
         self.rl_q_data["timestep"].append(self.timestep)
@@ -1183,7 +1141,7 @@ class Aggregator:
             else:
                 self.theta = self.theta_b
             self.next_greedy_action = self._get_greedyaction(self.next_state) # necessary for SARSA learning
-            self.next_action = self._get_action(self.next_state)
+            self.next_action = self._get_policyaction(self.next_state)
             if self.timestep % 2 == 0:
                 self.theta_a = self.update_qfunction(self.theta)
             else:
@@ -1235,7 +1193,7 @@ class Aggregator:
             self.rl_update_reward_price()
             self.redis_set_current_values() # broadcast rl price to community
             self.test_response()
-            self.collect_fake_data()
+            self.baseline_agg_load_list.append(self.agg_load)
 
             self.next_state = self._calc_state() # this is the state at t = k+1
             self.reward = self._reward(self.state)
@@ -1353,3 +1311,42 @@ class Aggregator:
                                     self.run_rl_agg_simplified()
                                     self.summarize_baseline(self.horizon)
                                     self.write_outputs(self.horizon)
+
+    # function graveyard
+
+    def experience_replay(self):
+        num_memories = len(self.memory)
+        if num_memories > self.batch_size: # experience replay
+            temp_theta = deepcopy(self.theta)
+            batch = random.sample(self.memory, self.batch_size)
+            for experience in batch:
+                temp_theta = self.update_theta(temp_theta, experience)
+            if num_memories > self.memory_size:
+                self.memory.remove(self.memory[0]) # remove oldest memory
+        else:
+            temp_theta = self.theta
+        return temp_theta
+
+    def check_agg_mpc_data(self):
+        self.agg_load = 0
+        self.agg_cost = 0
+        for home in self.all_homes:
+            if self.check_type == 'all' or home["type"] == self.check_type:
+                vals = self.redis_client.conn.hgetall(home["name"])
+                self.agg_load += float(vals["p_grid_opt"])
+                self.agg_cost += float(vals["cost_opt"])
+        self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
+        self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
+        self.agg_log.logger.info(f"Max Threshold: {self.max_load_threshold:.20f}")
+        self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}")
+        if self.marginal_demand == 0:
+            self.converged = True
+
+    def update_agg_mpc_data(self):
+        self.agg_mpc_data[self.timestep]["reward_price"].append(self.reward_price)
+        self.agg_mpc_data[self.timestep]["agg_cost"].append(self.agg_cost)
+        self.agg_mpc_data[self.timestep]["agg_load"].append(self.agg_load)
+
+    def update_reward_price(self):
+        rp = self.reward_price + self.step_size_coeff * self.marginal_demand
+        return rp
