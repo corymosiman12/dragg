@@ -15,20 +15,20 @@ homes_pv_battery = 0
   p_cool_dist = [2, 9]
   p_heat_dist = [2.0, 13.5]
   temp_sp_dist = [18, 22]
-  temp_deadband_dist = [6, 6]
+  temp_deadband_dist = [3, 5]
 
   [home.wh]
   r_dist = [18.7, 25.3]
   c_dist = [4.25, 5.75]
   p_dist = [5, 8]
   sp_dist = [45.5, 48.5]
-  deadband_dist = [4, 10]
+  deadband_dist = [4, 4]
   size_dist = [300, 300] # tank size (liters)
 
   [home.wh.waterdraws]
   n_big_draw_dist = [0, 0]
   n_small_draw_dist = [10, 20]
-  big_draw_size_dist = [15, 20] # in liters
+  big_draw_size_dist = [0, 0] # in liters
   small_draw_size_dist = [0.1, 0.5]
 
   [home.battery]
@@ -44,9 +44,9 @@ homes_pv_battery = 0
   efficiency = 0.2
 
   [home.hems]
-  # Refers to mpc parameters on all homes
+  # Refers to mpc parameters -- uniform across all homes
   prediction_horizon = [1] # in hours, where 0 is just the next timestep (no MPC)
-  discomfort = [0.75] # L2 norm penalization of deviations from setpoint
+  discomfort = [5.5] # L2 norm penalization of deviations from setpoint
   disutility = [0.0] # L2 norm penalization from anticipated energy use
 
 [simulation]
@@ -58,15 +58,15 @@ homes_pv_battery = 0
   run_rbo_mpc = false # runs homes with MPC (no reward price signal)
   run_rl_agg = true # runs homes with MPC responding to RL aggregator
   run_rl_simplified = false # runs linear model responding to RL aggregator
+  # in rl_simplified the mpc disutility characterizes the response rate (~0.2 suggested)
 
 [rl]
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
-    learning_rate = [0.005] # Suggested ~0.001
+    learning_rate = [0.001] # Suggested ~0.001
     discount_factor = [0.2] # Suggested <0.5
     batch_size = [32] # Suggested ~30
-    variance = 0.6 # fixed, but can also be parameterized per Sutton, applies to policy selection
-    exploration_rate = [0.4] # Suggested ~0.3, only applies to E-greedy model
+    exploration_rate = [0.02] # in E-greedy is epsilon, in policy gradient is sigma
 
   [rl.utility]
     # Refers to parameters that change how the electric utility uses the RL agent
