@@ -120,7 +120,7 @@ class MPCCalc:
         # Home temperature constraints
         self.temp_in_min = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
         self.temp_in_max = cp.Constant(float(self.home["hvac"]["temp_in_max"]))
-        self.temp_in_sp = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
+        self.temp_in_sp = cp.Constant(float(self.home["hvac"]["temp_in_sp"]))
         self.t_in_init = float(self.home["hvac"]["temp_in_init"])
 
         # set setpoint according to "season"
@@ -134,7 +134,8 @@ class MPCCalc:
         else:
             self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
             # self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
-            self.temp_wh_init = cp.Constant(((self.wh_size.value - self.draw_size.value) * float(self.prev_optimal_vals["temp_wh_opt"]) + self.draw_size.value * self.tap_temp.value) / self.wh_size.value)
+            self.temp_wh_init = cp.Constant(((self.wh_size.value - self.draw_size.value) * float(self.prev_optimal_vals["temp_wh_opt"])
+                                            + self.draw_size.value * self.tap_temp.value) / self.wh_size.value)
 
         # add a simplified model of the homes plug load
         # assume ~40% of home energy use is for plug loads
@@ -148,7 +149,8 @@ class MPCCalc:
             self.p_batt_ch_init = cp.Constant(0)
         else:
             self.e_batt_init = cp.Constant(float(self.prev_optimal_vals["e_batt_opt"]))
-            self.p_batt_ch_init = cp.Constant(float(self.prev_optimal_vals["p_batt_ch"]) - float(self.prev_optimal_vals["p_batt_disch"]))
+            self.p_batt_ch_init = cp.Constant(float(self.prev_optimal_vals["p_batt_ch"])
+                                            - float(self.prev_optimal_vals["p_batt_disch"]))
 
         # Define constants
         self.batt_max_rate = cp.Constant(float(self.home["battery"]["max_rate"]))
@@ -177,9 +179,15 @@ class MPCCalc:
     def add_base_constraints(self):
         self.constraints = [
             self.temp_in[0] == self.temp_in_init,
-            self.temp_wh[0] == ((self.wh_size - self.draw_size) * self.temp_wh_init + self.draw_size * self.tap_temp) / self.wh_size,
-            self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon] + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt)) - self.hvac_cool_on * (self.hvac_p_c / self.dt) + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
-            self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon] + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt)) + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
+            self.temp_wh[0] == ((self.wh_size - self.draw_size) * self.temp_wh_init
+                                + self.draw_size * self.tap_temp) / self.wh_size,
+            self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
+                                            + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt))
+                                            - self.hvac_cool_on * (self.hvac_p_c / self.dt)
+                                            + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
+            self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon]
+                                            + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt))
+                                            + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
             self.temp_in[1:self.h_plus] >= self.temp_in_min,
             self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
 
@@ -214,20 +222,24 @@ class MPCCalc:
             self.baseline_p_load_opt = 0 # change for disutility factor
             self.constraints += [self.p_load_baseline == self.baseline_p_load_opt]
             self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
-            if self.case == "rl_agg":
-                # self.discomfort = self._discomfort
-                self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
-                self.disutility = self._disutility # penalizes shift from forecasted baseline
-            else:
-                self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
-                self.disutility = 0 # penalizes shift from forecasted baseline
+            # if self.case == "rl_agg":
+            #     # self.discomfort = self._discomfort
+            #     self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
+            #     self.disutility = self._disutility # penalizes shift from forecasted baseline
+            # else:
+            #     self.discomfort = self._discomfort # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this for a baseline run
+            #     self.disutility = 0 # penalizes shift from forecasted baseline
+            self.discomfort = self._discomfort
+            self.disutility = 0
 
 
     def add_battery_constraints(self):
         self.charge_mag = cp.Variable()
         self.constraints += [
             # Battery constraints
-            self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon] + self.batt_ch_eff * self.p_batt_ch[0:self.horizon] / self.dt + self.p_batt_disch[0:self.horizon] / self.dt / self.batt_disch_eff,
+            self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon]
+                                        + self.batt_ch_eff * self.p_batt_ch[0:self.horizon] / self.dt
+                                        + self.p_batt_disch[0:self.horizon] / self.dt / self.batt_disch_eff,
             self.e_batt[0] == self.e_batt_init,
             self.p_batt_ch[0:self.horizon] <= self.batt_max_rate,
             self.p_batt_ch[0:self.horizon] >= 0,
@@ -261,7 +273,7 @@ class MPCCalc:
             self.p_grid == self.p_load # p_load = p_hvac + p_wh
         ]
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
-                    + self.discomfort * (cp.norm(self.temp_in - self.temp_in_sp) + cp.norm(self.temp_wh - self.temp_wh_sp)) # relevent without RL and to make baseline for RL run
+                    + self.discomfort * cp.norm(self.temp_wh - self.temp_wh_sp) # relevent without RL and to make baseline for RL run
                     + self.disutility * cp.norm(self.p_load - self.p_load_baseline)
                     ) # RL agent
 
@@ -285,28 +297,35 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load - self.p_pv
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
+                    + self.discomfort * (self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp)
+                    + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp))
+                    + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
 
     def set_pv_battery_p_grid(self):
         self.constraints += [
             # Set grid load
             self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch - self.p_pv
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt) + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50) + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp)) + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
+        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
+                    + self.discomfort * (self.batt_cons * cp.norm(100*self.e_batt / self.batt_cap_max - 50)
+                    + self.wf_temp * cp.norm(self.temp_in - self.temp_in_sp) + self.wf_wh * cp.norm(self.temp_wh - self.temp_wh_sp))
+                    + self.disutility * cp.norm(self.p_load - self.p_load_baseline))
 
     def solve_mpc(self):
         # self.obj = cp.Minimize(cp.sum((self.total_price) * self.p_grid[0:self.horizon]))
         self.prob = cp.Problem(self.obj, self.constraints)
         # if not self.prob.is_dcp():
         #     self.mpc_log.logger.error("Problem is not DCP")
-        self.prob.solve(solver=cp.ECOS, verbose=False)
+        flag = self.mpc_log.logger.getEffectiveLevel() < 20 # outputs from CVX solver if level is debug or lower
+        self.prob.solve(solver=cp.ECOS, verbose=flag)
 
     def cleanup_and_finish(self):
         n_iterations = 0
         while self.prob.status != "optimal" and n_iterations < 10:
             self.mpc_log.logger.error(f"Couldn't solve problem for {self.home['name']} of type {self.home['type']}: {self.prob.status}")
-            self.temp_in_min -= 1
-            self.temp_wh_min -= 1
+            self.temp_in_min -= 0.2
+            self.temp_wh_min -= 0.2
             self.add_base_constraints()
             self.set_base_p_grid()
             self.solve_mpc()
@@ -450,7 +469,7 @@ class MPCCalc:
             if self.timestep > 0:
                 self.redis_get_prev_optimal_vals()
 
-            self.get_baseline()
+            # self.get_baseline()
             self.cast_redis_curr_rps()
             self.mode = "run" # return to mode "run"
 

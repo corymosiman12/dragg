@@ -108,9 +108,6 @@ class Reformat:
                     timesteps = j['hours']*i['mpc_hourly_steps']
                     x_lims = [j['start_dt'] + timedelta(minutes=x*interval_minutes) for x in range(timesteps + max(self.config['rl']['utility']['rl_agg_action_horizon'])*i['mpc_hourly_steps'])]
                     name = j['name']
-                    for k,v in i.items():
-                        if len(self.mpc_params[k]) > 1:
-                            name += f"{k} = {v}, "
                     set = {'path': mpc_folder, 'dt': i['mpc_hourly_steps'], 'ts': timesteps, 'x_lims': x_lims, 'name': name}
                     if not mpc_folder in temp:
                         temp.append(set)
@@ -137,7 +134,8 @@ class Reformat:
         for i in self.mpc_folders:
             path = i['path']
             rl_agg_folder = os.path.join(path, "rl_agg")
-            keys, values = zip(*self.agg_params.items())
+            all_params = {**self.agg_params, **self.mpc_params}
+            keys, values = zip(*all_params.items())
             permutations = [dict(zip(keys, v)) for v in it.product(*values)]
             for j in permutations:
                 if os.path.isdir(rl_agg_folder):
@@ -147,13 +145,10 @@ class Reformat:
                     if os.path.isfile(rl_agg_file):
                         q_results = rl_agg_path + "-q-results.json"
                         q_file = os.path.join(rl_agg_folder, q_results)
-                        name = i["name"]
+                        name = i['name']
                         for k,v in j.items():
-                            if len(self.agg_params[k]) > 1:
+                            if len(all_params[k]) > 1:
                                 name += f"{k} = {v}, "
-                        if name=="":
-                            name += f"RL {counter}"
-                            counter += 1
                         # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}, discomf={j['mpc_discomfort']}"
                         set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"]}
                         temp.append(set)
@@ -444,8 +439,13 @@ class Reformat:
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(np.multiply(is_greedy, data["reward"])), np.cumsum(is_greedy) + 1), name=f"Greedy Action Average Reward - {file['name']}"))
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["reward"]), np.arange(num_ts) + 1), name=f"Numerical avg. reward - {file['name']}"))
         # fig.add_trace(go.Bar(name="Random Action - Forecast", x=file["parent"]["x_lims"], y=, marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
-
         return fig
+
+    def plot_mu(self, fig, file):
+        with open(file['q_results']) as f:
+            data = json.load(f)
+
+        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["mu"], name=f"{Mu} - {file['name']}"))
 
     def plot_baseline(self, fig):
         for file in self.baselines:
@@ -476,6 +476,10 @@ class Reformat:
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["RP"])[:file["parent"]["ts"]], np.arange(file["parent"]["ts"]) + 1), name=f"Average RP", visible='legendonly'), secondary_y=True)
             try:
                 self.plot_greedy(fig, file)
+            except:
+                pass
+            try:
+                self.plot_mu(fig, file)
             except:
                 pass
             # fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.add(data["Summary"]["TOU"], data["Summary"]["RP"]).tolist(), name="Actual Price ($/kWh)", line_shape='hv'), secondary_y=True)
