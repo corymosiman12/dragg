@@ -1166,8 +1166,8 @@ class Aggregator:
         self.lam_w = 0.01
         self.lam_theta = 0.01
         self.ALPHA_theta = self.ALPHA # 2 ** -4
-        self.ALPHA_w = self.ALPHA_theta * (2 ** -1) # 2 ** -3
-        self.ALPHA_r = self.ALPHA_theta * (2 ** -2) # 2 ** -1
+        self.ALPHA_w = self.ALPHA_theta * (2 ** 1) # 2 ** -3
+        self.ALPHA_r = self.ALPHA_theta * (2 ** 2) # 2 ** -1
 
         self.w = np.zeros(n)
         self.z_w = 0
@@ -1270,8 +1270,8 @@ class Aggregator:
         self.lam_w = 0.01
         self.lam_theta = 0.01
         self.ALPHA_theta = self.ALPHA # 2 ** -4
-        self.ALPHA_w = self.ALPHA_theta * (2 ** -1) # 2 ** -3
-        self.ALPHA_r = self.ALPHA_theta * (2 ** -2) # 2 ** -1
+        self.ALPHA_w = self.ALPHA_theta * (2 ** 1) # 2 ** -3
+        self.ALPHA_r = self.ALPHA_theta * (2 ** 2) # 2 ** -1
 
         self.w = np.zeros(n)
         self.z_w = 0
