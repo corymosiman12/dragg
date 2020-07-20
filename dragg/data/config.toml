@@ -54,7 +54,7 @@ homes_pv_battery = 0
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-12-31 00"
+  end_datetime = "2015-01-15 00"
   random_seed = 12
   load_zone = "LZ_HOUSTON"
   check_type = "all"
@@ -66,10 +66,11 @@ homes_pv_battery = 0
 [rl]
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
-    learning_rate = [0.001] # Suggested ~0.001
+    learning_rate = [0.0625] # Suggested ~0.001
     discount_factor = [1.0] # Suggested <0.5
     batch_size = [32] # Suggested ~30
-    exploration_rate = [0.0625] # in E-greedy is epsilon, in policy gradient is sigma
+    exploration_rate = [0.05] # in E-greedy is epsilon, in policy gradient is sigma
+    twin_q = true # will default to overwriting the old run file, use named runs to solve this
 
   [rl.utility]
     # Refers to parameters that change how the electric utility uses the RL agent

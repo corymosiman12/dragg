@@ -26,16 +26,15 @@ from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 from dragg.agent import Agent
 
-def rbf(x, sigma, mu=0):
-    return 1/(sigma*np.sqrt(2*np.pi)) * np.exp(-1*(x**2)/(2*sigma**2))
-
 class Aggregator:
-    def __init__(self, run_name="outputs"):
+    def __init__(self, run_name=None):
         self.agg_log = Logger("aggregator")
         self.mpc_log = Logger("mpc_calc")
         self.forecast_log = Logger("forecaster")
         self.data_dir = 'data'
-        self.outputs_dir = os.path.join(run_name)
+        self.outputs_dir = os.path.join('outputs')
+        if run_name:
+            self.outputs_dir = os.path.join(self.outputs_dir, run_name)
         if not os.path.isdir(self.outputs_dir):
             os.makedirs(self.outputs_dir)
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
@@ -766,8 +765,8 @@ class Aggregator:
         be sampled through an experience tuple.
         :return: float
         """
-        # return -self.state["curr_error"]**2 #+ 10**3 * sum(np.square(self.reward_price))
-        return -self.next_state["curr_error"]**2
+        return -self.state["curr_error"]**2 #+ 10**3 * sum(np.square(self.reward_price))
+        # return -self.next_state["curr_error"]**2
 
     def _get_policy_action(self, state):
         """
@@ -1375,6 +1374,7 @@ class Aggregator:
 
         if self.config['simulation']['run_rl_simplified']:
             self.case = "simplified"
+            self.twin_q = self.config['rl']['parameters']['twin_q']
             self.HORIZON = self.config['home']['hems']['prediction_horizon'][0] # arbitrary
 
             for a in self.config['rl']['parameters']['learning_rate']:
