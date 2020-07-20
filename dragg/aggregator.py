@@ -1165,9 +1165,9 @@ class Aggregator:
         self.theta_sigma = np.zeros(n)
         self.lam_w = 0.01
         self.lam_theta = 0.01
-        self.ALPHA_theta = 2 ** -9
-        self.ALPHA_w = 2 ** -6
-        self.ALPHA_r = 2 ** -3
+        self.ALPHA_theta = self.ALPHA # 2 ** -4
+        self.ALPHA_w = self.ALPHA_theta * (2 ** -1) # 2 ** -3
+        self.ALPHA_r = self.ALPHA_theta * (2 ** -2) # 2 ** -1
 
         self.w = np.zeros(n)
         self.z_w = 0
@@ -1390,6 +1390,7 @@ class Aggregator:
                                 self.BATCH_SIZE = int(bs)
                                 for md in self.config['home']['hems']['disutility']:
                                     self.MPC_DISUTILITY = float(md)
+                                    self.rl_params = {'alpha': self.ALPHA, 'beta': self.BETA, 'epsilon': self.EPSILON_init, 'batch_size': self.BATCH_SIZE}
                                     self.flush_redis()
                                     self.redis_set_initial_values()
                                     # self.timestep = 0
