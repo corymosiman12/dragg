@@ -22,6 +22,7 @@ class Reformat:
         self.outputs_dir = set()
         outputs = {'outputs'}
         outputs.update(add_outputs)
+        print(outputs)
         for path in outputs:
             if os.path.isdir(path):
                 self.outputs_dir.add(path)
@@ -40,6 +41,7 @@ class Reformat:
         self.parametrics = self.set_parametric_files(agg_params)
 
         np.random.seed(self.config['simulation']['random_seed'])
+        self.fig_list = None
 
     def add_date_ranges(self, additional_params):
         start_dates = [datetime.strptime(self.config['simulation']['start_datetime'], '%Y-%m-%d %H')]
@@ -119,6 +121,7 @@ class Reformat:
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         for j in self.mpc_folders:
             path = j['path']
+            print(path)
             for i in permutations:
                 file = os.path.join(path, "baseline", f"baseline_discomf-{float(i['mpc_discomfort'])}-results.json")
                 if os.path.isfile(file):
@@ -157,8 +160,9 @@ class Reformat:
             self.ref_log.logger.warning("Parameterized RL aggregator runs are empty for this config file.")
         return temp
 
-    def set_simplified_files(self):
+    def set_simplified_files(self, additional_params):
         temp = []
+        self.add_agg_params(additional_params)
         for i in self.mpc_folders:
             path = i['path']
             simplified_folder = os.path.join(path, "simplified")
@@ -166,13 +170,17 @@ class Reformat:
             permutations = [dict(zip(keys, v)) for v in it.product(*values)]
             for j in permutations:
                 if os.path.isdir(simplified_folder):
-                    simplified_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}"
+                    simplified_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_disutil-{float(j['mpc_disutility'])}_discomf-{float(j['mpc_discomfort'])}"
                     results_file = simplified_path + "-results.json"
                     simplified_file = os.path.join(simplified_folder, results_file)
                     if os.path.isfile(simplified_file):
                         q_results = simplified_path + "-q-results.json"
                         q_file = os.path.join(simplified_folder, q_results)
-                        name = f"Simplified Response - horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}"
+                        if os.path.isfile(q_file):
+                            name = i['name']
+                            for k,v in j.items():
+                                if len(self.agg_params[k]) > 1:
+                                    name += f"{k} = {v}, "
                         set = {"results": simplified_file, "q_results": q_file, "name": name, "parent": i}
                         temp.append(set)
         return temp
@@ -181,7 +189,7 @@ class Reformat:
         if self.config['simulation']['run_rl_agg'] or "rl_agg" in self.include_runs:
             self.parametrics += self.set_rl_files(additional_params)
         if self.config['simulation']['run_rl_simplified'] or "simplified" in self.include_runs:
-            self.parametrics += self.set_simplified_files()
+            self.parametrics += self.set_simplified_files(additional_params)
         return self.parametrics
 
     def set_other_files(self, otherfile):
@@ -274,7 +282,7 @@ class Reformat:
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=summary["TOU"][0:file["parent"]["ts"]], name=f"TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
         return fig
 
-    def plot_single_home_base(self, name, fig, data, summary, fname, file):
+    def plot_base_home(self, name, fig, data, summary, fname, file):
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_in_opt"], name=f"Tin (C) - {fname}"))
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_wh_opt"], name=f"Twh (C) - {fname}"))
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_in_sp"] * np.ones(file["parent"]["ts"]), name=f"Tin_sp (C) - {fname}"))
@@ -290,11 +298,11 @@ class Reformat:
             pass
         return fig
 
-    def plot_single_home_pv(self, name, fig, data, fname, file):
+    def plot_pv(self, name, fig, data, fname, file):
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_pv_opt"], name=f"Ppv (kW) - {fname}", line_shape='hv'))
         return fig
 
-    def plot_single_home_battery(self, name, fig, data, fname, file):
+    def plot_battery(self, name, fig, data, fname, file):
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["e_batt_opt"], name=f"SOC (kW) - {fname}", line_shape='hv'))
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_batt_ch"], name=f"Pch (kW) - {fname}", line_shape='hv'))
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_batt_disch"], name=f"Pdis (kW) - {fname}", line_shape='hv'))
@@ -330,17 +338,17 @@ class Reformat:
                 fig = self.plot_environmental_values(fig, summary, file)
                 flag = True
 
-            fig = self.plot_single_home_base(name, fig, data, summary, file["name"], file)
+            fig = self.plot_base_home(name, fig, data, summary, file["name"], file)
 
             case = summary["case"]
             fig.update_xaxes(title_text="Time of Day (hour)")
             fig.update_layout(title_text=f"{name} - {type} type")
 
             if 'pv' in type:
-                fig = self.plot_single_home_pv(name, fig, data, file["name"], file)
+                fig = self.plot_pv(name, fig, data, file["name"], file)
 
             if 'battery' in type:
-                fig = self.plot_single_home_battery(name, fig, data, file["name"], file)
+                fig = self.plot_battery(name, fig, data, file["name"], file)
 
         fig.show()
 
@@ -378,48 +386,6 @@ class Reformat:
         fig.update_layout(title_text=f"Baseline - {n_homes} - {self.check_type} type")
         fig.show()
 
-    def calc_agg_costs(self):
-        self.agg_costs = []
-        for run in self.data:
-            all = 0
-            base_cost = 0
-            pv_cost = 0
-            battery_cost = 0
-            pv_battery_cost = 0
-            for k, v in run.items():
-                if k != "Summary":
-                    if v["type"] == "base":
-                        base_cost += sum(v["cost_opt"])
-                    elif v["type"] == "pv_only":
-                        pv_cost += sum(v["cost_opt"])
-                    elif v["type"] == "battery_only":
-                        battery_cost += sum(v["cost_opt"])
-                    elif v["type"] == "pv_battery":
-                        pv_battery_cost += sum(v["cost_opt"])
-            all = base_cost + pv_cost + pv_battery_cost + battery_cost
-            self.agg_costs.append({
-                "all": all,
-                "base_cost": base_cost,
-                "pv_cost": pv_cost,
-                "battery_cost": battery_cost,
-                "pv_battery_cost": pv_battery_cost
-            })
-
-    def computation_time_vs_horizon_vs_agg_cost(self, n_homes):
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        x = [x['horizon'] for x in self.summary_data]
-        comp_time = [x["solve_time"] for x in self.summary_data]
-        agg_cost = [x["all"] for x in self.agg_costs]
-
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=agg_cost, name="Aggregate Cost"))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=comp_time, name="Solve Time"), secondary_y=True)
-
-        fig.update_yaxes(title_text="Cost ($)")
-        fig.update_yaxes(title_text="Solve Time (seconds)", secondary_y=True)
-        fig.update_xaxes(title_text="Prediction Horizon")
-        fig.update_layout(title_text=f"Baseline - {n_homes} homes")
-        fig.show()
-
     def plot_greedy(self, fig, file):
         with open(file['q_results']) as f:
             data = json.load(f)
@@ -441,11 +407,48 @@ class Reformat:
         # fig.add_trace(go.Bar(name="Random Action - Forecast", x=file["parent"]["x_lims"], y=, marker={'color':'orange', 'opacity':0.3}), secondary_y=True)
         return fig
 
-    def plot_mu(self, fig, file):
-        with open(file['q_results']) as f:
-            data = json.load(f)
+    def rl_simplified(self):
+        flag = False
+        fig1 = make_subplots()
+        fig2 = make_subplots()
+        for file in self.parametrics:
+            with open(file['results']) as f:
+                data = json.load(f)
+            if flag == False:
+                fig1.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_setpoint"][1:], name=f"Aggregate load setpoint - {file['name']}"))
+                setpoint = np.array(data["Summary"]["p_grid_setpoint"])
+                print(setpoint)
+                flag = True
+            fig1.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"][1:], name=f"Aggregate load - {file['name']}"))
+            agg = np.array(data["Summary"]["p_grid_aggregate"][1:])
+            error = np.subtract(agg, 50*np.ones(len(agg)))
+            fig1.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.square(error)), name=f"L2 Norm Error {file['name']}"))
+            fig1.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(abs(error)), name=f"Cummulative Error {file['name']}"))
+            fig1.add_trace(go.Scatter(x=file['parent']['x_lims'], y=abs(error), name=f"Abs Error {file['name']}"))
 
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["mu"], name=f"{Mu} - {file['name']}"))
+            fig1.update_layout(title_text="Aggregate Load")
+            fig2.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["RP"], name=f"RP - {file['name']}"))
+            fig2.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["RP"]), np.arange(file['parent']['ts']) + 1), name=f"Avg RP - {file['name']}"))
+            fig2.update_layout(title_text="Reward Price Signal")
+        fig1.show()
+        fig2.show()
+
+    def plot_mu(self):
+        fig = make_subplots()
+        for file in self.parametrics:
+            with open(file['q_results']) as f:
+                data = json.load(f)
+
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["mu"], name=f"Mu - {file['name']}"))
+
+            with open(file['results']) as f:
+                data = json.load(f)
+
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.multiply(100,data["Summary"]["RP"][16:]), name=f"RP - RL - {file['name']}", line_shape='hv'))
+
+
+        fig.update_layout(yaxis = {'exponentformat':'e'})
+        fig.show()
 
     def plot_baseline(self, fig):
         for file in self.baselines:
@@ -785,6 +788,59 @@ class Reformat:
                 fig.update_yaxes(title_text="Ebatt (kWh)", row=4, col=1)
                 fig.update_layout(title_text=f"{k}-{rbo['type']}")
                 fig.show()
+
+
+
+    def show_all(self):
+        if not self.fig_list:
+            self.ref_log.logger.error("No figures plotted.")
+            sys.exit(1)
+        for fig in self.fig_list:
+            fig.show()
+        return
+
+    # function graveyard
+    def calc_agg_costs(self):
+        self.agg_costs = []
+        for run in self.data:
+            all = 0
+            base_cost = 0
+            pv_cost = 0
+            battery_cost = 0
+            pv_battery_cost = 0
+            for k, v in run.items():
+                if k != "Summary":
+                    if v["type"] == "base":
+                        base_cost += sum(v["cost_opt"])
+                    elif v["type"] == "pv_only":
+                        pv_cost += sum(v["cost_opt"])
+                    elif v["type"] == "battery_only":
+                        battery_cost += sum(v["cost_opt"])
+                    elif v["type"] == "pv_battery":
+                        pv_battery_cost += sum(v["cost_opt"])
+            all = base_cost + pv_cost + pv_battery_cost + battery_cost
+            self.agg_costs.append({
+                "all": all,
+                "base_cost": base_cost,
+                "pv_cost": pv_cost,
+                "battery_cost": battery_cost,
+                "pv_battery_cost": pv_battery_cost
+            })
+
+    def computation_time_vs_horizon_vs_agg_cost(self, n_homes):
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        x = [x['horizon'] for x in self.summary_data]
+        comp_time = [x["solve_time"] for x in self.summary_data]
+        agg_cost = [x["all"] for x in self.agg_costs]
+
+        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=agg_cost, name="Aggregate Cost"))
+        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=comp_time, name="Solve Time"), secondary_y=True)
+
+        fig.update_yaxes(title_text="Cost ($)")
+        fig.update_yaxes(title_text="Solve Time (seconds)", secondary_y=True)
+        fig.update_xaxes(title_text="Prediction Horizon")
+        fig.update_layout(title_text=f"Baseline - {n_homes} homes")
+        fig.show()
 
     def baseline_vs(self):
         baseline = self.data[0]["Summary"]
