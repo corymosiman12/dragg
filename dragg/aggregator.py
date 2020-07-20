@@ -876,8 +876,10 @@ class Aggregator:
                 xu_k1 = self._state_action_basis(x1,u1)
                 q1_a = self.theta_a @ xu_k1
                 q1_b = self.theta_b @ xu_k1
-                y = exp["reward"] + self.BETA * min(q1_a, q1_b)
-                # y = exp["reward"] + self.BETA * q1_a
+                if self.twin_q:
+                    y = exp["reward"] + self.BETA * min(q1_a, q1_b)
+                else:
+                    y = exp["reward"] + self.BETA * q1_a
                 batch_y.append(y)
                 batch_phi.append(xu_k)
             batch_y = np.array(batch_y)
@@ -1193,16 +1195,14 @@ class Aggregator:
             self.cumulative_reward += self.reward
 
             self.i = self.timestep % 2
-            if self.timestep % 2 == 0:
-            # if True:
+            if (not self.twin_q) or self.timestep % 2 == 0:
                 self.theta = self.theta_a
             else:
                 self.theta = self.theta_b
             # self.next_greedy_action = self._get_greedy_action(self.next_state) # necessary for SARSA learning
             # self.next_action = self._get_egreedy_action(self.next_state)
             self.next_action = self._get_policy_action(self.next_state)
-            if self.timestep % 2 == 0:
-            # if True:
+            if (not self.twin_q) or self.timestep % 2 == 0:
                 self.theta_a = self.update_qfunction(self.theta)
             else:
                 self.theta_b = self.update_qfunction(self.theta)
@@ -1270,8 +1270,8 @@ class Aggregator:
         self.lam_w = 0.01
         self.lam_theta = 0.01
         self.ALPHA_theta = self.ALPHA # 2 ** -4
-        self.ALPHA_w = self.ALPHA_theta * 2 # 2 ** -3
-        self.ALPHA_r = self.ALPHA_theta * (2 ** 2) # 2 ** -1
+        self.ALPHA_w = self.ALPHA_theta * (2 ** -1) # 2 ** -3
+        self.ALPHA_r = self.ALPHA_theta * (2 ** -2) # 2 ** -1
 
         self.w = np.zeros(n)
         self.z_w = 0
@@ -1294,14 +1294,14 @@ class Aggregator:
             self.reward = self._reward()
             self.cumulative_reward += self.reward
 
-            # if self.timestep % 2 == 0:
-            if True:
+            if self.timestep % 2 == 0:
+            # if True:
                 self.theta = self.theta_a
             else:
                 self.theta = self.theta_b
             self.next_action = self._get_policy_action(self.next_state)
-            # if self.timestep % 2 == 0:
-            if True:
+            if self.timestep % 2 == 0:
+            # if True:
                 self.theta_a = self.update_qfunction(self.theta)
             else:
                 self.theta_b = self.update_qfunction(self.theta)
@@ -1347,6 +1347,7 @@ class Aggregator:
 
         if self.config['simulation']['run_rl_agg']:
             self.case = "rl_agg"
+            self.twin_q = self.config['rl']['parameters']['twin_q']
 
             for h in self.config['home']['hems']['prediction_horizon']:
                 self.HORIZON = int(h)
