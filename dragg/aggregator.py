@@ -24,6 +24,7 @@ import scipy.stats
 from dragg.mpc_calc import MPCCalc
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
+from dragg.agent import Agent
 
 def rbf(x, sigma, mu=0):
     return 1/(sigma*np.sqrt(2*np.pi)) * np.exp(-1*(x**2)/(2*sigma**2))
@@ -132,7 +133,6 @@ class Aggregator:
         self.action = 0
         self.memory = []
         self.memory_size = 1000
-
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -722,7 +722,8 @@ class Aggregator:
 
         # action_basis = np.array([1, (action), (action)**2, ((action - 0.02))**2, ((action + 0.02))**2])
         action_basis = np.array([1, action, action**2])
-        delta_action_basis = np.array([1, state["delta_action"], state["delta_action"]**2])
+        change_rp = self.reward_price[0] - self.reward_price[-1]
+        delta_action_basis = np.array([1, change_rp, change_rp**2])
         time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"]), np.cos(2 * np.pi * state["time_of_day"])])
         # curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
         forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
@@ -732,8 +733,8 @@ class Aggregator:
         # w = np.outer(curr_error_basis, delta_action_basis).flatten()[1:]
         v = np.outer(forecast_trend_basis, action_basis).flatten()[1:]
         w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #8
-        # z = np.outer(action_basis, curr_error_basis).flatten()[1:] #14
-        phi = np.concatenate((v, w))
+        z = np.outer(forecast_error_basis, delta_action_basis).flatten()[1:] #14
+        phi = np.concatenate((v, w, z))
         phi = np.outer(phi, time_basis).flatten()[1:]
 
         # phi = np.clip(phi, -100, 150)
@@ -765,7 +766,8 @@ class Aggregator:
         be sampled through an experience tuple.
         :return: float
         """
-        return -self.state["curr_error"]**2 #+ self.reward_price[-1]**2
+        # return -self.state["curr_error"]**2 #+ 10**3 * sum(np.square(self.reward_price))
+        return -self.next_state["curr_error"]**2
 
     def _get_policy_action(self, state):
         """
@@ -775,7 +777,7 @@ class Aggregator:
         :return: float
         """
         pi = []
-        x_k = self._state_basis(self.state)
+        x_k = self._state_basis(state)
         mu = self.theta_mu @ x_k
         self.mu = np.clip(mu, self.actionspace[0], self.actionspace[1])
         sigma = self.EPSILON
@@ -811,9 +813,11 @@ class Aggregator:
         """
         x_k = self._state_basis(self.state)
         x_k1 = self._state_basis(self.next_state)
-        delta = self.q_predicted - self.q_observed - self.average_reward
+        delta = self.q_predicted - self.q_observed #- self.average_reward
         delta = np.clip(delta, -1, 1)
         self.average_reward += self.ALPHA_r * delta
+        # self.cumulative_reward += self.reward
+        # self.average_reward = self.cummulative_reward / (self.timestep + 1)
         self.z_w = self.lam_w * self.z_w + (x_k1 - x_k)
         self.mu = self.theta_mu @ x_k
         self.mu = np.clip(self.mu, self.actionspace[0], self.actionspace[1])
@@ -856,7 +860,7 @@ class Aggregator:
         # self.theta_mu += self.ALPHA * self.score * self.q_predicted
 
         self.q_predicted = theta @ self._state_action_basis(self.state, self.action) # recorded for analysis
-        self.q_observed = self.reward - self.average_reward + self.BETA * theta @ self._state_action_basis(self.next_state, self.next_action) # recorded for analysis
+        self.q_observed = self.reward + self.BETA * theta @ self._state_action_basis(self.next_state, self.next_action) # recorded for analysis
         temp_theta = deepcopy(theta)
 
         if len(self.memory) > self.BATCH_SIZE:
@@ -873,6 +877,7 @@ class Aggregator:
                 q1_a = self.theta_a @ xu_k1
                 q1_b = self.theta_b @ xu_k1
                 y = exp["reward"] + self.BETA * min(q1_a, q1_b)
+                # y = exp["reward"] + self.BETA * q1_a
                 batch_y.append(y)
                 batch_phi.append(xu_k)
             batch_y = np.array(batch_y)
@@ -888,7 +893,7 @@ class Aggregator:
             clf = Ridge(alpha = 0.01)
             clf.fit(batch_phi, batch_y)
             temp_theta = clf.coef_
-            theta = self.ALPHA * temp_theta + (1-self.ALPHA) * theta
+            theta = self.ALPHA_theta * temp_theta + (1-self.ALPHA_theta) * theta
 
             # if (self.timestep + 1) % 10 == 0: # slow policy update
             self.update_policy()
@@ -1189,12 +1194,15 @@ class Aggregator:
 
             self.i = self.timestep % 2
             if self.timestep % 2 == 0:
+            # if True:
                 self.theta = self.theta_a
             else:
                 self.theta = self.theta_b
             # self.next_greedy_action = self._get_greedy_action(self.next_state) # necessary for SARSA learning
+            # self.next_action = self._get_egreedy_action(self.next_state)
             self.next_action = self._get_policy_action(self.next_state)
             if self.timestep % 2 == 0:
+            # if True:
                 self.theta_a = self.update_qfunction(self.theta)
             else:
                 self.theta_b = self.update_qfunction(self.theta)
@@ -1214,19 +1222,24 @@ class Aggregator:
         to changes in the reward price.
         @kyri
         """
+        c = self.config['rl']['simplified']['response_rate']
+        k = self.config['rl']['simplified']['offset']
         if self.timestep == 0:
             self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
-        self.agg_load = max(1, self.agg_load - self.MPC_DISUTILITY * self.reward_price[0] * self.agg_load) # can't go negative
-        self.agg_load = min(self.agg_load, 50)
-        if self.reward_price[0] >= -0.02 and self.reward_price[0] <= 0.02:
-            self.agg_load = self.agg_load + 0.5*(self.agg_setpoint - self.agg_load)
+        self.agg_load = max(1, self.agg_load - c * self.reward_price[0] * self.agg_load) # can't go negative
+        self.agg_load = min(self.agg_load, 2*self.agg_setpoint)
+        # if self.reward_price[0] >= -0.02 and self.reward_price[0] <= 0.02:
+        #     self.agg_load = self.agg_load + 0.5*(self.agg_setpoint - self.agg_load)
         #self.agg_load = max(200,self.agg_load) # can't go above 200
         self.agg_cost = self.agg_load * self.reward_price[0]
+        self.agg_log.logger.info(f"Iteration {self.timestep} finished. Aggregate load {self.agg_load}")
 
     def run_rl_agg_simplified(self):
+        self.MPC_DISCOMFORT = 0.0
         self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.RL_AGG_HORIZON}, learning rate: {self.ALPHA}, discount factor: {self.BETA}, exploration rate: {self.EPSILON}) with simplified community model.")
         self.start_time = datetime.now()
-        self.rl_agg_data = self.set_rl_agg_initial_vals()
+
+        self.actionspace = self.config['rl']['utility']['action_space']
         self.rl_q_data = self.set_rl_q_initial_vals()
         # self.forecast_data = self.rl_initialize_forecast()
         self.baseline_agg_load_list = [0]
@@ -1244,11 +1257,27 @@ class Aggregator:
 
         self.is_greedy=True
         n = len(self._state_action_basis(self.state, self.action))
-        self.theta = -1*np.ones(n) # theta initialization
+        self.theta = np.random.normal(-1, 0.3, n) # theta initialization
+        self.theta = np.random.normal(-1, 0.3, (n, 2))
         self.theta_a = np.random.normal(-1, 0.3, n)
         self.theta_b = np.random.normal(-1, 0.3, n)
         self.cumulative_reward = 0
         self.average_reward = 0
+        n = len(self._state_basis(self.state))
+        self.theta_mu = np.zeros(n) # theta initialization
+        self.mu = 0
+        self.theta_sigma = np.zeros(n)
+        self.lam_w = 0.01
+        self.lam_theta = 0.01
+        self.ALPHA_theta = self.ALPHA # 2 ** -4
+        self.ALPHA_w = self.ALPHA_theta * 2 # 2 ** -3
+        self.ALPHA_r = self.ALPHA_theta * (2 ** 2) # 2 ** -1
+
+        self.w = np.zeros(n)
+        self.z_w = 0
+        self.z_theta_mu = 0
+        self.z_theta_sigma = 0
+        self.sigma = self.EPSILON
 
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
@@ -1265,13 +1294,14 @@ class Aggregator:
             self.reward = self._reward()
             self.cumulative_reward += self.reward
 
-            if self.timestep % 2 == 0:
+            # if self.timestep % 2 == 0:
+            if True:
                 self.theta = self.theta_a
             else:
                 self.theta = self.theta_b
-            # self.next_greedy_action = self._get_greedy_action(self.next_state) # necessary for SARSA learning
             self.next_action = self._get_policy_action(self.next_state)
-            if self.timestep % 2 == 0:
+            # if self.timestep % 2 == 0:
+            if True:
                 self.theta_a = self.update_qfunction(self.theta)
             else:
                 self.theta_b = self.update_qfunction(self.theta)
@@ -1361,6 +1391,8 @@ class Aggregator:
                                     self.MPC_DISUTILITY = float(md)
                                     self.flush_redis()
                                     self.redis_set_initial_values()
+                                    # self.timestep = 0
+                                    # self.reward_price = np.zeros(self.HORIZON)
                                     self.reset_baseline_data()
                                     self.run_rl_agg_simplified()
                                     self.summarize_baseline(self.HORIZON)
@@ -1417,37 +1449,37 @@ class Aggregator:
         rp = self.reward_price + self.step_size_coeff * self.marginal_demand
         return rp
 
-        def _get_egreedy_action(self, state): # action is the change in RP from the average RP in the last h timesteps
-            if self.RL_AGG_HORIZON > 1:
-                avg_rp = np.sum(self.reward_price[1:]) / (self.RL_AGG_HORIZON - 1)
-            else:
-                avg_rp = self.reward_price[0]
-            # update epsilon
-            # if ((self.timestep+(48*self.dt+1)) % (48*self.dt)) == 0: # every other day
-            #     self.EPSILON = self.EPSILON/2 # decrease exploration rate
-            if np.random.uniform(0,1) >= self.EPSILON: # the greedy action
-                u_k = self.next_greedy_action
-                self.is_greedy = True
-                self.agg_log.logger.info("Selecting greedy action.")
-            else: # exploration
-                u_k = random.uniform(self.actionspace[0], self.actionspace[1])
-                self.agg_log.logger.info("Selecting non-greedy action.")
-                self.is_greedy = False
+    def _get_egreedy_action(self, state): # action is the change in RP from the average RP in the last h timesteps
+        if self.RL_AGG_HORIZON > 1:
+            avg_rp = np.sum(self.reward_price[1:]) / (self.RL_AGG_HORIZON - 1)
+        else:
+            avg_rp = self.reward_price[0]
+        # update epsilon
+        # if ((self.timestep+(48*self.dt+1)) % (48*self.dt)) == 0: # every other day
+        #     self.EPSILON = self.EPSILON/2 # decrease exploration rate
+        if np.random.uniform(0,1) >= self.EPSILON: # the greedy action
+            u_k = self.next_greedy_action
+            self.is_greedy = True
+            self.agg_log.logger.info("Selecting greedy action.")
+        else: # exploration
+            u_k = random.uniform(self.actionspace[0], self.actionspace[1])
+            self.agg_log.logger.info("Selecting non-greedy action.")
+            self.is_greedy = False
 
-            action = u_k
-            return action
+        action = u_k
+        return action
 
-        def _q(self, state, action):
-            return self.theta @ self._state_action_basis(state, action)
+    def _q(self, state, action):
+        return self.theta @ self._state_action_basis(state, action)
 
     def _get_greedy_action(self, state):
-        self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1]+0.009, 0.01) # to make actionspace inclusive
+        self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1]+0.009, 1) # to make actionspace inclusive
         self.nActions = len(self.q_lookup)
         self.q_lookup = np.column_stack((self.q_lookup, self.q_lookup))
         for i in range(len(self.q_lookup)):
             self.q_lookup[i,1] = self._q(state, self.q_lookup[i,0])
 
-        self.q_tables.append(self.q_lookup.tolist())
+        # self.q_tables.append(self.q_lookup.tolist())
 
         index = np.argmax(self.q_lookup[:,1])
         u_k_opt = self.q_lookup[index,0]

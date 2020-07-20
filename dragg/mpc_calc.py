@@ -54,6 +54,7 @@ class MPCCalc:
         self.optimal_vals = None
         self.iteration = None
         self.timestep = None
+        self.assumed_wh_draw = None
         self.h_plus = self.horizon + 1
         self.prev_optimal_vals = None  # set after timestep > 0, set_vals_for_current_run
         self.reward_price = np.zeros(self.horizon)
@@ -72,7 +73,6 @@ class MPCCalc:
         self.prev_optimal_vals = self.redis_client.conn.hgetall(key)
 
     def setup_base_problem(self, mode="tou"):
-
         self.home_r = cp.Constant(float(self.home["hvac"]["r"]))
         self.home_c = cp.Constant(float(self.home["hvac"]["c"]))
         self.hvac_p_c = cp.Constant(float(self.home["hvac"]["p_c"]))
@@ -85,6 +85,8 @@ class MPCCalc:
         self.p_load = cp.Variable(self.horizon, name="p_load")
         self.temp_in = cp.Variable(self.h_plus, name="temp_in")
         self.temp_wh = cp.Variable(self.h_plus, name="temp_wh")
+        # self.temp_wh = cp.Variable(2, name="temp_wh")
+        # self.temp_Wh_future = cp.Variable(self.h_plus-2, name="temp_wh_future")
         self.p_grid = cp.Variable(self.horizon, name="p_grid")
         self.hvac_cool_on = cp.Variable(self.horizon, name="hvac_cool_dc")
         self.hvac_heat_on = cp.Variable(self.horizon, name="hvac_heat_dc")
@@ -109,11 +111,19 @@ class MPCCalc:
 
         # Do water draws with no prior knowledge
         draw_times = np.array(self.home["wh"]["draw_times"])
-        if self.timestep in draw_times:
-            ind = np.where(draw_times == self.timestep)[0]
-            self.draw_size = cp.Constant(sum(np.array(self.home["wh"]["draw_sizes"])[ind]))
-        else:
-            self.draw_size = cp.Constant(0)
+        draw_size_list = []
+        for h in range(self.h_plus):
+            t = self.timestep + h
+            if t in draw_times:
+                ind = np.where(draw_times == t)[0]
+                total_draw = sum(np.array(self.home["wh"]["draw_sizes"])[ind])
+            else:
+                total_draw = 0
+            draw_size_list.append(total_draw)
+        # self.draw_size = cp.Constant(draw_size_list)
+        self.draw_size = cp.Constant(draw_size_list[0])
+        ed = sum(draw_size_list) / len(draw_size_list)
+        self.expected_draw = cp.Constant(ed)
 
         self.wf_wh = self.wh_p/2
 
@@ -142,6 +152,10 @@ class MPCCalc:
         # assume each home averages ~2.5 kW using HVAC + WH
         # plug load averages 1.5 kW
         self.plug_load = cp.Constant(np.random.normal(1.5, 0.1, self.horizon))
+
+        # add a predicted water draw at every timestep
+        # self.assumed_wh_draw = cp.Constant(np.random.normal(0.3, 0.05, self.horizon)) / 10
+        # self.predicted_wh_draw = cp.Constant(np.zeros(self.horizon)) / 4
 
     def setup_battery_problem(self):
         if self.timestep == 0:
@@ -179,21 +193,32 @@ class MPCCalc:
     def add_base_constraints(self):
         self.constraints = [
             self.temp_in[0] == self.temp_in_init,
-            self.temp_wh[0] == ((self.wh_size - self.draw_size) * self.temp_wh_init
-                                + self.draw_size * self.tap_temp) / self.wh_size,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
                                             + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt))
                                             - self.hvac_cool_on * (self.hvac_p_c / self.dt)
                                             + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
-            self.temp_wh[1:self.h_plus] == self.temp_wh[0:self.horizon]
-                                            + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt))
-                                            + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
             self.temp_in[1:self.h_plus] >= self.temp_in_min,
+            self.temp_in[1:self.h_plus] <= self.temp_in_max,
+
+            self.temp_wh[0] == ((self.wh_size - self.draw_size) * self.temp_wh_init
+                                + self.draw_size * self.tap_temp) / self.wh_size,
+            self.temp_wh[1] == self.temp_wh[0]
+                                + (((self.temp_in[1] - self.temp_wh[0]) / (self.wh_r * self.dt))
+                                + self.wh_heat_on[0] * (self.wh_p / self.dt)) / (self.wh_c),
+            self.temp_wh[2:] == (self.temp_wh[1:self.horizon]*(self.wh_size - self.expected_draw)/self.wh_size + self.tap_temp*self.expected_draw/self.wh_size)
+                                + (((self.temp_in[2:self.h_plus] - self.temp_wh[1:self.horizon]) / (self.wh_r * self.dt))
+                                + self.wh_heat_on[1:] * (self.wh_p / self.dt)) / (self.wh_c),
+            # self.temp_wh[1:self.h_plus] == (cp.multiply(self.temp_wh[0:self.horizon], self.wh_size - self.draw_size[1:]) + self.tap_temp * (self.draw_size[1:])) / self.wh_size
+            #                                 + (((self.temp_in[1:self.h_plus] - self.temp_wh[0:self.horizon]) / (self.wh_r * self.dt))
+            #                                 + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
+
+
             self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
+            self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
 
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
-            self.temp_in[1:self.h_plus] <= self.temp_in_max,
-            self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
+
+
 
             self.hvac_cool_on <= 1,
             self.hvac_cool_on >= 0,
@@ -203,6 +228,11 @@ class MPCCalc:
             self.wh_heat_on >= 0,
             self.p_grid >= 0,
         ]
+
+        # for h in range(1, self.h_plus):
+        #     self.constraints += [self.temp_wh[h] == (self.temp_wh[h-1]*(self.wh_size - self.draw_size[h]) + self.tap_temp * self.draw_size[h]) / self.wh_size
+        #                                             + (self.temp_in[h] - self.temp_wh[h-1] / (self.wh_r * self.dt)
+        #                                             + self.wh_heat_on[h-1] * (self.wh_p / self.dt)) / self.wh_c]
 
         # set constraints on HVAC by season
         if max(self.oat_current) <= 26: # "winter"
@@ -273,8 +303,8 @@ class MPCCalc:
             self.p_grid == self.p_load # p_load = p_hvac + p_wh
         ]
         self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
-                    + self.discomfort * cp.norm(self.temp_wh - self.temp_wh_sp) # relevent without RL and to make baseline for RL run
-                    + self.disutility * cp.norm(self.p_load - self.p_load_baseline)
+                    # + self.discomfort * cp.norm(self.temp_wh - self.temp_wh_sp) # relevent without RL and to make baseline for RL run
+                    # + self.disutility * cp.norm(self.p_load - self.p_load_baseline)
                     ) # RL agent
 
         # HEMS agent runs twice:
@@ -325,8 +355,10 @@ class MPCCalc:
         while self.prob.status != "optimal" and n_iterations < 10:
             self.mpc_log.logger.error(f"Couldn't solve problem for {self.home['name']} of type {self.home['type']}: {self.prob.status}")
             self.temp_in_min -= 0.2
+            # self.temp_wh_max += 10
             self.temp_wh_min -= 0.2
             self.add_base_constraints()
+            # self.constraints += [self.wh_heat_on == 1, self.hvac_heat_on == 1]
             self.set_base_p_grid()
             self.solve_mpc()
             n_iterations +=1

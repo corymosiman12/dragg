@@ -16,6 +16,7 @@ homes_pv_battery = 0
   p_heat_dist = [2.0, 13.5]
   temp_sp_dist = [18, 22]
   temp_deadband_dist = [3, 5]
+  # temp_deadband_dist = [2, 4]
 
   [home.wh]
   r_dist = [18.7, 25.3]
@@ -23,10 +24,11 @@ homes_pv_battery = 0
   p_dist = [5, 8]
   sp_dist = [45.5, 48.5]
   deadband_dist = [4, 4]
+  # deadband_dist = [10,10]
   size_dist = [300, 300] # tank size (liters)
 
   [home.wh.waterdraws]
-  n_big_draw_dist = [0, 0]
+  n_big_draw_dist = [4, 6]
   n_small_draw_dist = [10, 20]
   big_draw_size_dist = [0, 0] # in liters
   small_draw_size_dist = [0.1, 0.5]
@@ -46,27 +48,28 @@ homes_pv_battery = 0
   [home.hems]
   # Refers to mpc parameters -- uniform across all homes
   prediction_horizon = [1] # in hours, where 0 is just the next timestep (no MPC)
-  discomfort = [5.5] # L2 norm penalization of deviations from setpoint
+  # discomfort = [5.5] # L2 norm penalization of deviations from setpoint
+  discomfort = [0.0]
   disutility = [0.0] # L2 norm penalization from anticipated energy use
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-01-08 00"
+  end_datetime = "2015-12-31 00"
   random_seed = 12
   load_zone = "LZ_HOUSTON"
   check_type = "all"
   run_rbo_mpc = false # runs homes with MPC (no reward price signal)
-  run_rl_agg = true # runs homes with MPC responding to RL aggregator
-  run_rl_simplified = false # runs linear model responding to RL aggregator
+  run_rl_agg = false # runs homes with MPC responding to RL aggregator
+  run_rl_simplified = true # runs linear model responding to RL aggregator
   # in rl_simplified the mpc disutility characterizes the response rate (~0.2 suggested)
 
 [rl]
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
     learning_rate = [0.001] # Suggested ~0.001
-    discount_factor = [0.2] # Suggested <0.5
+    discount_factor = [1.0] # Suggested <0.5
     batch_size = [32] # Suggested ~30
-    exploration_rate = [0.02] # in E-greedy is epsilon, in policy gradient is sigma
+    exploration_rate = [0.0625] # in E-greedy is epsilon, in policy gradient is sigma
 
   [rl.utility]
     # Refers to parameters that change how the electric utility uses the RL agent
@@ -75,3 +78,7 @@ homes_pv_battery = 0
     base_price = 0.10 # Base price for utility ($/kWh)
     action_space = [-5, 5] # Max/min price signal in ¢/kWh
     hourly_steps = 4 # Subhourly steps for the utility to send price signal
+
+  [rl.simplified]
+    response_rate = 0.3
+    offset = 0.2
