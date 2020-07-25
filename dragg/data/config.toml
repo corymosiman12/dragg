@@ -5,6 +5,7 @@ total_number_homes = 20
 homes_battery = 0
 homes_pv = 0
 homes_pv_battery = 0
+overwrite_existing = false # Creates new config file of all homes using home info given below.
 
 [home]
 # Refers to the construction of home and home subsystems.
@@ -48,29 +49,30 @@ homes_pv_battery = 0
   [home.hems]
   # Refers to mpc parameters -- uniform across all homes
   prediction_horizon = [1] # in hours, where 0 is just the next timestep (no MPC)
-  # discomfort = [5.5] # L2 norm penalization of deviations from setpoint
-  discomfort = [0.0]
+  discomfort = [0.03]
   disutility = [0.0] # L2 norm penalization from anticipated energy use
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-01-15 00"
+  end_datetime = "2015-01-03 00"
   random_seed = 12
   load_zone = "LZ_HOUSTON"
   check_type = "all"
   run_rbo_mpc = false # runs homes with MPC (no reward price signal)
-  run_rl_agg = false # runs homes with MPC responding to RL aggregator
-  run_rl_simplified = true # runs linear model responding to RL aggregator
+  run_rl_agg = true # runs homes with MPC responding to RL aggregator
+  run_rl_simplified = false # runs linear model responding to RL aggregator
   # in rl_simplified the mpc disutility characterizes the response rate (~0.2 suggested)
 
 [rl]
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
-    learning_rate = [0.0625] # Suggested ~0.001
+    learning_rate = [0.001] # Suggested ~0.001
     discount_factor = [1.0] # Suggested <0.5
     batch_size = [32] # Suggested ~30
-    exploration_rate = [0.05] # in E-greedy is epsilon, in policy gradient is sigma
-    twin_q = true # will default to overwriting the old run file, use named runs to solve this
+    exploration_rate = [0.06] # in E-greedy is epsilon, in policy gradient is sigma
+    # exploration_decay_rate = 1000 # number of timesteps to approx reach target exploration (exponential)
+    # exploration_decay_frac = 0.025 # reduction of exploration by percentage
+    twin_q = false # will default to overwriting the old run file, use named runs to solve this
 
   [rl.utility]
     # Refers to parameters that change how the electric utility uses the RL agent
@@ -78,8 +80,9 @@ homes_pv_battery = 0
     rl_agg_forecast_horizon = 1 # Determines the number of hours the utility agent forecasts
     base_price = 0.10 # Base price for utility ($/kWh)
     action_space = [-5, 5] # Max/min price signal in ¢/kWh
+    action_scale = 100
     hourly_steps = 4 # Subhourly steps for the utility to send price signal
 
   [rl.simplified]
-    response_rate = 0.3
+    response_rate = 0.1
     offset = 0.2
