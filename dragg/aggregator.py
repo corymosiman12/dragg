@@ -2,7 +2,6 @@ import os
 import sys
 import threading
 from queue import Queue
-from copy import deepcopy
 
 import pandas as pd
 from datetime import datetime, timedelta
@@ -17,8 +16,6 @@ import cvxpy as cp
 import dccp
 import itertools as it
 import redis
-from sklearn.linear_model import Ridge
-import scipy.stats
 
 # Local
 from dragg.mpc_calc import MPCCalc
@@ -105,7 +102,6 @@ class Aggregator:
         self.max_agg_load = None  # Set after baseline run, the maximum aggregate load over all the timesteps
         self.max_agg_load_list = []
 
-        self.converged = False
         self.num_threads = 1
         self.start_dt = None  # Set by _set_dt
         self.end_dt = None  # Set by _set_dt
@@ -627,7 +623,7 @@ class Aggregator:
             self.redis_client.conn.hset("current_values", "reward_price", self.reward_price.tolist())
 
         if self.case == "rl_agg" or self.case == "simplified":
-            self.reward_price = np.zeros(self.RL_AGG_HORIZON * self.dt)
+            self.reward_price = np.zeros(self.util['rl_agg_horizon'] * self.dt)
             for val in self.reward_price.tolist():
                 self.redis_client.conn.rpush("reward_price", val)
 
@@ -691,11 +687,11 @@ class Aggregator:
 
         forecast_horizon = self.config['rl']['utility']['rl_agg_forecast_horizon']
         if forecast_horizon < 1:
-            forecast = self.agg_load * np.ones(self.HORIZON)
+            forecast = self.agg_load * np.ones(self.mpc['horizon'])
         else:
             forecast = []
             for t in range(forecast_horizon):
-                worker = MPCCalc(self.queue, self.HORIZON, self.dt, self.MPC_DISCOMFORT, self.MPC_DISUTILITY, self.case, self.redis_client, self.forecast_log)
+                worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.mpc['discomfort'], self.mpc['disutility'], self.case, self.redis_client, self.forecast_log)
                 forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
         return forecast # returns all forecast values in the horizon
 
@@ -722,7 +718,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self):
-        worker = MPCCalc(self.queue, self.HORIZON, self.dt, self.MPC_DISCOMFORT, self.MPC_DISUTILITY, self.case, self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.mpc['discomfort'], self.mpc['disutility'], self.case, self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
@@ -749,7 +745,7 @@ class Aggregator:
         self.baseline_agg_load_list.append(self.agg_load)
 
     def run_baseline(self):
-        self.agg_log.logger.info(f"Performing baseline run for horizon: {self.HORIZON}")
+        self.agg_log.logger.info(f"Performing baseline run for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
         for t in range(self.num_timesteps):
             for home in self.all_homes:
@@ -763,7 +759,7 @@ class Aggregator:
         # Write
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {self.HORIZON}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+        self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
         self.check_baseline_vals()
 
     def summarize_baseline(self):
@@ -780,7 +776,7 @@ class Aggregator:
             "start_datetime": self.start_dt.strftime('%Y-%m-%d %H'),
             "end_datetime": self.end_dt.strftime('%Y-%m-%d %H'),
             "solve_time": self.t_diff.total_seconds(),
-            "horizon": self.HORIZON,
+            "horizon": self.mpc['horizon'],
             "num_homes": self.config['community']['total_number_homes'],
             "p_max_aggregate": self.max_agg_load,
             "p_grid_aggregate": self.baseline_agg_load_list,
@@ -799,7 +795,7 @@ class Aggregator:
         if not os.path.isdir(date_output):
             os.makedirs(date_output)
 
-        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.HORIZON}-interval_{self.dt_interval}")
+        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.mpc['horizon']}-interval_{self.dt_interval}")
         if not os.path.isdir(mpc_output):
             os.makedirs(mpc_output)
 
@@ -808,16 +804,16 @@ class Aggregator:
             os.makedirs(agg_output)
 
         if self.case == "baseline":
-            file_name = f"{self.case}_discomf-{self.MPC_DISCOMFORT}-results.json"
+            file_name = f"{self.case}_discomf-{self.mpc['discomfort']}-results.json"
 
         elif self.case == "agg_mpc":
             file_name = "results.json"
-            f2 = os.path.join(agg_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.HORIZON}-iter-results.json")
+            f2 = os.path.join(agg_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.mpc['horizon']}-iter-results.json")
             with open(f2, 'w+') as f:
                 json.dump(self.agg_mpc_data, f, indent=4)
 
         else: # self.case == "rl_agg" or self.case == "simplified"
-            run_name = f"agg_horizon_{self.RL_AGG_HORIZON}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.BATCH_SIZE}_disutil-{self.MPC_DISUTILITY}_discomf-{self.MPC_DISCOMFORT}"
+            run_name = f"agg_horizon_{self.util['rl_agg_horizon']}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.rl_params['batch_size']}_disutil-{self.mpc['disutility']}_discomf-{self.mpc['discomfort']}"
             run_dir = os.path.join(agg_output, run_name)
             if not os.path.isdir(run_dir):
                 os.makedirs(run_dir)
@@ -846,7 +842,7 @@ class Aggregator:
         return temp
 
     def run_agg_mpc(self):
-        self.agg_log.logger.info(f"Performing AGG MPC run for horizon: {self.HORIZON}")
+        self.agg_log.logger.info(f"Performing AGG MPC run for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
         self.agg_mpc_data = self.set_agg_mpc_initial_vals()
         for t in range(self.num_timesteps):
@@ -875,12 +871,12 @@ class Aggregator:
         # Write
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {self.HORIZON}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+        self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
         self.check_baseline_vals()
 
     def run_rl_agg(self):
 
-        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.RL_AGG_HORIZON}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.HORIZON}")
+        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
 
         self.actionspace = self.config['rl']['utility']['action_space']
@@ -911,11 +907,11 @@ class Aggregator:
             self.collect_data()
 
             self.reward_price[:-1] = self.reward_price[1:]
-            self.reward_price[-1] = horizon_agent.train(self)
+            self.reward_price[-1] = horizon_agent.train(self) / self.config['rl']['utility']['action_scale']
 
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {self.HORIZON}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+        self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
     def test_response(self):
         """ Tests the RL agent using a linear model of the community's response
@@ -938,8 +934,8 @@ class Aggregator:
         self.timestep += 1
 
     def run_rl_agg_simplified(self):
-        self.MPC_DISCOMFORT = self.config['home']['hems']['discomfort'][0]
-        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.RL_AGG_HORIZON}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with simplified community model.")
+        self.mpc['discomfort'] = self.config['home']['hems']['discomfort'][0]
+        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with simplified community model.")
         self.start_time = datetime.now()
 
         self.actionspace = self.config['rl']['utility']['action_space']
@@ -985,10 +981,10 @@ class Aggregator:
         self.agg_log.logger.info("Made it to Aggregator Run")
         self.get_homes()
 
-        mpc_parameters = {"mpc_horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']],
-                               "mpc_discomfort": [float(i) for i in self.config['home']['hems']['discomfort']],
-                               "mpc_disutility": [float(i) for i in self.config['home']['hems']['disutility']]
-                               }
+        mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']],
+                          "discomfort": [float(i) for i in self.config['home']['hems']['discomfort']],
+                          "disutility": [float(i) for i in self.config['home']['hems']['disutility']]
+                          }
         keys, values = zip(*mpc_parameters.items())
         mpc_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
 
@@ -997,10 +993,6 @@ class Aggregator:
             # Run baseline with 1 hour horizon for non-MPC HEMS
             self.case = "baseline" # no aggregator
             for i in mpc_permutations:
-                self.HORIZON = i['mpc_horizon']
-                self.MPC_DISCOMFORT = i['mpc_discomfort']
-                self.MPC_DISUTILITY = i['mpc_disutility']
-
                 self.flush_redis()
                 self.redis_set_initial_values()
                 self.reset_baseline_data()
@@ -1011,7 +1003,7 @@ class Aggregator:
         if self.config['simulation']['run_rl_agg']:
             self.case = "rl_agg"
 
-            util_parameters = {"rl_agg_horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
+            util_parameters = {"horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
             keys, values = zip(*util_parameters.items())
             util_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
 
@@ -1024,15 +1016,10 @@ class Aggregator:
             keys, values = zip(*rl_parameters.items())
             rl_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
 
-            for i in mpc_permutations:
-                self.HORIZON = i['mpc_horizon']
-                self.MPC_DISCOMFORT = i['mpc_discomfort']
-                self.MPC_DISUTILITY = i['mpc_disutility']
-                for j in util_permutations:
-                    self.RL_AGG_HORIZON = j['rl_agg_horizon']
-                    for k in rl_permutations:
-                        self.rl_params = k
-
+            for self.mpc in mpc_permutations:
+                print(self.mpc)
+                for self.util in util_permutations:
+                    for self.rl_params in rl_permutations:
                         self.flush_redis()
                         self.redis_set_initial_values()
                         self.reset_baseline_data()
@@ -1056,107 +1043,12 @@ class Aggregator:
             keys, values = zip(*rl_parameters.items())
             rl_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
 
-            for i in mpc_permutations:
-                self.HORIZON = i['mpc_horizon']
-                self.MPC_DISCOMFORT = i['mpc_discomfort']
-                self.MPC_DISUTILITY = i['mpc_disutility']
-                for j in util_permutations:
-                    self.RL_AGG_HORIZON = j['rl_agg_horizon']
-                    for k in rl_permutations:
-                        self.rl_params = k
-
+            for self.mpc in mpc_permutations:
+                for self.util in util_permutations:
+                    for self.rl_params in rl_permutations:
                         self.flush_redis()
                         self.redis_set_initial_values()
                         self.reset_baseline_data()
-                        self.run_rl_agg()
+                        self.run_rl_agg_simplified()
                         self.summarize_baseline()
                         self.write_outputs()
-
-        # if self.config["run_agg_mpc"]:
-        #     self.case = "agg_mpc"
-        #     self.HORIZON = self.config["agg_mpc_horizon"]
-        #     for threshold in self.config["max_load_threshold"]:
-        #         self.max_load_threshold = threshold
-        #         self.flush_redis()
-        #         self.redis_set_initial_values()
-        #         self.reset_baseline_data()
-        #         self.run_agg_mpc(self.HORIZON)
-        #         self.summarize_baseline(self.HORIZON)
-        #         self.write_outputs(self.HORIZON)
-
-    ########## FUNCTION GRAVEYARD #############
-
-    def experience_replay(self):
-        num_memories = len(self.memory)
-        if num_memories > self.BATCH_SIZE: # experience replay
-            temp_theta = deepcopy(self.theta)
-            batch = random.sample(self.memory, self.BATCH_SIZE)
-            for experience in batch:
-                temp_theta = self.update_theta(temp_theta, experience)
-            if num_memories > self.memory_size:
-                self.memory.remove(self.memory[0]) # remove oldest memory
-        else:
-            temp_theta = self.theta
-        return temp_theta
-
-    def check_agg_mpc_data(self):
-        self.agg_load = 0
-        self.agg_cost = 0
-        for home in self.all_homes:
-            if self.check_type == 'all' or home["type"] == self.check_type:
-                vals = self.redis_client.conn.hgetall(home["name"])
-                self.agg_load += float(vals["p_grid_opt"])
-                self.agg_cost += float(vals["cost_opt"])
-        self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
-        self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
-        self.agg_log.logger.info(f"Max Threshold: {self.max_load_threshold:.20f}")
-        self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}")
-        if self.marginal_demand == 0:
-            self.converged = True
-
-    def update_agg_mpc_data(self):
-        self.agg_mpc_data[self.timestep]["reward_price"].append(self.reward_price)
-        self.agg_mpc_data[self.timestep]["agg_cost"].append(self.agg_cost)
-        self.agg_mpc_data[self.timestep]["agg_load"].append(self.agg_load)
-
-    def update_reward_price(self):
-        rp = self.reward_price + self.step_size_coeff * self.marginal_demand
-        return rp
-
-    def _get_egreedy_action(self, state): # action is the change in RP from the average RP in the last h timesteps
-        if self.RL_AGG_HORIZON > 1:
-            avg_rp = np.sum(self.reward_price[1:]) / (self.RL_AGG_HORIZON - 1)
-        else:
-            avg_rp = self.reward_price[0]
-        # update epsilon
-        # if ((self.timestep+(48*self.dt+1)) % (48*self.dt)) == 0: # every other day
-        #     self.rl_params['epsilon'] = self.rl_params['epsilon']/2 # decrease exploration rate
-        if np.random.uniform(0,1) >= self.rl_params['epsilon']: # the greedy action
-            u_k = self.next_greedy_action
-            self.is_greedy = True
-            self.agg_log.logger.info("Selecting greedy action.")
-        else: # exploration
-            u_k = random.uniform(self.actionspace[0], self.actionspace[1])
-            self.agg_log.logger.info("Selecting non-greedy action.")
-            self.is_greedy = False
-
-        action = u_k
-        return action
-
-    def _q(self, state, action):
-        return self.theta @ self._state_action_basis(state, action)
-
-    def _get_greedy_action(self, state):
-        self.q_lookup = np.arange(self.actionspace[0], self.actionspace[1]+0.009, 1) # to make actionspace inclusive
-        self.nActions = len(self.q_lookup)
-        self.q_lookup = np.column_stack((self.q_lookup, self.q_lookup))
-        for i in range(len(self.q_lookup)):
-            self.q_lookup[i,1] = self._q(state, self.q_lookup[i,0])
-
-        # self.q_tables.append(self.q_lookup.tolist())
-
-        index = np.argmax(self.q_lookup[:,1])
-        u_k_opt = self.q_lookup[index,0]
-        q_max = self.q_lookup[index,1]
-
-        return u_k_opt
