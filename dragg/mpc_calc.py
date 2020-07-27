@@ -3,6 +3,7 @@ import numpy as np
 import cvxpy as cp
 from redis import StrictRedis
 import redis
+import scipy.stats
 
 from dragg.redis_client import RedisClient
 
@@ -10,7 +11,6 @@ from dragg.redis_client import RedisClient
 class MPCCalc:
     def __init__(self, q, h, dt, discomfort, disutility, case, redis_client, mpc_log):
         """
-
         :param q: queue.Queue
         :param h: int, prediction horizon
         :param dt: int, number of timesteps per hour
@@ -244,14 +244,16 @@ class MPCCalc:
         if self.mode == "baseline" or self.mode == "forecast":
             self.constraints += [self.p_load_baseline == self.p_load] # null difference between optimal and forecast
             bp = np.array(self.base_price[:self.horizon])
-            self.total_price = cp.Constant(bp)
+            self.total_price_values = bp
+            self.total_price = cp.Constant(self.total_price_values)
             # self.discomfort = self.discomfort # hard constraints on temp when discomfort is 0 ( @kyri )
             self.discomfort = self._discomfort
             self.disutility = 0.0 # penalizes shift from forecasted baseline
         else: # if self.mode == "run"
             self.baseline_p_load_opt = 0 # change for disutility factor
             self.constraints += [self.p_load_baseline == self.baseline_p_load_opt]
-            self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
+            self.total_price_values = np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon]
+            self.total_price = cp.Constant(self.total_price_values)
             # if self.case == "rl_agg":
             #     # self.discomfort = self._discomfort
             #     self.discomfort = 0 # hard constraints on temp when discomfort is 0 ( @kyri ) # uncomment this when responding to an RP signal
@@ -262,6 +264,20 @@ class MPCCalc:
             self.discomfort = self._discomfort
             self.disutility = 0
 
+        self.probabilities = self.calc_probabilities()
+
+    def calc_probabilities(self):
+        prob = np.ones(self.horizon)
+        diff_v = 2*0.012 #
+        for i in range(len(self.total_price_values)):
+            prob_i_is_min = 1
+            for j in range(len(self.total_price_values)):
+                if i != j:
+                    # probability that total_price[i] < total_price[j]
+                    diff_e = (self.total_price_values[i] - self.total_price_values[j]) # difference of expected value
+                    prob[i] = prob[i] * (scipy.stats.norm.cdf(0, loc=diff_e, scale=diff_v))
+            prob[i] = 1 - prob[i]
+        return prob
 
     def add_battery_constraints(self):
         self.charge_mag = cp.Variable()
@@ -302,10 +318,11 @@ class MPCCalc:
             # Set grid load
             self.p_grid == self.p_load # p_load = p_hvac + p_wh
         ]
-        self.obj = cp.Minimize(cp.sum(self.total_price * self.p_grid[0:self.horizon] / self.dt)
+        self.obj = cp.Minimize(cp.sum(cp.multiply(cp.multiply(self.probabilities, -0.01*np.ones(self.horizon)) + self.total_price, self.p_grid[0:self.horizon] / self.dt))
                     # + self.discomfort * cp.norm(self.temp_wh - self.temp_wh_sp) # relevent without RL and to make baseline for RL run
                     # + self.disutility * cp.norm(self.p_load - self.p_load_baseline)
                     ) # RL agent
+        # self.obj = cp.Maximize(cp.sum(self.probabilities * self.p_grid[0:self.horizon] / self.dt))
 
         # HEMS agent runs twice:
         # run 1: utilizes the discomfort factor that minimizes difference of temperature and setpoint Values
@@ -503,6 +520,7 @@ class MPCCalc:
 
             # self.get_baseline()
             self.cast_redis_curr_rps()
+
             self.mode = "run" # return to mode "run"
 
             self.type = self.home["type"]
