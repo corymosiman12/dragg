@@ -754,7 +754,6 @@ class Aggregator:
             self.redis_set_current_values()
             self.run_iteration()
             self.collect_data()
-            self.timestep += 1
 
         # Write
         self.end_time = datetime.now()
@@ -804,7 +803,8 @@ class Aggregator:
             os.makedirs(agg_output)
 
         if self.case == "baseline":
-            file_name = f"{self.case}_discomf-{self.mpc['discomfort']}-results.json"
+            run_name = f"{self.case}_discomf-{self.mpc['discomfort']}-results.json"
+            file = os.path.join(agg_output, run_name)
 
         elif self.case == "agg_mpc":
             file_name = "results.json"
@@ -817,8 +817,13 @@ class Aggregator:
             run_dir = os.path.join(agg_output, run_name)
             if not os.path.isdir(run_dir):
                 os.makedirs(run_dir)
+            q_data = {}
             for agent in self.rl_agents:
-                agent.write_rl_data(run_dir)
+                q_data[agent.name] = agent.rl_data
+            q_file = os.path.join(agg_output, run_name, "q-results.json")
+            with open(q_file, 'w+') as f:
+                json.dump(q_data, f, indent=4)
+
             file = os.path.join(agg_output, run_name, "results.json")
 
         with open(file, 'w+') as f:
@@ -876,7 +881,7 @@ class Aggregator:
 
     def run_rl_agg(self):
 
-        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.mpc['horizon']}")
+        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
 
         self.actionspace = self.config['rl']['utility']['action_space']
@@ -992,7 +997,7 @@ class Aggregator:
             # Run baseline MPC with N hour horizon, no aggregator
             # Run baseline with 1 hour horizon for non-MPC HEMS
             self.case = "baseline" # no aggregator
-            for i in mpc_permutations:
+            for self.mpc in mpc_permutations:
                 self.flush_redis()
                 self.redis_set_initial_values()
                 self.reset_baseline_data()
@@ -1003,7 +1008,7 @@ class Aggregator:
         if self.config['simulation']['run_rl_agg']:
             self.case = "rl_agg"
 
-            util_parameters = {"horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
+            util_parameters = {"rl_agg_horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
             keys, values = zip(*util_parameters.items())
             util_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
 
