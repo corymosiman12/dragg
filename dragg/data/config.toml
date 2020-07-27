@@ -49,19 +49,19 @@ overwrite_existing = false # Creates new config file of all homes using home inf
   [home.hems]
   # Refers to mpc parameters -- uniform across all homes
   prediction_horizon = [1] # in hours, where 0 is just the next timestep (no MPC)
-  discomfort = [0.03]
+  discomfort = [0.014]
   disutility = [0.0] # L2 norm penalization from anticipated energy use
   price_uncertainty = 0.3
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-01-15 00"
+  end_datetime = "2015-01-02 00"
   random_seed = 12
   load_zone = "LZ_HOUSTON"
   check_type = "all"
   run_rbo_mpc = false # runs homes with MPC (no reward price signal)
-  run_rl_agg = false # runs homes with MPC responding to RL aggregator
-  run_rl_simplified = true # runs linear model responding to RL aggregator
+  run_rl_agg = true # runs homes with MPC responding to RL aggregator
+  run_rl_simplified = false # runs linear model responding to RL aggregator
   # in rl_simplified the mpc disutility characterizes the response rate (~0.2 suggested)
 
 [rl]
