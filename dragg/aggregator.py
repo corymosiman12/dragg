@@ -610,7 +610,7 @@ class Aggregator:
         Set the initial timestep, iteration, reward price, and horizon to redis
         :return:
         """
-        self.timestep = 0
+        self.timestep = self.config['simulation']['start_timestep']
 
         self.e_batt_init = self.config['home']['battery']['capacity'] * self.config['home']['battery']['cap_bounds'][0]
         self.redis_client.conn.hset("initial_values", "e_batt_init", self.e_batt_init)
@@ -691,7 +691,7 @@ class Aggregator:
         else:
             forecast = []
             for t in range(forecast_horizon):
-                worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.mpc['discomfort'], self.mpc['disutility'], self.case, self.redis_client, self.forecast_log)
+                worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.redis_client, self.forecast_log)
                 forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
         return forecast # returns all forecast values in the horizon
 
@@ -701,7 +701,7 @@ class Aggregator:
         :return: float
         @kyri
         """
-        sp = self.config['community']['total_number_homes']*2.5 # increased for homes with plug load
+        sp = self.config['community']['total_number_homes']*self.config['community']['house_p_avg'] # increased for homes with plug load
         return sp
 
     def check_baseline_vals(self):
@@ -718,7 +718,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self):
-        worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.mpc['discomfort'], self.mpc['disutility'], self.case, self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
