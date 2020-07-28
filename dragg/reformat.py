@@ -46,9 +46,9 @@ class Reformat:
         self.fig_list = None
 
     def main(self, add_outputs={}, agg_params={}, mpc_params={}, include_runs={}, date_ranges={}):
-        if len(self.parametrics) < 1:
-            self.ref_log.logger.error("No parametric files found for comparison.")
-            sys.exit(1)
+        # if len(self.parametrics) < 1:
+        #     self.ref_log.logger.error("No parametric files found for comparison.")
+        #     sys.exit(1)
 
         if self.config['simulation']['run_rl_agg']:
             figs = [self.rl2baseline(),
@@ -57,7 +57,7 @@ class Reformat:
             # self.rl_qvals()
             # self.plot_mu()
 
-        if self.config['simulation']['run_rl_simplified']:
+        else:
             figs = [self.rl_simplified(),
             # self.rl_thetas()
             # self.rl_qvals()
@@ -414,6 +414,7 @@ class Reformat:
 
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - {file['name']}", visible='legendonly'))
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - {file['name']}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"]), np.arange(file['parent']['ts']) + 1), name=f"Cumulative Agg Load - {file['name']}", visible='legendonly'))
         return fig
 
     def plot_parametric(self, fig):
@@ -505,10 +506,20 @@ class Reformat:
 
         return fig
 
+    def just_the_baseline(self):
+        if len(self.baselines) == 0:
+            self.ref_log.logger.error("No baseline run files found for analysis.")
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig = self.plot_baseline(fig)
+        fig.update_layout(title_text="Baseline Summary")
+        fig.show()
+        return fig
+
     def rl2baseline(self):
         if len(self.parametrics) == 0:
-            self.ref_log.logger.error("No parameterized RL aggregator runs found for comparison to baseline.")
-            return
+            self.ref_log.logger.warning("No parameterized RL aggregator runs found for comparison to baseline.")
+            fig = self.just_the_baseline()
+            return fig
 
         fig = make_subplots(specs=[[{"secondary_y": True}]])
 
