@@ -21,7 +21,7 @@ import redis
 from dragg.mpc_calc import MPCCalc
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
-from dragg.my_agents import HorizonAgent
+from dragg.my_agents import HorizonAgent, NextTSAgent
 
 class Aggregator:
     def __init__(self, run_name=None):
@@ -145,7 +145,27 @@ class Aggregator:
                         missing_keys = req_keys - given_keys
                         self.agg_logger.error(f"Parameters for {subsystem}: {missing_keys} must be specified in the config file.")
                         sys.exit(1)
-            return data
+        if 'run_rl_agg' in data['simulation'] or 'run_rl_simplified' in data['simulation']:
+            self._check_rl_config(data)
+        return data
+
+    def _check_rl_config(self, data):
+        if 'run_rl_agg' in data['simulation']:
+            req_keys = {"parameters": {"learning_rate", "discount_factor", "batch_size", "exploration_rate", "twin_q"},
+                        "utility": {"rl_agg_action_horizon", "rl_agg_forecast_horizon", "base_price", "action_space", "action_scale", "hourly_steps"},
+            }
+        elif 'run_rl_simplified' in data['simulation']:
+            req_keys = {"simplified": {"response_rate", "offset"}}
+        if not 'rl' in data:
+            self.agg_log.logger.error(f"{missing_keys} must be configured in the config file.")
+            sys.exit(1)
+        else:
+            for subsystem in req_keys.keys():
+                rkeys = set(req_keys[subsystem])
+                gkeys = set(data['rl'][subsystem])
+                if not rkeys.issubset(gkeys):
+                    missing_keys = rkeys
+        return
 
     def _set_dt(self):
         """
@@ -278,6 +298,14 @@ class Aggregator:
         self.config['simulation']['random_seed'] = new_seed
 
     def get_homes(self):
+        if self.config['community']['total_number_homes'] < 1 or not isinstance(self.config['community']['total_number_homes'], int):
+            self.agg_log.logger.error("Must specify an integer total number of homes greater than 0.")
+            sys.exit(1)
+
+        if self.config['community']['total_number_homes'] < (self.config['community']['homes_pv'] + self.config['community']['homes_battery'] + self.config['community']['homes_pv_battery']):
+            self.agg_log.logger.error("Total number of homes must meet or exceed the number of homes with specified system type.")
+            sys.exit(1)
+
         homes_file = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
         if not self.config['community']['overwrite_existing'] and os.path.isfile(homes_file):
             with open(homes_file) as f:
@@ -610,7 +638,7 @@ class Aggregator:
         Set the initial timestep, iteration, reward price, and horizon to redis
         :return:
         """
-        self.timestep = self.config['simulation']['start_timestep']
+        self.timestep = 0
 
         self.e_batt_init = self.config['home']['battery']['capacity'] * self.config['home']['battery']['cap_bounds'][0]
         self.redis_client.conn.hset("initial_values", "e_batt_init", self.e_batt_init)
@@ -662,10 +690,11 @@ class Aggregator:
         if self.case == "agg_mpc":
             self.redis_client.conn.hset("current_values", "iteration", self.iteration)
         elif self.case == "rl_agg" or self.case == "simplified":
-            self.all_sps[self.timestep] = self.agg_setpoint
-            self.all_rps[self.timestep] = self.reward_price[0]
-            self.redis_client.conn.lpop("reward_price")
-            self.redis_client.conn.rpush("reward_price", self.reward_price[-1])
+            self.all_sps[self.timestep-1] = self.agg_setpoint
+            self.all_rps[self.timestep-1] = self.reward_price[0]
+            for i in range(len(self.reward_price)):
+                self.redis_client.conn.lpop("reward_price")
+                self.redis_client.conn.rpush("reward_price", self.reward_price[i])
 
     def rl_update_reward_price(self):
         """
@@ -691,7 +720,7 @@ class Aggregator:
         else:
             forecast = []
             for t in range(forecast_horizon):
-                worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.redis_client, self.forecast_log)
+                worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client, self.forecast_log)
                 forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
         return forecast # returns all forecast values in the horizon
 
@@ -701,7 +730,13 @@ class Aggregator:
         :return: float
         @kyri
         """
-        sp = self.config['community']['total_number_homes']*self.config['community']['house_p_avg'] # increased for homes with plug load
+        # max = 1.5*self.config['community']['total_number_homes']*self.config['community']['house_p_avg'] # increased for homes with plug load
+        # min = 0.5*self.config['community']['total_number_homes']*self.config['community']['house_p_avg']
+        # if (self.timestep % 96)/96 > 0.5:
+        #     return max
+        # else:
+        #     return min
+        sp = self.config['community']['total_number_homes']*self.config['community']['house_p_avg']
         return sp
 
     def check_baseline_vals(self):
@@ -718,7 +753,7 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def run_iteration(self):
-        worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client, self.mpc_log)
         worker.run()
 
         # Block in Queue until all tasks are done
@@ -733,14 +768,15 @@ class Aggregator:
     def collect_data(self):
         agg_load = 0
         agg_cost = 0
+        self.house_load = []
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
                     self.baseline_data[home["name"]][k].append(float(v))
-                agg_load += float(vals["p_grid_opt"])
+                self.house_load.append(float(vals["p_grid_opt"]))
                 agg_cost += float(vals["cost_opt"])
-        self.agg_load = agg_load
+        self.agg_load = np.sum(self.house_load)
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
 
@@ -803,7 +839,7 @@ class Aggregator:
             os.makedirs(agg_output)
 
         if self.case == "baseline":
-            run_name = f"{self.case}_discomf-{self.mpc['discomfort']}-results.json"
+            run_name = f"{self.case}_version-{self.config['rl']['version']}-results.json"
             file = os.path.join(agg_output, run_name)
 
         elif self.case == "agg_mpc":
@@ -813,7 +849,7 @@ class Aggregator:
                 json.dump(self.agg_mpc_data, f, indent=4)
 
         else: # self.case == "rl_agg" or self.case == "simplified"
-            run_name = f"agg_horizon_{self.util['rl_agg_horizon']}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.rl_params['batch_size']}_disutil-{self.mpc['disutility']}_discomf-{self.mpc['discomfort']}"
+            run_name = f"agg_horizon_{self.util['rl_agg_horizon']}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.rl_params['batch_size']}_version-{self.version}"
             run_dir = os.path.join(agg_output, run_name)
             if not os.path.isdir(run_dir):
                 os.makedirs(run_dir)
@@ -893,17 +929,18 @@ class Aggregator:
         self.agg_load = self.forecast_load[0] # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
 
-        horizon_agent = HorizonAgent(self.rl_params, self.rlagent_log)
-        # next_timestep_agent = NextTSAgent(self.rl_params, self.rlagent_log)
-        self.rl_agents = [horizon_agent]
+        self.num_agents = 2
+        self.rl_agents = [HorizonAgent(self.rl_params, self.rlagent_log, self.config)]
+        for i in range(self.num_agents-1):
+            self.rl_agents += [NextTSAgent(self.rl_params, self.rlagent_log, self.config, i)] # nexttsagent has a smaller actionspace and a correspondingly smaller exploration rate
 
+        self.redis_set_current_values()
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
             self.prev_forecast_load = self.forecast_load
-            self.forecast_load = [self.agg_load] # forecast current load at next timestep
+            # self.forecast_load = [self.agg_load] # forecast current load at next timestep
+            # self.forecast_load = self._gen_forecast()
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
-
-            self.redis_set_current_values() # broadcast rl price to community
 
             for home in self.all_homes: # uncomment these for the actual model response
                  if self.check_type == "all" or home["type"] == self.check_type:
@@ -911,8 +948,32 @@ class Aggregator:
             self.run_iteration() # community response to broadcasted price (done in a single iteration)
             self.collect_data()
 
-            self.reward_price[:-1] = self.reward_price[1:]
-            self.reward_price[-1] = horizon_agent.train(self) / self.config['rl']['utility']['action_scale']
+            # self.reward_price[:-1] = self.reward_price[1:]
+            # self.reward_price[-1] = horizon_agent.train(self) / self.config['rl']['utility']['action_scale']
+
+
+            # y = ts2_agent.train(self) / self.config['rl']['utility']['action_scale']
+            # self.reward_price[:-1] = self.reward_price[1:]
+            # self.reward_price[1] = y
+            # self.redis_set_current_values()
+            #
+            # self.forecast_load = self._gen_forecast()
+            # x = next_timestep_agent.train(self) / self.config['rl']['utility']['action_scale']
+            # self.reward_price[0] = np.clip(self.reward_price[0] + x, -0.05, 0.05) # change in forecasted value
+            # self.reward_price[2:] = 0
+
+            for i in range(len(self.rl_agents)-1):
+                self.reward_price[:-1] = self.reward_price[1:]
+                self.reward_price[-1] = 0
+                self.forecast_load = self._gen_forecast()
+                y = self.rl_agents[i].train(self) / self.config['rl']['utility']['action_scale']
+                self.reward_price[i] = np.clip(self.reward_price[i] + y, -0.05, 0.05)
+                self.redis_set_current_values()
+
+            self.forecast_load = self._gen_forecast()
+            self.reward_price[self.num_agents-1] = self.rl_agents[self.num_agents-1].train(self) / self.config['rl']['utility']['action_scale']
+
+            self.redis_set_current_values() # broadcast rl price to community
 
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
@@ -928,7 +989,7 @@ class Aggregator:
         if self.timestep == 0:
             self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
         # self.agg_load = self.agg_load - c * self.reward_price[0] * self.agg_load # can't go negative
-        self.agg_load = self.agg_load - c * self.reward_price[-1] * (self.agg_setpoint)
+        self.agg_load = self.agg_load - c * self.reward_price[-1] * (self.agg_setpoint - self.agg_load)
         # self.agg_load = self.agg_load + 0.1 * self.agg_load * np.random.randn()
         # self.agg_load = np.clip(self.agg_load, 0, 2*self.agg_setpoint)
         # if self.reward_price[0] >= -0.02 and self.reward_price[0] <= 0.02:
@@ -939,7 +1000,7 @@ class Aggregator:
         self.timestep += 1
 
     def run_rl_agg_simplified(self):
-        self.mpc['discomfort'] = self.config['home']['hems']['discomfort'][0]
+        # self.mpc['discomfort'] = self.config['home']['hems']['discomfort'][0]
         self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with simplified community model.")
         self.start_time = datetime.now()
 
@@ -987,8 +1048,8 @@ class Aggregator:
         self.get_homes()
 
         mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']],
-                          "discomfort": [float(i) for i in self.config['home']['hems']['discomfort']],
-                          "disutility": [float(i) for i in self.config['home']['hems']['disutility']]
+                          # "discomfort": [float(i) for i in self.config['home']['hems']['discomfort']],
+                          # "disutility": [float(i) for i in self.config['home']['hems']['disutility']]
                           }
         keys, values = zip(*mpc_parameters.items())
         mpc_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
@@ -1025,12 +1086,13 @@ class Aggregator:
                 print(self.mpc)
                 for self.util in util_permutations:
                     for self.rl_params in rl_permutations:
-                        self.flush_redis()
-                        self.redis_set_initial_values()
-                        self.reset_baseline_data()
-                        self.run_rl_agg()
-                        self.summarize_baseline()
-                        self.write_outputs()
+                        for self.version in self.config['rl']['version']:
+                            self.flush_redis()
+                            self.redis_set_initial_values()
+                            self.reset_baseline_data()
+                            self.run_rl_agg()
+                            self.summarize_baseline()
+                            self.write_outputs()
 
         if self.config['simulation']['run_rl_simplified']:
             self.case = "simplified"
