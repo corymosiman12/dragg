@@ -1,11 +1,12 @@
 [community]
 # Refers to the community makeup of house types.
 # Remaining homes will be considered of type "base" (hvac + wh)
-total_number_homes = 20
+total_number_homes = 10
 homes_battery = 0
 homes_pv = 0
 homes_pv_battery = 0
-overwrite_existing = false # Creates new config file of all homes using home info given below.
+overwrite_existing = true # Creates new config file of all homes using home info given below.
+house_p_avg = 3.0 # used to generate the setpoint
 
 [home]
 # Refers to the construction of home and home subsystems.
@@ -16,23 +17,25 @@ overwrite_existing = false # Creates new config file of all homes using home inf
   p_cool_dist = [2, 9]
   p_heat_dist = [2.0, 13.5]
   temp_sp_dist = [18, 22]
-  temp_deadband_dist = [3, 5]
-  # temp_deadband_dist = [2, 4]
+  temp_deadband_dist = [2, 3]
 
   [home.wh]
   r_dist = [18.7, 25.3]
   c_dist = [4.25, 5.75]
   p_dist = [5, 8]
   sp_dist = [45.5, 48.5]
-  deadband_dist = [4, 4]
-  # deadband_dist = [10,10]
+  deadband_dist = [3, 5]
   size_dist = [300, 300] # tank size (liters)
 
   [home.wh.waterdraws]
-  n_big_draw_dist = [4, 6]
-  n_small_draw_dist = [10, 20]
-  big_draw_size_dist = [0, 0] # in liters
-  small_draw_size_dist = [0.1, 0.5]
+  # n_big_draw_dist = [4, 6]
+  # n_small_draw_dist = [10, 20]
+  # big_draw_size_dist = [5, 10] # in liters
+  # small_draw_size_dist = [0.2, 0.5]
+  n_big_draw_dist = [0, 0]
+  n_small_draw_dist = [0, 0]
+  big_draw_size_dist = [5, 10] # in liters
+  small_draw_size_dist = [0.2, 0.5]
 
   [home.battery]
   max_rate = 5
@@ -49,13 +52,14 @@ overwrite_existing = false # Creates new config file of all homes using home inf
   [home.hems]
   # Refers to mpc parameters -- uniform across all homes
   prediction_horizon = [1] # in hours, where 0 is just the next timestep (no MPC)
-  discomfort = [0.014]
-  disutility = [0.0] # L2 norm penalization from anticipated energy use
+  # discomfort, depricated
+  # disutility, depricated
   price_uncertainty = 0.3
+  sub_subhourly_steps = 3 # number of steps between each RL broadcast reward price
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-01-02 00"
+  end_datetime = "2015-02-01 00"
   random_seed = 12
   load_zone = "LZ_HOUSTON"
   check_type = "all"
@@ -65,19 +69,21 @@ overwrite_existing = false # Creates new config file of all homes using home inf
   # in rl_simplified the mpc disutility characterizes the response rate (~0.2 suggested)
 
 [rl]
+    version = [1.0,2.1,2.2, 2.3, 2.4]
+
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
     learning_rate = [0.5] # Suggested ~0.001
     discount_factor = [1.0] # Suggested <0.5
     batch_size = [32] # Suggested ~30
-    exploration_rate = [0.006] # in E-greedy is epsilon, in policy gradient is sigma
+    exploration_rate = [0.01] # in E-greedy is epsilon, in policy gradient is sigma
     # exploration_decay_rate = 1000 # number of timesteps to approx reach target exploration (exponential)
     # exploration_decay_frac = 0.025 # reduction of exploration by percentage
     twin_q = false # will default to overwriting the old run file, use named runs to solve this
 
   [rl.utility]
     # Refers to parameters that change how the electric utility uses the RL agent
-    rl_agg_action_horizon = [4] # Determines the price for the nth hour, ahead of current time
+    rl_agg_action_horizon = [1] # Determines the price for the nth hour, ahead of current time
     rl_agg_forecast_horizon = 1 # Determines the number of hours the utility agent forecasts
     base_price = 0.10 # Base price for utility ($/kWh)
     action_space = [-0.05, 0.05] # Max/min price signal in ¢/kWh
@@ -85,5 +91,5 @@ overwrite_existing = false # Creates new config file of all homes using home inf
     hourly_steps = 4 # Subhourly steps for the utility to send price signal
 
   [rl.simplified]
-    response_rate = 0.1
+    response_rate = 0.3
     offset = 0.2
