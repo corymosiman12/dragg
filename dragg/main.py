@@ -19,5 +19,7 @@ if __name__ == "__main__":
     # include_runs = {}
     # add_outputs = {}
 
-    r = Reformat(mpc_params={"mpc_discomfort":[0.02]})
-    r.main()
+    r = Reformat(mpc_params={"mpc_discomfort":[]})
+    r.main() # use main to plot a suite of graphs
+    r.save_images() # saves the images
+    # r.rl2baseline() # specific plots available through named methods

@@ -13,12 +13,13 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 # from kaleido.scopes.plotly import PlotlyScope
 import plotly.io as pio
+import plotly
 
 from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, add_outputs={}, agg_params={}, mpc_params={}, date_ranges={}, include_runs={}, log=Logger("reformat")):
+    def __init__(self, add_outputs={}, agg_params={}, mpc_params={}, versions=set([1.0]), date_ranges={}, include_runs={}, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = 'data'
         self.outputs_dir = set()
@@ -35,6 +36,7 @@ class Reformat:
         self.config = self._import_config()
 
         self.include_runs = include_runs
+        self.versions = versions
 
         self.date_folders = self.set_date_folders(date_ranges)
         self.mpc_folders = self.set_mpc_folders(mpc_params)
@@ -44,38 +46,35 @@ class Reformat:
 
         np.random.seed(self.config['simulation']['random_seed'])
         self.fig_list = None
+        self.save_path = os.path.join('outputs', 'images', datetime.now().strftime("%m%dT%H%M%S"))
 
-    def main(self, add_outputs={}, agg_params={}, mpc_params={}, include_runs={}, date_ranges={}):
+    def main(self):
         # if len(self.parametrics) < 1:
         #     self.ref_log.logger.error("No parametric files found for comparison.")
         #     sys.exit(1)
 
-        if self.config['simulation']['run_rl_agg']:
-            figs = [self.rl2baseline(),
-                    self.rl2baseline_error()]
-            # self.rl_thetas()
-            # self.rl_qvals()
-            # self.plot_mu()
+        if self.config['simulation']['run_rl_agg'] or self.config['simulation']['run_rbo_mpc']:
+            # put a list of plotting functions here
+            self.figs = [self.rl2baseline(),
+                        self.rl2baseline_error(),
+                        self.plot_single_home(name="Crystal-RXXFA")]
 
         else:
-            figs = [self.rl_simplified(),
-            # self.rl_thetas()
-            # self.rl_qvals()
-            self.plot_mu()]
+            # put a list of plotting functions here
+            self.figs = [self.rl_simplified(),
+                        self.plot_mu(),
+                        self.all_rps()]
 
-        dir_name = os.path.join('outputs', 'images', datetime.now().strftime("%m%dT%H%M%S"))
-        if not os.path.isdir(dir_name):
-            os.makedirs(dir_name)
-        for fig in figs:
-            self.ref_log.logger.info(f"Saving images of outputs to timestamped folder at {dir_name}.")
+    def save_images(self):
+        if not os.path.isdir(self.save_path):
+            os.makedirs(self.save_path)
+        for fig in self.figs:
+            self.ref_log.logger.info(f"Saving images of outputs to timestamped folder at {self.save_path}.")
             try:
-                path = os.path.join(dir_name, f"{fig.layout.title.text}.png")
+                path = os.path.join(self.save_path, f"{fig.layout.title.text}.png")
                 pio.write_image(fig, path, width=1024, height=768)
             except:
                 self.ref_log.logger.error("Could not save plotly image(s) to outputs directory.")
-
-    def write_most_recent(self):
-        return
 
     def add_date_ranges(self, additional_params):
         start_dates = [datetime.strptime(self.config['simulation']['start_datetime'], '%Y-%m-%d %H')]
@@ -92,25 +91,25 @@ class Reformat:
         betas = set(self.config['rl']['parameters']['discount_factor'])
         batch_sizes = set(self.config['rl']['parameters']['batch_size'])
         rl_horizons = set(self.config['rl']['utility']['rl_agg_action_horizon'])
-        mpc_disutil = set(self.config['home']['hems']['disutility'])
-        mpc_discomf = set(self.config['home']['hems']['discomfort'])
-        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons, "mpc_disutility": mpc_disutil, "mpc_discomfort": mpc_discomf}
+        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons}
         for key in temp:
             if key in additional_params:
                 temp[key] |= set(additional_params[key])
         self.agg_params = temp
 
     def add_mpc_params(self, additional_params):
-        n_houses = self.config['community']['total_number_homes']
+        n_houses = self.config['community']['total_number_homes'][0]
         mpc_horizon = self.config['home']['hems']['prediction_horizon']
         dt = self.config['rl']['utility']['hourly_steps']
+        # version = self.config['rl']['version']
         check_type = self.config['simulation']['check_type']
-        mpc_discomf = set(self.config['home']['hems']['discomfort'])
-        temp = {"n_houses": set([n_houses]), "mpc_prediction_horizons": set(mpc_horizon), "mpc_hourly_steps": set([dt]), "check_type": set([check_type]), "mpc_discomfort": mpc_discomf}
+        temp = {"n_houses": set([n_houses]), "mpc_prediction_horizons": set(mpc_horizon), "mpc_hourly_steps": set([dt]), "check_type": set([check_type])}
         for key in temp:
             if key in additional_params:
                 temp[key] |= set(additional_params[key])
         self.mpc_params = temp
+
+        self.versions |= set(self.config['rl']['version'])
 
     def set_date_folders(self, additional_params):
         self.add_date_ranges(additional_params)
@@ -155,15 +154,15 @@ class Reformat:
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         for j in self.mpc_folders:
             path = j['path']
-            print(path)
             for i in permutations:
-                file = os.path.join(path, "baseline", f"baseline_discomf-{float(i['mpc_discomfort'])}-results.json")
-                self.ref_log.logger.debug(f"Looking for baseline file at {file}")
-                if os.path.isfile(file):
-                    name = f"Baseline - {j['name']}"
-                    set = {"results": file, "name": name, "parent": j}
-                    temp.append(set)
-                    self.ref_log.logger.info(f"Adding baseline file at {file}")
+                for k in self.versions:
+                    file = os.path.join(path, "baseline", f"baseline_version-{k}-results.json")
+                    self.ref_log.logger.debug(f"Looking for baseline file at {file}")
+                    if os.path.isfile(file):
+                        name = f"Baseline - {j['name']} - v{k}"
+                        set = {"results": file, "name": name, "parent": j}
+                        temp.append(set)
+                        self.ref_log.logger.info(f"Adding baseline file at {file}")
         return temp
 
     def set_rl_files(self, additional_params):
@@ -177,22 +176,24 @@ class Reformat:
             keys, values = zip(*all_params.items())
             permutations = [dict(zip(keys, v)) for v in it.product(*values)]
             for j in permutations:
-                if os.path.isdir(rl_agg_folder):
-                    rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_disutil-{float(j['mpc_disutility'])}_discomf-{float(j['mpc_discomfort'])}"
-                    rl_agg_file = os.path.join(rl_agg_folder, rl_agg_path, "results.json")
-                    self.ref_log.logger.debug(f"Looking for a RL aggregator file at {rl_agg_file}")
-                    if os.path.isfile(rl_agg_file):
-                        q_results = os.path.join(rl_agg_path, "q-results.json")
-                        q_file = os.path.join(rl_agg_folder, q_results)
-                        # name = i['name']
-                        name = ""
-                        for k,v in j.items():
-                            if len(all_params[k]) > 1:
-                                name += f"{k} = {v}, "
-                        # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}, discomf={j['mpc_discomfort']}"
-                        set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"]}
-                        temp.append(set)
-                        self.ref_log.logger.info(f"Adding an RL aggregator agent file at {rl_agg_file}")
+                for vers in self.versions:
+                    if os.path.isdir(rl_agg_folder):
+                        rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_version-{vers}"
+                        rl_agg_file = os.path.join(rl_agg_folder, rl_agg_path, "results.json")
+                        self.ref_log.logger.debug(f"Looking for a RL aggregator file at {rl_agg_file}")
+                        if os.path.isfile(rl_agg_file):
+                            q_results = os.path.join(rl_agg_path, "q-results.json")
+                            q_file = os.path.join(rl_agg_folder, q_results)
+                            # name = i['name']
+                            name = ""
+                            for k,v in j.items():
+                                if len(all_params[k]) > 1:
+                                    name += f"{k} = {v}, "
+                            # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}, discomf={j['mpc_discomfort']}"
+                            name += f"v{vers}"
+                            set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"]}
+                            temp.append(set)
+                            self.ref_log.logger.info(f"Adding an RL aggregator agent file at {rl_agg_file}")
 
         if len(temp) == 0:
             self.ref_log.logger.warning("Parameterized RL aggregator runs are empty for this config file.")
@@ -208,19 +209,20 @@ class Reformat:
             keys, values = zip(*all_params.items())
             permutations = [dict(zip(keys, v)) for v in it.product(*values)]
             for j in permutations:
-                if os.path.isdir(simplified_folder):
-                    simplified_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_disutil-{float(j['mpc_disutility'])}_discomf-{float(j['mpc_discomfort'])}"
-                    simplified_file = os.path.join(simplified_folder, simplified_path, "results.json")
-                    if os.path.isfile(simplified_file):
-                        q_file = os.path.join(simplified_folder, simplified_path, "horizon_agent-results.json")
-                        if os.path.isfile(q_file):
-                            # name = i['name']
-                            name = ""
-                            for k,v in j.items():
-                                if len(all_params[k]) > 1:
-                                    name += f"{k} = {v}, "
-                            set = {"results": simplified_file, "q_results": q_file, "name": name, "parent": i}
-                            temp.append(set)
+                for vers in self.versions:
+                    if os.path.isdir(simplified_folder):
+                        simplified_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_version-{vers}"
+                        simplified_file = os.path.join(simplified_folder, simplified_path, "results.json")
+                        if os.path.isfile(simplified_file):
+                            q_file = os.path.join(simplified_folder, simplified_path, "q-results.json")
+                            if os.path.isfile(q_file):
+                                # name = i['name']
+                                name = ""
+                                for k,v in j.items():
+                                    if len(all_params[k]) > 1:
+                                        name += f"{k} = {v}, "
+                                set = {"results": simplified_file, "q_results": q_file, "name": name, "parent": i}
+                                temp.append(set)
         return temp
 
     def set_parametric_files(self, additional_params):
@@ -263,24 +265,40 @@ class Reformat:
             data = toml.load(f)
         return data
 
-    def plot_environmental_values(self, fig, summary, file):
+    def plot_environmental_values(self, name, fig, summary, file, fname):
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=summary["OAT"][0:file["parent"]["ts"]], name=f"OAT (C)"))
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=summary["GHI"][0:file["parent"]["ts"]], name=f"GHI (W/m2)"))
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=summary["TOU"][0:file["parent"]["ts"]], name=f"TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
+        fig = self.plot_thermal_bounds(fig, file["parent"]["x_lims"], name, fname)
+        return fig
+
+    def plot_thermal_bounds(self, fig, x_lims, name, fname):
+        ah_file = os.path.join('outputs', f"all_homes-{self.config['community']['total_number_homes'][0]}-config.json")
+        with open(ah_file) as f:
+            data = json.load(f)
+
+        for dict in data:
+            if dict['name'] == name:
+                data = dict
+
+        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_min'] * np.ones(len(x_lims)), name=f"Tin_min(C) - {fname}", fill=None, mode='lines', line_color='indigo'))
+        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_max'] * np.ones(len(x_lims)), name=f"Tin_max - {fname}", fill='tonexty' , mode='lines', line_color='indigo'))
+
+        fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_min'] * np.ones(len(x_lims)), name=f"Twh_min(C) - {fname}", fill=None, mode='lines', line_color='red'))
+        fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_max'] * np.ones(len(x_lims)), name=f"Twh_max - {fname}", fill='tonexty' , mode='lines', line_color='red'))
         return fig
 
     def plot_base_home(self, name, fig, data, summary, fname, file):
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_in_opt"], name=f"Tin (C) - {fname}"))
         fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_wh_opt"], name=f"Twh (C) - {fname}"))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_in_sp"] * np.ones(file["parent"]["ts"]), name=f"Tin_sp (C) - {fname}"))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_wh_sp"] * np.ones(file["parent"]["ts"]), name=f"Twh_sp (C) - {fname}"))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_grid_opt"], name=f"Pgrid (kW) - {fname}", line_shape='hv'))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_load_opt"], name=f"Pload (kW) - {fname}", line_shape='hv'))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["hvac_cool_on_opt"], name=f"HVAC Cool Cmd - {fname}", line_shape='hv'), secondary_y=True)
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["hvac_heat_on_opt"], name=f"HVAC Heat Cmd - {fname}", line_shape='hv'), secondary_y=True)
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["wh_heat_on_opt"], name=f"WH Heat Cmd - {fname}", line_shape='hv'), secondary_y=True)
+
+        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_grid_opt"], name=f"Pgrid (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_load_opt"], name=f"Pload (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["hvac_cool_on_opt"], name=f"HVAC Cool Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["hvac_heat_on_opt"], name=f"HVAC Heat Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["wh_heat_on_opt"], name=f"WH Heat Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
         try: # only for aggregator files
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.add(summary["TOU"], summary["RP"]), name=f"Actual Price ($/kWh) - {fname}", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.add(summary["TOU"], summary["RP"]), name=f"Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
         except:
             pass
         return fig
@@ -322,7 +340,7 @@ class Reformat:
             horizon = summary["horizon"]
 
             if not flag:
-                fig = self.plot_environmental_values(fig, summary, file)
+                fig = self.plot_environmental_values(name, fig, summary, file, file["name"])
                 flag = True
 
             fig = self.plot_base_home(name, fig, data, summary, file["name"], file)
@@ -395,13 +413,17 @@ class Reformat:
             with open(file['results']) as f:
                 data = json.load(f)
 
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["RP"][16:], name=f"RP (Selected Action)", line_shape='hv'))
+
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["RP"][16:], name=f"RP (Selected Action)", line_shape='hv'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["RP"]), np.arange(file['parent']['ts']) + 1), name=f"Rolling Average Reward Price - {file['name']}"))
 
             with open(file['q_results']) as f:
                 data = json.load(f)
             data = data["horizon"]
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.multiply(self.config['rl']['utility']['action_scale'],data["mu"]), name=f"Mu (Assumed Best Action)"))
+            mu = np.multiply(self.config['rl']['utility']['action_scale'],data["mu"])
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=mu, name=f"Mu (Assumed Best Action)"))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=mu + self.config['rl']['parameters']['exploration_rate'], name=f"Mu +1 std dev", fill=None , mode='lines', line_color=plotly.colors.sequential.Blues[3]))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=mu - self.config['rl']['parameters']['exploration_rate'], name=f"Mu -1 std dev", fill='tonexty' , mode='lines', line_color=plotly.colors.sequential.Blues[3]))
         fig.update_layout(yaxis = {'exponentformat':'e'})
         fig.update_layout(title_text = "Reward Price Signal")
         fig.show()
@@ -412,7 +434,7 @@ class Reformat:
             with open(file["results"]) as f:
                 data = json.load(f)
 
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - {file['name']}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - {file['name']}"))
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - {file['name']}", visible='legendonly'))
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"]), np.arange(file['parent']['ts']) + 1), name=f"Cumulative Agg Load - {file['name']}", visible='legendonly'))
         return fig
@@ -430,42 +452,48 @@ class Reformat:
                 data = json.load(f)
 
             name = file["name"]
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["p_grid_aggregate"][1:], name=f"Agg Load - RL - {name}"))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.cumsum(data["Summary"]["p_grid_aggregate"][1:]), name=f"Cumulative Agg Load - RL - {name}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - RL - {name}"))
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - RL - {name}", visible='legendonly'))
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:file["parent"]["ts"]+1]),np.arange(file["parent"]["ts"])+1), name=f"Avg Load - RL - {name}", visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["RP"], name=f"RP - RL - {name}", line_shape='hv'), secondary_y=True)
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["RP"])[:file["parent"]["ts"]], np.arange(file["parent"]["ts"]) + 1), name=f"Average RP", visible='legendonly'), secondary_y=True)
-            self.plot_mu()
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["RP"], name=f"RP - RL - {name}", line_shape='hv', visible='legendonly'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["RP"])[:file["parent"]["ts"]], np.arange(file["parent"]["ts"]) + 1), name=f"Average RP", line_shape='hv', visible='legendonly'), secondary_y=True)
+            # self.plot_mu()
 
         return fig
 
     def plot_baseline_error(self, fig):
-        if self.parametrics[0]:
-            max_file = self.parametrics[np.argmax([file['parent']['ts'] for file in self.parametrics])]
-            max_ts = max_file['parent']['ts']
-            max_x_lims = max_file['parent']['x_lims']
+        for rl_file in [self.parametrics[0]]:
+            # max_file = self.parametrics[np.argmax([file['parent']['ts'] for file in self.parametrics])]
+            # max_ts = max_file['parent']['ts']
+            # max_x_lims = max_file['parent']['x_lims']
 
-            with open(max_file["results"]) as f:
+            with open(rl_file["results"]) as f:
                 rldata = json.load(f)
 
-            fig.add_trace(go.Scatter(x=max_x_lims, y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
+            fig.add_trace(go.Scatter(x=rl_file['parent']['x_lims'], y=rldata["Summary"]["p_grid_setpoint"], name=f"RL Setpoint Load - {rl_file['name']}"))
 
-        for file in self.baselines:
-            with open(file["results"]) as f:
-                data = json.load(f)
+            for file in self.baselines:
+                with open(file["results"]) as f:
+                    data = json.load(f)
 
-            scale = max(max_ts // file['parent']['ts'], 1)
-            baseline_load = np.repeat(data["Summary"]["p_grid_aggregate"], scale)
-            scale = max(file['parent']['ts'] // max_ts, 1)
-            baseline_setpoint = np.repeat(rldata["Summary"]["p_grid_setpoint"], scale)
-            baseline_error = np.subtract(baseline_load, baseline_setpoint[:len(baseline_load)])
-            fig.add_trace(go.Scatter(x=max_x_lims, y=(baseline_error), name=f"Error - {file['name']}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=max_x_lims, y=abs(baseline_error), name=f"Abs Error - {file['name']}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(np.abs(baseline_error)), name=f"Abs Cummulative Error - {file['name']}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(baseline_error), name=f"Cummulative Error - {file['name']}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=max_x_lims, y=np.divide(np.cumsum(baseline_error)[:file["parent"]["ts"]],np.arange(file["parent"]["ts"]) + 1), name=f"Average Error - {file['name']}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(np.square(baseline_error)), name=f"L2 Norm Cummulative Error - {file['name']}", line_shape='hv'))
+                # scale = max(max_ts // file['parent']['ts'], 1)
+                scale = 1
+                baseline_load = np.repeat(data["Summary"]["p_grid_aggregate"], scale)
+                # scale = max(file['parent']['ts'] // max_ts, 1)
+                baseline_setpoint = np.repeat(rldata["Summary"]["p_grid_setpoint"], scale)
+                baseline_error = np.subtract(baseline_load, baseline_setpoint[:len(baseline_load)])
+                fig.add_trace(go.Scatter(x=rl_file['parent']['x_lims'], y=(baseline_error), name=f"Baseline Error - {file['name']}", line_shape='hv', visible='legendonly'))
+                fig.add_trace(go.Scatter(x=rl_file['parent']['x_lims'], y=abs(baseline_error), name=f"Baseline Abs Error - {file['name']}", line_shape='hv', visible='legendonly'))
+                fig.add_trace(go.Scatter(x=rl_file['parent']['x_lims'], y=np.cumsum(np.abs(baseline_error)), name=f"Baseline Abs Cummulative Error - {file['name']}", line_shape='hv'))
+                fig.add_trace(go.Scatter(x=rl_file['parent']['x_lims'], y=np.cumsum(baseline_error), name=f"Baseline Cummulative Error - {file['name']}", line_shape='hv', visible='legendonly'))
+                fig.add_trace(go.Scatter(x=rl_file['parent']['x_lims'], y=np.divide(np.cumsum(baseline_error)[:file["parent"]["ts"]],np.arange(file["parent"]["ts"]) + 1), name=f"Baseline Average Error - {file['name']}", line_shape='hv', visible='legendonly'))
+                fig.add_trace(go.Scatter(x=rl_file['parent']['x_lims'], y=np.cumsum(np.square(baseline_error)), name=f"Baseline L2 Norm Cummulative Error - {file['name']}", line_shape='hv',  visible='legendonly'))
 
+                daily_error = np.abs(baseline_error).reshape((file['parent']['dt']*24,-1))
+                ts_perday = daily_error.shape[0]
+                daily_error = np.sum(daily_error, 0)
+                daily_error = np.repeat(daily_error, ts_perday) / ts_perday
+                fig.add_trace(go.Scatter(x=rl_file['parent']['x_lims'], y=daily_error, name=f"Baseline Average Daily Error - {file['name']}", line_shape='hv', visible='legendonly'))
         return fig
 
     def plot_parametric_error(self, fig):
@@ -480,7 +508,6 @@ class Reformat:
             rl_load = data["Summary"]["p_grid_aggregate"][1:]
             rl_setpoint = data["Summary"]["p_grid_setpoint"]
             scale = max_ts // file['parent']['ts']
-            # scale = 1
             rl_load = np.repeat(rl_load, scale)
             rl_setpoint = np.repeat(rl_setpoint, scale)
             rl_error = np.subtract(rl_load, rl_setpoint)
@@ -489,8 +516,13 @@ class Reformat:
             fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(np.abs(rl_error)), name=f"Cummulative Abs Error - {name}", line_shape='hv'))
             fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(rl_error), name=f"Cummulative Error - {name}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=max_x_lims, y=np.divide(np.cumsum(rl_error),np.arange(len(rl_error))+1), name=f"Average Error - {name}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(np.square(rl_error)), name=f"L2 Norm Cummulative Error - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=max_x_lims, y=np.cumsum(np.square(rl_error)), name=f"L2 Norm Cummulative Error - {name}", line_shape='hv', visible='legendonly'))
 
+            daily_error = np.abs(rl_error).reshape((file['parent']['dt']*24,-1))
+            ts_perday = daily_error.shape[0]
+            daily_error = np.sum(daily_error, 0)
+            daily_error = np.repeat(daily_error, ts_perday) / ts_perday
+            fig.add_trace(go.Scatter(x=max_x_lims, y=daily_error, name=f"Average Daily Error - {file['name']}", line_shape='hv', visible='legendonly'))
         return fig
 
     def plot_rewards(self, fig):
@@ -498,11 +530,14 @@ class Reformat:
             with open(file["q_results"]) as f:
                 data = json.load(f)
 
-            data = data["horizon"]
+            try:
+                data = data["horizon"]
+            except:
+                data = data["next"]
             name = file["name"]
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["average_reward"], name=f"Average Reward - {name}", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["cumulative_reward"], name=f"Cumulative Reward - {name}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["reward"], name=f"Reward - {name}", line_shape='hv'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["reward"], name=f"Reward - {name}", line_shape='hv', visible='legendonly'), secondary_y=True)
 
         return fig
 
@@ -565,7 +600,6 @@ class Reformat:
             with open(file["q_results"]) as f:
                 data = json.load(f)
 
-
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["q_pred"], name=f"Q predicted - {file['name']}", marker={'opacity':0.2}))
             fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["q_obs"], name=f"Q observed - {file['name']}"))
 
@@ -582,17 +616,12 @@ class Reformat:
 
             data = data["horizon"]
             theta = data["theta"]
-            # phi = data["phi"]
 
-            # x = np.arange(self.hours)
             for i in range(len(data["theta"][0])):
                 y = []
-                # z = []
                 for j in range(file['parent']['ts']):
                     y.append(theta[j][i])
-                    # z.append(phi[j][i])
                 fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=y, name=f"Theta_{i}", line_shape='hv', legendgroup=file['name']))
-                # fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=z, name=f"Phi_{i} - {file['name']}", line_shape='hv'),2,counter)
             counter += 1
         fig.update_layout(title_text="Critic Network Coefficients")
         fig.show()
@@ -600,12 +629,32 @@ class Reformat:
         return fig
 
     def all_rps(self):
-        fig = make_subplots()
+        fig = make_subplots(rows=2, cols=1)
         for file in self.parametrics:
             with open(file['results']) as f:
                 data = json.load(f)
 
-            fig.add_trace(go.Histogram(x=data['Summary']['RP'], name=f"{file['name']}"))
+            rps = data['Summary']['RP']
+            fig.add_trace(go.Histogram(x=rps, name=f"{file['name']}"), row=1, col=1)
+
+            with open(file['q_results']) as f:
+                data = json.load(f)
+            data = data["horizon"]
+            mu = np.multiply(self.config['rl']['utility']['action_scale'],data["mu"])
+            std = self.config['rl']['parameters']['exploration_rate'][0]
+            delta = np.subtract(mu, rps)
+
+            fig.add_trace(go.Histogram(x=delta, name=f"{file['name']}"), row=2, col=1)
+            fig.add_trace(go.Scatter(x=[-std, -std, std, std], y=[0, 0.3*len(rps), 0.3*len(rps), 0], fill="toself"), row=2, col=1)
+
+            # delta = delta[delta < -std] = 100
+            # delta = delta[delta > std] = 100
+            # delta = delta[delta != 0] = 1
+            # delta = delta - 100
+            # pct_within_std = np.count_nonzero(delta)
+            # fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=mu, name=f"Mu (Assumed Best Action)"), row=2, col=1)
+            # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=mu + self.config['rl']['parameters']['exploration_rate'], name=f"Mu +1 std dev", fill=None , mode='lines', line_color=plotly.colors.sequential.Blues[3]), row=2, col=1)
+            # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=mu - self.config['rl']['parameters']['exploration_rate'], name=f"Mu -1 std dev", fill='tonexty' , mode='lines', line_color=plotly.colors.sequential.Blues[3]), row=2, col=1)
 
         fig.show()
         return fig
@@ -613,3 +662,4 @@ class Reformat:
 if __name__ == "__main__":
     r = Reformat()
     r.main()
+    # r.write_to_html()

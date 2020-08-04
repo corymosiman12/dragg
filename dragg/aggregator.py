@@ -16,6 +16,7 @@ import cvxpy as cp
 import dccp
 import itertools as it
 import redis
+import multiprocessing
 
 # Local
 from dragg.mpc_calc import MPCCalc
@@ -122,8 +123,8 @@ class Aggregator:
         self._build_tou_price()
         self.all_data.drop("ts", axis=1)
 
-        self.all_rps = np.zeros(self.hours * self.dt)
-        self.all_sps = np.zeros(self.hours * self.dt)
+        self.all_rps = np.zeros(self.num_timesteps)
+        self.all_sps = np.zeros(self.num_timesteps)
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -182,7 +183,7 @@ class Aggregator:
         self.hours = self.end_dt - self.start_dt
         self.hours = int(self.hours.total_seconds() / 3600)
 
-        self.num_timesteps = self.hours * self.dt
+        self.num_timesteps = int(np.ceil(self.hours * self.dt))
         self.mask = (self.all_data.index >= self.start_dt) & (self.all_data.index < self.end_dt)
         self.agg_log.logger.info(f"Start: {self.start_dt.isoformat()}; End: {self.end_dt.isoformat()}; Number of hours: {self.hours}")
 
@@ -198,7 +199,8 @@ class Aggregator:
             sys.exit(1)
 
         df = pd.read_csv(self.ts_data_file, skiprows=2)
-        # df = df[df["Minute"] == 0]
+        # self.dt_interval = int(self.config['rl']['utility']['minutes_per_step'])
+        # self.dt = 60 // self.dt_interval
         self.dt = int(self.config['rl']['utility']['hourly_steps'])
         self.dt_interval = 60 // self.dt
         reps = [np.ceil(self.dt/2) if val==0 else np.floor(self.dt/2) for val in df.Minute]
@@ -274,16 +276,16 @@ class Aggregator:
         pv_battery_homes = [e for e in self.all_homes if e["type"] == "pv_battery"]
         pv_only_homes = [e for e in self.all_homes if e["type"] == "pv_only"]
         battery_only_homes = [e for e in self.all_homes if e["type"] == "battery_only"]
-        if not len(base_homes) == self.config['community']['total_number_homes'] - self.config['community']['homes_battery'] - self.config['community']['homes_pv'] - self.config['community']['homes_pv_battery']:
+        if not len(base_homes) == self.config['community']['total_number_homes'][0] - self.config['community']['homes_battery'][0] - self.config['community']['homes_pv'][0] - self.config['community']['homes_pv_battery'][0]:
             self.agg_log.logger.error("Incorrect number of base homes.")
             sys.exit(1)
-        elif not len(pv_battery_homes) == self.config['community']['homes_pv_battery']:
+        elif not len(pv_battery_homes) == self.config['community']['homes_pv_battery'][0]:
             self.agg_log.logger.error("Incorrect number of base pv_battery homes.")
             sys.exit(1)
-        elif not len(pv_only_homes) == self.config['community']['homes_pv']:
+        elif not len(pv_only_homes) == self.config['community']['homes_pv'][0]:
             self.agg_log.logger.error("Incorrect number of base pv_only homes.")
             sys.exit(1)
-        elif not len(battery_only_homes) == self.config['community']['homes_battery']:
+        elif not len(battery_only_homes) == self.config['community']['homes_battery'][0]:
             self.agg_log.logger.error("Incorrect number of base pv_only homes.")
             sys.exit(1)
         else:
@@ -298,13 +300,13 @@ class Aggregator:
         self.config['simulation']['random_seed'] = new_seed
 
     def get_homes(self):
-        if self.config['community']['total_number_homes'] < 1 or not isinstance(self.config['community']['total_number_homes'], int):
-            self.agg_log.logger.error("Must specify an integer total number of homes greater than 0.")
-            sys.exit(1)
-
-        if self.config['community']['total_number_homes'] < (self.config['community']['homes_pv'] + self.config['community']['homes_battery'] + self.config['community']['homes_pv_battery']):
-            self.agg_log.logger.error("Total number of homes must meet or exceed the number of homes with specified system type.")
-            sys.exit(1)
+        # if self.config['community']['total_number_homes'] < 1 or not isinstance(self.config['community']['total_number_homes'], int):
+        #     self.agg_log.logger.error("Must specify an integer total number of homes greater than 0.")
+        #     sys.exit(1)
+        #
+        # if self.config['community']['total_number_homes'] < (self.config['community']['homes_pv'] + self.config['community']['homes_battery'] + self.config['community']['homes_pv_battery']):
+        #     self.agg_log.logger.error("Total number of homes must meet or exceed the number of homes with specified system type.")
+        #     sys.exit(1)
 
         homes_file = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
         if not self.config['community']['overwrite_existing'] and os.path.isfile(homes_file):
@@ -329,32 +331,32 @@ class Aggregator:
         home_r_dist = np.random.uniform(
             self.config['home']['hvac']['r_dist'][0],
             self.config['home']['hvac']['r_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_c_dist = np.random.uniform(
             self.config['home']['hvac']['c_dist'][0],
             self.config['home']['hvac']['c_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_hvac_p_cool_dist = np.random.uniform(
             self.config['home']['hvac']['p_cool_dist'][0],
             self.config['home']['hvac']['p_cool_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_hvac_p_heat_dist = np.random.uniform(
             self.config['home']['hvac']['p_heat_dist'][0],
             self.config['home']['hvac']['p_heat_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_hvac_temp_in_sp_dist = np.random.uniform(
             self.config['home']['hvac']['temp_sp_dist'][0],
             self.config['home']['hvac']['temp_sp_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_hvac_temp_in_db_dist = np.random.uniform(
             self.config['home']['hvac']['temp_deadband_dist'][0],
             self.config['home']['hvac']['temp_deadband_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
         home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
@@ -366,27 +368,27 @@ class Aggregator:
         wh_r_dist = np.random.uniform(
             self.config['home']['wh']['r_dist'][0],
             self.config['home']['wh']['r_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         wh_c_dist = np.random.uniform(
             self.config['home']['wh']['c_dist'][0],
             self.config['home']['wh']['c_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         wh_p_dist = np.random.uniform(
             self.config['home']['wh']['p_dist'][0],
             self.config['home']['wh']['p_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_wh_temp_sp_dist = np.random.uniform(
             self.config['home']['wh']['sp_dist'][0],
             self.config['home']['wh']['sp_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_wh_temp_db_dist = np.random.uniform(
             self.config['home']['wh']['deadband_dist'][0],
             self.config['home']['wh']['deadband_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
         home_wh_temp_max_dist = home_wh_temp_sp_dist + 0.5 * home_wh_temp_db_dist
@@ -398,16 +400,16 @@ class Aggregator:
         home_wh_size_dist = np.random.uniform(
             self.config['home']['wh']['size_dist'][0],
             self.config['home']['wh']['size_dist'][1],
-            self.config['community']['total_number_homes']
+            self.config['community']['total_number_homes'][0]
         )
         home_wh_size_dist = (home_wh_size_dist + 10) // 20 * 20 # more even numbers
 
         ndays = self.num_timesteps // (24 * self.dt) + 1
-        daily_timesteps = 24 * self.dt
+        daily_timesteps = int(24 * self.dt)
 
         home_wh_all_draw_timing_dist = []
         home_wh_all_draw_size_dist = []
-        for i in range(self.config['community']['total_number_homes']):
+        for i in range(self.config['community']['total_number_homes'][0]):
             n_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_big_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_big_draw_dist'][1]+1)
             typ_draw_times = np.random.randint(0, 24*self.dt, n_daily_draws)
             perturbations = np.array([])
@@ -454,9 +456,28 @@ class Aggregator:
                                             self.config['home']['battery']['cap_bounds'][1] * self.config['home']['battery']['capacity'])
         }
 
+        responsive_hems = {
+            "horizon": self.mpc['horizon'],
+            "hourly_agg_steps": self.dt,
+            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps']
+        }
+
+        non_responsive_hems = {
+            "horizon": 0,
+            "hourly_agg_steps": self.dt,
+            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps']
+        }
+
         i = 0
         # Define pv and battery homes
-        for _ in range(self.config['community']['homes_pv_battery']):
+        num_pv_battery_homes = self.config['community']['homes_pv_battery']
+        num_pv_battery_homes = [num_pv_battery_homes] if (num_pv_battery_homes is type(int)) else num_pv_battery_homes
+        num_pv_battery_homes += [0] if (len(num_pv_battery_homes) == 1) else []
+        for j in range(num_pv_battery_homes[0]):
+            if j < num_pv_battery_homes[1]:
+                hems = non_responsive_hems
+            else:
+                hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             all_homes.append({
                 "name": names.get_first_name() + '-' + res,
@@ -483,13 +504,21 @@ class Aggregator:
                     "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i]
                 },
+                "hems": hems,
                 "battery": battery,
                 "pv": pv
             })
             i += 1
 
         # Define pv only homes
-        for _ in range(self.config['community']['homes_pv']):
+        num_pv_homes = self.config['community']['homes_pv']
+        num_pv_homes = [num_pv_homes] if (num_pv_homes is type(int)) else num_pv_homes
+        num_pv_homes += [0] if (len(num_pv_homes) == 1) else []
+        for j in range(num_pv_homes[0]):
+            if j < num_pv_homes[1]:
+                hems = non_responsive_hems
+            else:
+                hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             all_homes.append({
                 "name": names.get_first_name() + '-' + res,
@@ -516,12 +545,20 @@ class Aggregator:
                     "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i]
                 },
+                "hems": hems,
                 "pv": pv
             })
             i += 1
 
         # Define battery only homes
-        for _ in range(self.config['community']['homes_battery']):
+        num_battery_homes = self.config['community']['homes_battery']
+        num_battery_homes = [num_battery_homes] if (num_battery_homes is type(int)) else num_battery_homes
+        num_battery_homes += [0] if (len(num_battery_homes) == 1) else []
+        for j in range(num_battery_homes[0]):
+            if j < num_battery_homes[1]:
+                hems = non_responsive_hems
+            else:
+                hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             all_homes.append({
                 "name": names.get_first_name() + '-' + res,
@@ -548,13 +585,23 @@ class Aggregator:
                     "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i]
                 },
+                "hems": hems,
                 "battery": battery
             })
             i += 1
 
-        base_homes = self.config['community']['total_number_homes'] - self.config['community']['homes_battery'] - self.config['community']['homes_pv'] - self.config['community']['homes_pv_battery']
-        for _ in range(base_homes):
+        num_base_homes = self.config['community']['total_number_homes'][0] - self.config['community']['homes_battery'][0] - self.config['community']['homes_pv'][0] - self.config['community']['homes_pv_battery'][0]
+        # num_base_homes = self.config
+        num_base_homes = [num_base_homes] if not num_base_homes is type(list) else num_base_homes
+        num_base_homes += [0] if (len(num_base_homes) == 1) else []
+        # if non_hems_homes > base_homes:
+        #     self.agg_log.logger.error("Number of non-hems homes must be less than or equal to the number of base type homes.")
+        for j in range(num_base_homes[0]):
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            if j < num_base_homes[1]:
+                hems = non_responsive_hems
+            else:
+                hems = responsive_hems
             all_homes.append({
                 "name": names.get_first_name() + '-' + res,
                 "type": "base",
@@ -579,7 +626,8 @@ class Aggregator:
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i]
-                }
+                },
+                "hems": hems
             })
             i += 1
 
@@ -720,7 +768,7 @@ class Aggregator:
         else:
             forecast = []
             for t in range(forecast_horizon):
-                worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client, self.forecast_log)
+                worker = MPCCalc(self.queue, self.redis_client, self.forecast_log)
                 forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
         return forecast # returns all forecast values in the horizon
 
@@ -736,7 +784,7 @@ class Aggregator:
         #     return max
         # else:
         #     return min
-        sp = self.config['community']['total_number_homes']*self.config['community']['house_p_avg']
+        sp = self.config['community']['total_number_homes'][0]*self.config['community']['house_p_avg']
         return sp
 
     def check_baseline_vals(self):
@@ -752,9 +800,25 @@ class Aggregator:
                     elif len(v2) != self.hours:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
+    # def run_home(self, home):
+    #     # worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client, self.mpc_log)
+    #     # worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client)
+    #
+    #     # self.worker.run_home(home)
+    #     # print(home)
+    #     return True
+    #
+    # def run_threaded(self):
+    #     self.worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client)
+    #     pool = multiprocessing.Pool()
+    #     result = pool.map(self.run_home, self.list)
+    #     self.timestep += 1
+
     def run_iteration(self):
-        worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.queue, self.redis_client, self.mpc_log)
         worker.run()
+        # worker.delay()
+        # worker.apply_async(countdown=1)
 
         # Block in Queue until all tasks are done
         self.queue.join()
@@ -830,7 +894,7 @@ class Aggregator:
         if not os.path.isdir(date_output):
             os.makedirs(date_output)
 
-        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.mpc['horizon']}-interval_{self.dt_interval}")
+        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes'][0]}-horizon_{self.mpc['horizon']}-interval_{self.dt_interval}")
         if not os.path.isdir(mpc_output):
             os.makedirs(mpc_output)
 
@@ -839,12 +903,12 @@ class Aggregator:
             os.makedirs(agg_output)
 
         if self.case == "baseline":
-            run_name = f"{self.case}_version-{self.config['rl']['version']}-results.json"
+            run_name = f"{self.case}_version-{self.version}-results.json"
             file = os.path.join(agg_output, run_name)
 
         elif self.case == "agg_mpc":
             file_name = "results.json"
-            f2 = os.path.join(agg_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.mpc['horizon']}-iter-results.json")
+            f2 = os.path.join(agg_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes'][0]}-horizon_{self.mpc['horizon']}-iter-results.json")
             with open(f2, 'w+') as f:
                 json.dump(self.agg_mpc_data, f, indent=4)
 
@@ -867,7 +931,7 @@ class Aggregator:
 
     def write_home_configs(self):
         # Write all home configurations to file
-        ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
+        ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes'][0]}-config.json")
         with open(ah, 'w+') as f:
             json.dump(self.all_homes, f, indent=4)
 
@@ -934,6 +998,10 @@ class Aggregator:
         for i in range(self.num_agents-1):
             self.rl_agents += [NextTSAgent(self.rl_params, self.rlagent_log, self.config, i)] # nexttsagent has a smaller actionspace and a correspondingly smaller exploration rate
 
+        self.list = []
+        for home in self.all_homes:
+            if self.check_type == "all" or home["type"] == self.check_type:
+                self.list += [home]
         self.redis_set_current_values()
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
@@ -946,6 +1014,7 @@ class Aggregator:
                  if self.check_type == "all" or home["type"] == self.check_type:
                      self.queue.put(home)
             self.run_iteration() # community response to broadcasted price (done in a single iteration)
+            # self.run_threaded()
             self.collect_data()
 
             # self.reward_price[:-1] = self.reward_price[1:]
@@ -1014,7 +1083,7 @@ class Aggregator:
         self.agg_load = self.forecast_load[0] # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
 
-        horizon_agent = HorizonAgent(self.rl_params, self.rlagent_log)
+        horizon_agent = HorizonAgent(self.rl_params, self.rlagent_log, self.config)
         # next_timestep_agent = NextTSAgent(self.rl_params, self.rlagent_log)
         self.rl_agents = [horizon_agent]
 
@@ -1045,7 +1114,7 @@ class Aggregator:
 
     def run(self):
         self.agg_log.logger.info("Made it to Aggregator Run")
-        self.get_homes()
+        # self.get_homes()
 
         mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']],
                           # "discomfort": [float(i) for i in self.config['home']['hems']['discomfort']],
@@ -1059,12 +1128,14 @@ class Aggregator:
             # Run baseline with 1 hour horizon for non-MPC HEMS
             self.case = "baseline" # no aggregator
             for self.mpc in mpc_permutations:
-                self.flush_redis()
-                self.redis_set_initial_values()
-                self.reset_baseline_data()
-                self.run_baseline()
-                self.summarize_baseline()
-                self.write_outputs()
+                for self.version in self.config['rl']['version']:
+                    self.get_homes()
+                    self.flush_redis()
+                    self.redis_set_initial_values()
+                    self.reset_baseline_data()
+                    self.run_baseline()
+                    self.summarize_baseline()
+                    self.write_outputs()
 
         if self.config['simulation']['run_rl_agg']:
             self.case = "rl_agg"
@@ -1087,6 +1158,7 @@ class Aggregator:
                 for self.util in util_permutations:
                     for self.rl_params in rl_permutations:
                         for self.version in self.config['rl']['version']:
+                            self.get_homes()
                             self.flush_redis()
                             self.redis_set_initial_values()
                             self.reset_baseline_data()
@@ -1096,7 +1168,7 @@ class Aggregator:
 
         if self.config['simulation']['run_rl_simplified']:
             self.case = "simplified"
-
+            self.all_homes = []
             util_parameters = {"rl_agg_horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
             keys, values = zip(*util_parameters.items())
             util_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
@@ -1113,9 +1185,10 @@ class Aggregator:
             for self.mpc in mpc_permutations:
                 for self.util in util_permutations:
                     for self.rl_params in rl_permutations:
-                        self.flush_redis()
-                        self.redis_set_initial_values()
-                        self.reset_baseline_data()
-                        self.run_rl_agg_simplified()
-                        self.summarize_baseline()
-                        self.write_outputs()
+                        for self.version in self.config['rl']['version']:
+                            self.flush_redis()
+                            self.redis_set_initial_values()
+                            self.reset_baseline_data()
+                            self.run_rl_agg_simplified()
+                            self.summarize_baseline()
+                            self.write_outputs()

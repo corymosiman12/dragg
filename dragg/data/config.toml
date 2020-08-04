@@ -1,10 +1,10 @@
 [community]
 # Refers to the community makeup of house types.
 # Remaining homes will be considered of type "base" (hvac + wh)
-total_number_homes = 10
-homes_battery = 0
-homes_pv = 0
-homes_pv_battery = 0
+total_number_homes = [10, 5] # list [All homes, Non-Responsive]
+homes_battery = [0, 0] # list [All homes, Non-Responsive]
+homes_pv = [0, 0] # list [All homes, Non-Responsive]
+homes_pv_battery = [0, 0] # list [All homes, Non-Responsive]
 overwrite_existing = true # Creates new config file of all homes using home info given below.
 house_p_avg = 3.0 # used to generate the setpoint
 
@@ -55,7 +55,8 @@ house_p_avg = 3.0 # used to generate the setpoint
   # discomfort, depricated
   # disutility, depricated
   price_uncertainty = 0.3
-  sub_subhourly_steps = 3 # number of steps between each RL broadcast reward price
+  sub_subhourly_steps = 1 # number of steps between each RL broadcast reward price
+  # minutes_per_step = 5 # Min run time (minutes) for each on/off cycle
 
 [simulation]
   start_datetime = "2015-01-01 00"
@@ -63,13 +64,12 @@ house_p_avg = 3.0 # used to generate the setpoint
   random_seed = 12
   load_zone = "LZ_HOUSTON"
   check_type = "all"
-  run_rbo_mpc = false # runs homes with MPC (no reward price signal)
+  run_rbo_mpc = true # runs homes with MPC (no reward price signal)
   run_rl_agg = true # runs homes with MPC responding to RL aggregator
   run_rl_simplified = false # runs linear model responding to RL aggregator
-  # in rl_simplified the mpc disutility characterizes the response rate (~0.2 suggested)
 
 [rl]
-    version = [1.0,2.1,2.2, 2.3, 2.4]
+    version = [3.0]
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
@@ -79,7 +79,7 @@ house_p_avg = 3.0 # used to generate the setpoint
     exploration_rate = [0.01] # in E-greedy is epsilon, in policy gradient is sigma
     # exploration_decay_rate = 1000 # number of timesteps to approx reach target exploration (exponential)
     # exploration_decay_frac = 0.025 # reduction of exploration by percentage
-    twin_q = false # will default to overwriting the old run file, use named runs to solve this
+    twin_q = false # will default to overwriting the old run file, use versioned runs to solve this
 
   [rl.utility]
     # Refers to parameters that change how the electric utility uses the RL agent
@@ -89,6 +89,8 @@ house_p_avg = 3.0 # used to generate the setpoint
     action_space = [-0.05, 0.05] # Max/min price signal in ¢/kWh
     action_scale = 1
     hourly_steps = 4 # Subhourly steps for the utility to send price signal
+    # hours_per_step = 2 # Number of hours for which RP signal is sustained
+    minutes_per_step = 120 # Number of minutes for which the RP signal is sustained
 
   [rl.simplified]
     response_rate = 0.3
