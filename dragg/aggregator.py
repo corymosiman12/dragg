@@ -300,14 +300,6 @@ class Aggregator:
         self.config['simulation']['random_seed'] = new_seed
 
     def get_homes(self):
-        # if self.config['community']['total_number_homes'] < 1 or not isinstance(self.config['community']['total_number_homes'], int):
-        #     self.agg_log.logger.error("Must specify an integer total number of homes greater than 0.")
-        #     sys.exit(1)
-        #
-        # if self.config['community']['total_number_homes'] < (self.config['community']['homes_pv'] + self.config['community']['homes_battery'] + self.config['community']['homes_pv_battery']):
-        #     self.agg_log.logger.error("Total number of homes must meet or exceed the number of homes with specified system type.")
-        #     sys.exit(1)
-
         homes_file = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
         if not self.config['community']['overwrite_existing'] and os.path.isfile(homes_file):
             with open(homes_file) as f:
@@ -801,15 +793,14 @@ class Aggregator:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     # def run_home(self, home):
-    #     # worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client, self.mpc_log)
-    #     # worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client)
+    #     # worker = MPCCalc(self.queue, self.redis_client, self.mpc_log)
     #
     #     # self.worker.run_home(home)
     #     # print(home)
     #     return True
     #
     # def run_threaded(self):
-    #     self.worker = MPCCalc(self.queue, self.mpc['horizon'], self.dt, self.config['home']['hems']['sub_subhourly_steps'], self.redis_client)
+    #     self.worker = MPCCalc(self.queue, self.redis_client, self.mpc_log)
     #     pool = multiprocessing.Pool()
     #     result = pool.map(self.run_home, self.list)
     #     self.timestep += 1
@@ -817,7 +808,6 @@ class Aggregator:
     def run_iteration(self):
         worker = MPCCalc(self.queue, self.redis_client, self.mpc_log)
         worker.run()
-        # worker.delay()
         # worker.apply_async(countdown=1)
 
         # Block in Queue until all tasks are done
@@ -1017,30 +1007,28 @@ class Aggregator:
             # self.run_threaded()
             self.collect_data()
 
-            # self.reward_price[:-1] = self.reward_price[1:]
-            # self.reward_price[-1] = horizon_agent.train(self) / self.config['rl']['utility']['action_scale']
-
-
-            # y = ts2_agent.train(self) / self.config['rl']['utility']['action_scale']
-            # self.reward_price[:-1] = self.reward_price[1:]
-            # self.reward_price[1] = y
-            # self.redis_set_current_values()
+            # version 4.0 = predict immediate price change first
+            # for i in range(len(self.rl_agents)-1):
+            #     self.reward_price[:-1] = self.reward_price[1:]
+            #     self.reward_price[-1] = 0
+            #     self.forecast_load = self._gen_forecast()
+            #     y = self.rl_agents[i].train(self) / self.config['rl']['utility']['action_scale']
+            #     self.reward_price[i] = np.clip(self.reward_price[i] + y, -0.05, 0.05)
+            #     self.redis_set_current_values()
             #
             # self.forecast_load = self._gen_forecast()
-            # x = next_timestep_agent.train(self) / self.config['rl']['utility']['action_scale']
-            # self.reward_price[0] = np.clip(self.reward_price[0] + x, -0.05, 0.05) # change in forecasted value
-            # self.reward_price[2:] = 0
+            # self.reward_price[self.num_agents-1] = self.rl_agents[self.num_agents-1].train(self) / self.config['rl']['utility']['action_scale']
 
-            for i in range(len(self.rl_agents)-1):
-                self.reward_price[:-1] = self.reward_price[1:]
-                self.reward_price[-1] = 0
-                self.forecast_load = self._gen_forecast()
-                y = self.rl_agents[i].train(self) / self.config['rl']['utility']['action_scale']
-                self.reward_price[i] = np.clip(self.reward_price[i] + y, -0.05, 0.05)
-                self.redis_set_current_values()
-
+            self.reward_price[:-1] = self.reward_price[1:]
+            self.reward_price[-1] = 0
+            print(self.reward_price)
+            self.reward_price[1] = self.rl_agents[0].train(self) / self.config['rl']['utility']['action_scale']
+            self.redis_set_current_values()
+            print(self.reward_price)
             self.forecast_load = self._gen_forecast()
-            self.reward_price[self.num_agents-1] = self.rl_agents[self.num_agents-1].train(self) / self.config['rl']['utility']['action_scale']
+            self.reward_price[0] += self.rl_agents[-1].train(self) / self.config['rl']['utility']['action_scale']
+            self.reward_price = np.clip(self.reward_price, -0.05, 0.05)
+            print(self.reward_price)
 
             self.redis_set_current_values() # broadcast rl price to community
 

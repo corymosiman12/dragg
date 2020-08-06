@@ -90,12 +90,8 @@ class MPCCalc:
         self.hvac_cool_on = cp.Variable(self.horizon, boolean=True)
         self.hvac_heat_on = cp.Variable(self.horizon, boolean=True)
         self.wh_heat_on = cp.Variable(self.horizon, boolean=True)
-        # self.hvac_cool_on = cp.Variable(self.horizon)
-        # self.hvac_heat_on = cp.Variable(self.horizon)
-        # self.wh_heat_on = cp.Variable(self.horizon)
 
         # Define constants
-        # self.spp = cp.Constant(self.spp_current)
         self.tou_current = np.repeat(self.tou_current, self.sub_subhourly_steps)
         self.oat_current = np.repeat(self.oat_current, self.sub_subhourly_steps)
         self.ghi_current = np.repeat(self.ghi_current, self.sub_subhourly_steps)
@@ -107,7 +103,6 @@ class MPCCalc:
         self.temp_wh_min = float(self.home["wh"]["temp_wh_min"])
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
-        # self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
         self.t_wh_init = float(self.home["wh"]["temp_wh_min"])
         self.wh_size = cp.Constant(float(self.home["wh"]["tank_size"]))
         self.tap_temp = cp.Constant(12) # assumed cold tap water is about 55 deg F
@@ -297,19 +292,7 @@ class MPCCalc:
         ]
 
     def solve_mpc(self):
-        # self.obj = cp.Minimize(cp.sum((self.total_price) * self.p_grid[0:self.horizon]))
         self.cost = cp.Variable(self.horizon)
-        # mu = np.zeros(self.horizon)
-        # sigma = 0.006 * np.eye(self.horizon) # must be square
-        # self.omega = cs.RandomVariableFactory().create_normal_rv(mu, sigma) # random noise for price signal
-        # m = 100
-        # eta = 0.95 # number of samples and confidence interval
-        # if not self.total_price.value.all() == 0:
-        #     for i in range(self.horizon):
-        #         self.constraints += [
-        #             cs.prob(self.cost[i] == ((self.total_price[i] + self.omega) * self.p_grid[i]), m) <= 1 - eta
-        #         ]
-        # else:
         for i in range(self.horizon):
             self.constraints += [
                 self.cost[i] == (self.total_price[i] * self.p_grid[i])
@@ -319,9 +302,8 @@ class MPCCalc:
         if not self.prob.is_dcp():
             self.log.logger.error("Problem is not DCP")
         flag = self.log.logger.getEffectiveLevel() < 20 # outputs from CVX solver if level is debug or lower
-        # flag = False
         try:
-            self.prob.solve(solver=cp.GUROBI, verbose=flag)
+            self.prob.solve(solver=cp.GUROBI, verbose=False)
             self.solved = True
         except:
             self.solved = False
