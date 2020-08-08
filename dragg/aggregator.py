@@ -16,24 +16,23 @@ import cvxpy as cp
 import dccp
 import itertools as it
 import redis
-import multiprocessing
+# import multiprocessing
 
 # Local
 from dragg.mpc_calc import MPCCalc
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 from dragg.my_agents import HorizonAgent, NextTSAgent
+from dragg.duel_action_agent import DuelActionAgent
 
 class Aggregator:
-    def __init__(self, run_name=None):
+    def __init__(self):
         self.agg_log = Logger("aggregator")
         self.mpc_log = Logger("mpc_calc")
         self.forecast_log = Logger("forecaster")
         self.rlagent_log = Logger("rl_agent")
         self.data_dir = 'data'
         self.outputs_dir = os.path.join('outputs')
-        if run_name:
-            self.outputs_dir = os.path.join(self.outputs_dir, run_name)
         if not os.path.isdir(self.outputs_dir):
             os.makedirs(self.outputs_dir)
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
@@ -582,13 +581,11 @@ class Aggregator:
             })
             i += 1
 
-        num_base_homes = self.config['community']['total_number_homes'][0] - self.config['community']['homes_battery'][0] - self.config['community']['homes_pv'][0] - self.config['community']['homes_pv_battery'][0]
-        # num_base_homes = self.config
-        num_base_homes = [num_base_homes] if not num_base_homes is type(list) else num_base_homes
-        num_base_homes += [0] if (len(num_base_homes) == 1) else []
-        # if non_hems_homes > base_homes:
-        #     self.agg_log.logger.error("Number of non-hems homes must be less than or equal to the number of base type homes.")
-        for j in range(num_base_homes[0]):
+        # Define base type homes
+        num_base_homes = np.subtract(np.array(self.config['community']['total_number_homes']), np.array(num_battery_homes))
+        num_base_homes = np.subtract(num_base_homes, np.array(num_pv_battery_homes))
+        num_base_homes = np.subtract(num_base_homes, np.array(num_pv_homes))
+        for j in range(int(num_base_homes[0])):
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             if j < num_base_homes[1]:
                 hems = non_responsive_hems
@@ -654,7 +651,7 @@ class Aggregator:
         """
         Ensure enough data exists in all_data such that MPC calcs can be made throughout
         the requested start and end period.
-        :return:
+        :return: None
         """
         if not self.start_dt >= self.all_data.index[0]:
             self.agg_log.logger.error("The start datetime must exist in the data provided.")
@@ -668,7 +665,7 @@ class Aggregator:
         Since all_data is posted as a list, where 0 corresponds to the first hour in
         the dataframe, the number of hours between the start_dt and the above mentioned
         hour needs to be calculated.
-        :return:
+        :return: None
         """
         start_hour_index = self.start_dt - self.all_data.index[0]
         self.start_hour_index = int(start_hour_index.total_seconds() / 3600)
@@ -676,7 +673,7 @@ class Aggregator:
     def redis_set_initial_values(self):
         """
         Set the initial timestep, iteration, reward price, and horizon to redis
-        :return:
+        :return: None
         """
         self.timestep = 0
 
@@ -695,29 +692,12 @@ class Aggregator:
             for val in self.reward_price.tolist():
                 self.redis_client.conn.rpush("reward_price", val)
 
-    def redis_set_state_for_previous_timestep(self):
-        """
-        This is used for the AGG MPC implementation during back and forth iterations with the
-        individual home in order to ensure, regardless of the iteration, the home always solves
-        the problem using the previous states.  The previous optimal vals set by each home after
-        converging need to be reset to reflect previous optimal state.
-        :return:
-        """
-        for home, vals in self.baseline_data.items():
-            for k, v in vals.items():
-                if k == "temp_in_opt":
-                    self.redis_client.conn.hset(home, k, v[-1])
-                elif k == "temp_wh_opt":
-                    self.redis_client.conn.hset(home, k, v[-1])
-                if 'battery' in vals['type'] and k == "e_batt_opt":
-                    self.redis_client.conn.hset(home, k, v[-1])
-
     def redis_add_all_data(self):
         """
         Values for the timeseries data are written to Redis as a list, where the
         column names: [GHI, OAT, SPP] are the redis keys.  Each list is as long
         as the data in self.all_data, which is 8760.
-        :return:
+        :return: None
         """
         for c in self.all_data.columns.to_list():
             data = self.all_data[c]
@@ -725,6 +705,10 @@ class Aggregator:
                 self.redis_client.conn.rpush(c, val)
 
     def redis_set_current_values(self):
+        """
+        Sets the current values of the utility agent (reward price).
+        :return: None
+        """
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
         if self.case == "agg_mpc":
@@ -745,7 +729,8 @@ class Aggregator:
         self.reward_price[-1] = self.action/100
 
     def _gen_forecast(self):
-        """ Forecasts the anticipated energy consumption at each timestep through
+        """
+        Forecasts the anticipated energy consumption at each timestep through
         the MPCCalc class. Uses the predetermined reward price signal + a reward
         price of 0 for any unforecasted reward price signals.
         :return: list of type float
@@ -765,7 +750,8 @@ class Aggregator:
         return forecast # returns all forecast values in the horizon
 
     def _gen_setpoint(self, time):
-        """ Generates the setpoint of the RL utility. Dynamically sized for the
+        """
+        Generates the setpoint of the RL utility. Dynamically sized for the
         number of houses in the community.
         :return: float
         @kyri
@@ -806,6 +792,11 @@ class Aggregator:
     #     self.timestep += 1
 
     def run_iteration(self):
+        """
+        Calls the MPCCalc class to calculate the control sequence and power demand
+        from all homes in the community.
+        :return: None
+        """
         worker = MPCCalc(self.queue, self.redis_client, self.mpc_log)
         worker.run()
         # worker.apply_async(countdown=1)
@@ -820,6 +811,10 @@ class Aggregator:
         self.timestep += 1
 
     def collect_data(self):
+        """
+        Collects the data passed by the community redis connection.
+        :return: None
+        """
         agg_load = 0
         agg_cost = 0
         self.house_load = []
@@ -835,6 +830,12 @@ class Aggregator:
         self.baseline_agg_load_list.append(self.agg_load)
 
     def run_baseline(self):
+        """
+        Runs the baseline simulation comprised of community of HEMS controlled homes.
+        Utilizes MPC parameters specified in config file.
+        (For no MPC in HEMS specify the MPC prediction horizon as 0.)
+        :return: None
+        """
         self.agg_log.logger.info(f"Performing baseline run for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
         for t in range(self.num_timesteps):
@@ -845,6 +846,10 @@ class Aggregator:
             self.run_iteration()
             self.collect_data()
 
+            if (t+1) % (24*7*self.dt) == 0: # weekly checkpoint
+                self.agg_log.logger.info("Creating a checkpoint file.")
+                self.write_outputs()
+
         # Write
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
@@ -853,8 +858,8 @@ class Aggregator:
 
     def summarize_baseline(self):
         """
-        Get the maximum of the aggregate demand
-        :return:
+        Get the maximum of the aggregate demand for each simulation.
+        :return: None
         """
         self.max_agg_load = max(self.baseline_agg_load_list)
         self.max_agg_load_list.append(self.max_agg_load)
@@ -878,7 +883,11 @@ class Aggregator:
         }
 
     def write_outputs(self):
-        # Write values for baseline run to file
+        """
+        Writes values for simulation run to a json file for later reference. Is
+        called at the end of the simulation run period and optionally at a checkpoint period.
+        :return: None
+        """
 
         date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
         if not os.path.isdir(date_output):
@@ -920,12 +929,20 @@ class Aggregator:
             json.dump(self.baseline_data, f, indent=4)
 
     def write_home_configs(self):
-        # Write all home configurations to file
+        """
+        Writes all home configurations to file at the initialization of the
+        simulation for later reference.
+        :return: None
+        """
         ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes'][0]}-config.json")
         with open(ah, 'w+') as f:
             json.dump(self.all_homes, f, indent=4)
 
     def set_agg_mpc_initial_vals(self):
+        """
+        Creates a dictionary to store values at each timestep for non-RL runs.
+        :return: Dictionary
+        """
         temp = []
         for h in range(self.hours):
             temp.append({
@@ -936,41 +953,12 @@ class Aggregator:
             })
         return temp
 
-    def run_agg_mpc(self):
-        self.agg_log.logger.info(f"Performing AGG MPC run for horizon: {self.mpc['horizon']}")
-        self.start_time = datetime.now()
-        self.agg_mpc_data = self.set_agg_mpc_initial_vals()
-        for t in range(self.num_timesteps):
-            self.converged = False
-            while True:
-                for home in self.all_homes:
-                    if self.check_type == "all" or home["type"] == self.check_type:
-                        self.queue.put(home)
-                self.redis_set_current_values()
-                self.run_iteration()
-                self.check_agg_mpc_data()
-                self.update_agg_mpc_data()
-                if self.converged:
-                    self.agg_log.logger.info(f"Converged for ts: {self.timestep} after iter: {self.iteration}")
-                    break
-                self.reward_price = self.update_reward_price()
-                self.iteration += 1
-                self.agg_log.logger.info(f"Not converged for ts: {self.timestep}; iter: {self.iteration}; rp: {self.reward_price:.20f}")
-                # time.sleep(5)
-                if hour > 0:
-                    self.redis_set_state_for_previous_timestep()
-            self.collect_data()
-            self.iteration = 0
-            self.reward_price = 0
-
-        # Write
-        self.end_time = datetime.now()
-        self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
-        self.check_baseline_vals()
-
     def run_rl_agg(self):
-
+        """
+        Runs simulation with the RL aggregator agent(s) to determine the reward
+        price signal.
+        :return: None
+        """
         self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
 
@@ -987,6 +975,7 @@ class Aggregator:
         self.rl_agents = [HorizonAgent(self.rl_params, self.rlagent_log, self.config)]
         for i in range(self.num_agents-1):
             self.rl_agents += [NextTSAgent(self.rl_params, self.rlagent_log, self.config, i)] # nexttsagent has a smaller actionspace and a correspondingly smaller exploration rate
+        # self.rl_agent = DuelActionAgent(self.rl_params, self.rlagent_log, self.config)
 
         self.list = []
         for home in self.all_homes:
@@ -996,18 +985,15 @@ class Aggregator:
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
             self.prev_forecast_load = self.forecast_load
-            # self.forecast_load = [self.agg_load] # forecast current load at next timestep
-            # self.forecast_load = self._gen_forecast()
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
 
             for home in self.all_homes: # uncomment these for the actual model response
                  if self.check_type == "all" or home["type"] == self.check_type:
                      self.queue.put(home)
             self.run_iteration() # community response to broadcasted price (done in a single iteration)
-            # self.run_threaded()
             self.collect_data()
 
-            # version 4.0 = predict immediate price change first
+            # # version 4.0 = predict immediate price change first
             # for i in range(len(self.rl_agents)-1):
             #     self.reward_price[:-1] = self.reward_price[1:]
             #     self.reward_price[-1] = 0
@@ -1019,44 +1005,51 @@ class Aggregator:
             # self.forecast_load = self._gen_forecast()
             # self.reward_price[self.num_agents-1] = self.rl_agents[self.num_agents-1].train(self) / self.config['rl']['utility']['action_scale']
 
+            # version 5.0 = predict horizon price change first
             self.reward_price[:-1] = self.reward_price[1:]
             self.reward_price[-1] = 0
-            print(self.reward_price)
             self.reward_price[1] = self.rl_agents[0].train(self) / self.config['rl']['utility']['action_scale']
             self.redis_set_current_values()
-            print(self.reward_price)
             self.forecast_load = self._gen_forecast()
             self.reward_price[0] += self.rl_agents[-1].train(self) / self.config['rl']['utility']['action_scale']
             self.reward_price = np.clip(self.reward_price, -0.05, 0.05)
-            print(self.reward_price)
+
+            # # version 6.0 = predict change in both RPs at once
+            # self.reward_price[:2] = self.rl_agent.train(self) / self.config['rl']['utility']['action_scale']
+            # self.reward_price = np.clip(self.reward_price, -0.05, 0.05)
 
             self.redis_set_current_values() # broadcast rl price to community
+
+            if (t+1) % (24*7*self.dt) == 0: # weekly checkpoint
+                self.agg_log.logger.info("Creating a checkpoint file.")
+                self.write_outputs()
 
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
         self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
     def test_response(self):
-        """ Tests the RL agent using a linear model of the community's response
+        """
+        Tests the RL agent using a linear model of the community's response
         to changes in the reward price.
+        :return: None
         @kyri
         """
         c = self.config['rl']['simplified']['response_rate']
         k = self.config['rl']['simplified']['offset']
         if self.timestep == 0:
             self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
-        # self.agg_load = self.agg_load - c * self.reward_price[0] * self.agg_load # can't go negative
         self.agg_load = self.agg_load - c * self.reward_price[-1] * (self.agg_setpoint - self.agg_load)
-        # self.agg_load = self.agg_load + 0.1 * self.agg_load * np.random.randn()
-        # self.agg_load = np.clip(self.agg_load, 0, 2*self.agg_setpoint)
-        # if self.reward_price[0] >= -0.02 and self.reward_price[0] <= 0.02:
-        #     self.agg_load = self.agg_load + 0.5*(self.agg_setpoint - self.agg_load)
-        #self.agg_load = max(200,self.agg_load) # can't go above 200
         self.agg_cost = self.agg_load * self.reward_price[0]
         self.agg_log.logger.info(f"Iteration {self.timestep} finished. Aggregate load {self.agg_load}")
         self.timestep += 1
 
     def run_rl_agg_simplified(self):
+        """
+        Runs a simplified community response to the reward price signal. Used to
+        validate the RL agent model.
+        :return: None
+        """
         # self.mpc['discomfort'] = self.config['home']['hems']['discomfort'][0]
         self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with simplified community model.")
         self.start_time = datetime.now()
@@ -1093,6 +1086,11 @@ class Aggregator:
         self.agg_log.logger.info(f"Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
     def flush_redis(self):
+        """
+        Cleans all information stored in the Redis server. (Including environmental
+        data.)
+        :return: None
+        """
         self.redis_client.conn.flushall()
         self.agg_log.logger.info("Flushing Redis")
         time.sleep(1)
@@ -1101,6 +1099,11 @@ class Aggregator:
         self.redis_add_all_data()
 
     def run(self):
+        """
+        Runs simulation(s) specified in the config file with all combinations of
+        parameters specified in the config file.
+        :return: None
+        """
         self.agg_log.logger.info("Made it to Aggregator Run")
         # self.get_homes()
 

@@ -19,7 +19,7 @@ from dragg.logger import Logger
 import dragg.aggregator as agg
 
 class Reformat:
-    def __init__(self, add_outputs={}, agg_params={"rl_horizon":[1]}, mpc_params={"mpc_prediction_horizons":[1], "mpc_hourly_steps":[4]}, versions=set([3.0]), date_ranges={}, include_runs={}, log=Logger("reformat")):
+    def __init__(self, add_outputs={}, agg_params={"rl_horizon":[1]}, mpc_params={}, versions=set([]), date_ranges={}, include_runs={}, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = 'data'
         self.outputs_dir = set()
@@ -57,7 +57,7 @@ class Reformat:
             # put a list of plotting functions here
             self.figs = [self.rl2baseline(),
                         self.rl2baseline_error(),
-                        self.plot_single_home(name="Alvin-4BAYB")]
+                        self.plot_single_home(name="Jason-INS3S")]
 
         else:
             # put a list of plotting functions here
@@ -82,7 +82,8 @@ class Reformat:
         temp = {"start_datetime": start_dates, "end_datetime": end_dates}
         for key in temp:
             if key in additional_params:
-                temp[key].add(datetime.strptime(additional_params[key], '%Y-%m-%d %H'))
+                for i in additional_params[key]:
+                    temp[key].add(datetime.strptime(i, '%Y-%m-%d %H'))
         self.date_ranges = temp
 
     def add_agg_params(self, additional_params):
@@ -470,30 +471,43 @@ class Reformat:
                 with open(file['results']) as f:
                     data = json.load(f)
 
-                rl2base_conversion = max(1, file['parent']['dt'] // rl_file['parent']['dt'])
-                base2rl_conversion = max(1, rl_file['parent']['dt'] // file['parent']['dt'])
-                base_load = np.repeat(data['Summary']['p_grid_aggregate'], base2rl_conversion)
-                rl_setpoint = np.repeat(rldata['Summary']['p_grid_setpoint'], rl2base_conversion)
-                rl_load = np.repeat(rldata['Summary']['p_grid_aggregate'][1:], rl2base_conversion)
-                rl_error = np.subtract(rl_load, rl_setpoint)
-                base_error = np.subtract(base_load, rl_setpoint)
-                rl2base_error = np.subtract(abs(base_error), abs(rl_error))/max(rl_file['parent']['dt'], file['parent']['dt'])
+                try:
+                    rl2base_conversion = max(1, file['parent']['dt'] // rl_file['parent']['dt'])
+                    base2rl_conversion = max(1, rl_file['parent']['dt'] // file['parent']['dt'])
+                    base_load = np.repeat(data['Summary']['p_grid_aggregate'], base2rl_conversion)
+                    rl_setpoint = np.repeat(rldata['Summary']['p_grid_setpoint'], rl2base_conversion)
+                    rl_load = np.repeat(rldata['Summary']['p_grid_aggregate'][1:], rl2base_conversion)
+                    rl_error = np.subtract(rl_load, rl_setpoint)
+                    base_error = np.subtract(base_load, rl_setpoint)
+                    rl2base_error = np.subtract(abs(base_error), abs(rl_error))/max(rl_file['parent']['dt'], file['parent']['dt'])
 
-                if file['parent']['ts'] > rl_file['parent']['ts']:
-                    x_lims = file['parent']['x_lims']
-                    dt = file['parent']['dt']
-                else:
-                    x_lims = rl_file['parent']['x_lims']
-                    dt = rl_file['parent']['dt']
+                    if file['parent']['ts'] > rl_file['parent']['ts']:
+                        x_lims = file['parent']['x_lims']
+                        ts = file['parent']['ts']
+                        dt = file['parent']['dt']
+                    else:
+                        x_lims = rl_file['parent']['x_lims']
+                        dt = rl_file['parent']['dt']
+                        ts = rl_file['parent']['ts']
 
-                fig.add_trace(go.Scatter(x=x_lims, y=rl2base_error, name=f"RL2Baseline Error - RL{rl_file['name']} and Baseline{file['name']}", visible='legendonly'))
-                fig.add_trace(go.Scatter(x=x_lims, y=base_error, name=f"Baseline Error - RL{rl_file['name']} and Baseline{file['name']}"))
-                fig.add_trace(go.Scatter(x=x_lims, y=abs(base_error), name=f"Abs Baseline Error - RL{rl_file['name']} and Baseline{file['name']}"))
+                    fig.add_trace(go.Scatter(x=x_lims, y=rl2base_error, name=f"RL2Baseline Error - RL{rl_file['name']} and Baseline{file['name']}", visible='legendonly'))
+                    fig.add_trace(go.Scatter(x=x_lims, y=np.divide(np.cumsum(rl2base_error), (np.arange(ts)+1)), name=f"Avg RL2Baseline Error - RL{rl_file['name']} and Baseline{file['name']}", visible='legendonly'))
 
-                hourly_base_error = abs(base_error).reshape(dt,-1).sum(axis=0)
-                fig.add_trace(go.Scatter(x=x_lims[::dt], y=hourly_base_error, name=f"Baseline Hourly Error - RL{rl_file['name']} and Baseline{file['name']}"))
-                fig.add_trace(go.Scatter(x=x_lims[::dt], y=np.cumsum(hourly_base_error), name=f"Cumulative Baseline Hourly Error - RL{rl_file['name']} and Baseline{file['name']}"))
+                    fig.add_trace(go.Scatter(x=x_lims, y=base_error, name=f"Baseline Error - RL{rl_file['name']} and Baseline{file['name']}"))
+                    fig.add_trace(go.Scatter(x=x_lims, y=abs(base_error), name=f"Abs Baseline Error - RL{rl_file['name']} and Baseline{file['name']}"))
 
+                    hourly_base_error = abs(base_error).reshape(dt,-1).sum(axis=0)
+                    fig.add_trace(go.Scatter(x=x_lims[::dt], y=hourly_base_error, name=f"Baseline Hourly Error - RL{rl_file['name']} and Baseline{file['name']}"))
+                    fig.add_trace(go.Scatter(x=x_lims[::dt], y=np.cumsum(hourly_base_error), name=f"Cumulative Baseline Hourly Error - RL{rl_file['name']} and Baseline{file['name']}"))
+
+                    num_weeks = int(np.ceil(len(hourly_base_error) / (7 * 24)))
+                    weekly_acum_error = np.zeros(num_weeks * (7 * 24))
+                    weekly_acum_error[:len(hourly_base_error)] = hourly_base_error
+                    weekly_acum_error = weekly_acum_error.reshape(num_weeks, -1)
+                    weekly_acum_error = np.cumsum(weekly_acum_error, axis=1).flatten()
+                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=weekly_acum_error, name=f" Accumulated Baseline Hourly Error - RL{rl_file['name']} and Baseline{file['name']}", visible='legendonly'))
+                except:
+                    pass
         return fig
 
     def plot_parametric_error(self, fig):
@@ -512,6 +526,13 @@ class Reformat:
             hourly_rl_error = abs(rl_error).reshape(file['parent']['dt'],-1).sum(axis=0)
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'][::file['parent']['dt']], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'][::file['parent']['dt']], y=np.cumsum(hourly_rl_error), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
+
+            num_weeks = int(np.ceil(file['parent']['ts'] / (7 * 24 * file['parent']['dt'])))
+            weekly_acum_error = np.zeros(num_weeks * (7 * 24))
+            weekly_acum_error[:len(hourly_rl_error)] = hourly_rl_error
+            weekly_acum_error = weekly_acum_error.reshape(num_weeks, -1)
+            weekly_acum_error = np.cumsum(weekly_acum_error, axis=1).flatten()
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=weekly_acum_error, name=f"Accumulated Hourly Error - {name}", visible='legendonly'))
         return fig
 
     def plot_rewards(self, fig):
