@@ -49,7 +49,6 @@ class RLAgent(ABC):
         self.rla_log = rl_log
         self.i = 0
         self.z_theta_mu = 0
-        self.z_theta_sigma = 0
         self.lam_theta = 0.01
 
         self.rl_data = {} #self.set_rl_data()
@@ -88,24 +87,18 @@ class RLAgent(ABC):
         return phi
 
     def state_action_basis(self, state, action):
-        # action_basis = np.array([1, (action), (action)**2, ((action - 0.02))**2, ((action + 0.02))**2])
         action_basis = np.array([1, action, action**2])
-        # change_rp = self.state['reward_price'][0] - self.state['reward_price'][-1]
         delta_action_basis = np.array([1, state['delta_action'], state['delta_action']**2])
         time_basis = np.array([1, np.sin(2 * np.pi * state["time_of_day"]), np.cos(2 * np.pi * state["time_of_day"])])
-        # curr_error_basis = np.array([1, state["curr_error"], state["curr_error"]**2])
         forecast_error_basis = np.array([1, state["fcst_error"], state["fcst_error"]**2])
         forecast_trend_basis = np.array([1, state["forecast_trend"], state["forecast_trend"]**2])
 
-        # v = np.outer(avg_forecast_error_basis, action_basis).flatten()[1:] #14 (indexed to 13)
-        # w = np.outer(curr_error_basis, delta_action_basis).flatten()[1:]
         v = np.outer(forecast_trend_basis, action_basis).flatten()[1:]
         w = np.outer(forecast_error_basis, action_basis).flatten()[1:] #8
         z = np.outer(forecast_error_basis, delta_action_basis).flatten()[1:] #14
         phi = np.concatenate((v, w, z))
         phi = np.outer(phi, time_basis).flatten()[1:]
 
-        # phi = np.clip(phi, -100, 150)
         return phi
 
     @abstractmethod
@@ -119,8 +112,6 @@ class RLAgent(ABC):
         :return: float
         """
         pass
-        # return -self.state["curr_error"]**2 #+ 10**3 * sum(np.square(self.reward_price))
-        # return -self.next_state["curr_error"]**2
 
     def memorize(self):
         if self.state and self.action:
@@ -154,7 +145,6 @@ class RLAgent(ABC):
         Gaussian mean is parameterized linearly. Gaussian standard deviation is fixed.
         :return: float
         """
-        pi = []
         x_k = self.state_basis(state)
         if self.theta_mu is None:
             n = len(x_k)

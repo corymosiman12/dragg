@@ -5,6 +5,8 @@ class HorizonAgent(RLAgent):
     def __init__(self, parameters, rl_log, config):
         RLAgent.__init__(self, parameters, rl_log, config)
         self.name = "horizon"
+        self.actionspace = [-0.02, 0.02]
+        self.SIGMA = 0.001
 
     def reward(self):
         return -1*((10*self.state['curr_error'])**2)
@@ -18,8 +20,8 @@ class HorizonAgent(RLAgent):
         # derivative_action = obs.action - obs.prev_action
         change_rp = obs.reward_price[0] - obs.reward_price[-1]
         time_of_day = obs.timestep % (24 * obs.dt)
-        forecast_error = obs.forecast_load[0] - obs.forecast_setpoint
-        forecast_trend = obs.forecast_load[0] - obs.forecast_load[-1]
+        forecast_error = obs.forecast_load[0][0] - obs.forecast_setpoint
+        forecast_trend = obs.forecast_load[0][0] - obs.forecast_load[0][-1]
 
         state = {"curr_error":current_error,
         "time_of_day":time_of_day,
@@ -33,7 +35,7 @@ class NextTSAgent(RLAgent):
     def __init__(self, parameters, rl_log, config, timestep):
         RLAgent.__init__(self, parameters, rl_log, config)
         self.name = "next"
-        self.actionspace = [-0.01, 0.01]
+        self.actionspace = [-0.02, 0.02]
         self.SIGMA = 0.001
         self.ts = timestep
 
@@ -50,8 +52,8 @@ class NextTSAgent(RLAgent):
         change_rp = obs.reward_price[0] - obs.reward_price[-1]
         current_rp = obs.reward_price[self.ts]
         time_of_day = obs.timestep % (24 * obs.dt)
-        forecast_error = obs.forecast_load[0] - obs.forecast_setpoint
-        forecast_trend = obs.forecast_load[0] - obs.forecast_load[-1]
+        forecast_error = obs.forecast_load[0][0] - obs.forecast_setpoint
+        forecast_trend = obs.forecast_load[0][0] - obs.forecast_load[0][-1]
         std_house = np.std(obs.house_load)
 
         state = {"curr_error":current_error,

@@ -52,8 +52,6 @@ house_p_avg = 3.0 # used to generate the setpoint
   [home.hems]
   # Refers to mpc parameters -- uniform across all homes
   prediction_horizon = [4] # in hours, where 0 is just the next timestep (no MPC)
-  # discomfort, depricated
-  # disutility, depricated
   price_uncertainty = 0.3
   sub_subhourly_steps = 4 # number of steps between each RL broadcast reward price
   # minutes_per_step = 5 # Min run time (minutes) for each on/off cycle
@@ -69,7 +67,7 @@ house_p_avg = 3.0 # used to generate the setpoint
   run_rl_simplified = false # runs linear model responding to RL aggregator
 
 [rl]
-    version = [4.1]
+    version = [5.1, 5.4]
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
@@ -83,7 +81,7 @@ house_p_avg = 3.0 # used to generate the setpoint
 
   [rl.utility]
     # Refers to parameters that change how the electric utility uses the RL agent
-    rl_agg_action_horizon = [4] # Determines the price for the nth hour, ahead of current time
+    rl_agg_action_horizon = [4] # Currently not in use
     rl_agg_forecast_horizon = 1 # Determines the number of hours the utility agent forecasts
     base_price = 0.10 # Base price for utility ($/kWh)
     action_space = [-0.05, 0.05] # Max/min price signal in ¢/kWh
