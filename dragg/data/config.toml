@@ -58,7 +58,7 @@ house_p_avg = 3.0 # used to generate the setpoint
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-02-01 00"
+  end_datetime = "2015-01-02 00"
   random_seed = 12
   load_zone = "LZ_HOUSTON"
   check_type = "all"
