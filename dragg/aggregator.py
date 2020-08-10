@@ -17,6 +17,8 @@ import dccp
 import itertools as it
 import redis
 # import multiprocessing
+import pathos
+from pathos.pools import ProcessPool
 
 # Local
 from dragg.mpc_calc import MPCCalc
@@ -728,6 +730,18 @@ class Aggregator:
         self.reward_price[:-1] = self.reward_price[1:]
         self.reward_price[-1] = self.action/100
 
+    def _manage_home_forecast(self, home):
+        worker = MPCCalc(self.redis_client, self.mpc_log)
+        return worker.forecast_home(home)
+
+    def _threaded_forecast(self):
+        pool = ProcessPool(nodes=4) # open a pool of nodes
+        results = pool.map(self._manage_home_forecast, self.as_list)
+
+        pad = len(max(results, key=len))
+        results = np.array([i + [0] * (pad - len(i)) for i in results])
+        return results
+
     def _gen_forecast(self):
         """
         Forecasts the anticipated energy consumption at each timestep through
@@ -735,19 +749,8 @@ class Aggregator:
         price of 0 for any unforecasted reward price signals.
         :return: list of type float
         """
-        for home in self.all_homes:
-             if self.check_type == "all" or home["type"] == self.check_type:
-                 self.queue.put(home)
-
-        forecast_horizon = self.config['rl']['utility']['rl_agg_forecast_horizon']
-        if forecast_horizon < 1:
-            forecast = self.agg_load * np.ones(self.mpc['horizon'])
-        else:
-            forecast = []
-            for t in range(forecast_horizon):
-                worker = MPCCalc(self.queue, self.redis_client, self.forecast_log)
-                forecast.append(worker.forecast(0)) # optionally give .forecast() method an expected value for the next RP
-        return forecast # returns all forecast values in the horizon
+        results = self._threaded_forecast()
+        return np.sum(results, axis=0)
 
     def _gen_setpoint(self, time):
         """
@@ -778,35 +781,27 @@ class Aggregator:
                     elif len(v2) != self.hours:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
-    # def run_home(self, home):
-    #     # worker = MPCCalc(self.queue, self.redis_client, self.mpc_log)
-    #
-    #     # self.worker.run_home(home)
-    #     # print(home)
-    #     return True
-    #
-    # def run_threaded(self):
-    #     self.worker = MPCCalc(self.queue, self.redis_client, self.mpc_log)
-    #     pool = multiprocessing.Pool()
-    #     result = pool.map(self.run_home, self.list)
-    #     self.timestep += 1
-
-    def run_iteration(self):
+    def manage_home(self, home):
         """
-        Calls the MPCCalc class to calculate the control sequence and power demand
-        from all homes in the community.
+        Internal manager of the MPCCalc class function run_home. By creating a new
+        class instance worker in this function the multithreaded process can change
+        MPCCalc class parameters such as home system variables.
         :return: None
         """
-        worker = MPCCalc(self.queue, self.redis_client, self.mpc_log)
-        worker.run()
-        # worker.apply_async(countdown=1)
+        worker = MPCCalc(self.redis_client, self.mpc_log)
+        worker.run_home(home)
 
-        # Block in Queue until all tasks are done
-        self.queue.join()
-
-        self.agg_log.logger.info(f"Workers complete for timestep {self.timestep} of {self.num_timesteps}.")
-        self.agg_log.logger.info(f"Number of threads: {threading.active_count()}.")
-        self.agg_log.logger.info(f"Length of queue: {self.queue.qsize()}.")
+    def run_threaded(self):
+        """
+        Calls the MPCCalc class to calculate the control sequence and power demand
+        from all homes in the community. Threaded, using pathos
+        :return: None
+        """
+        print(self.timestep)
+        pool = ProcessPool(nodes=4) # open a pool of nodes
+        # pass a local method (self.) that takes an argument from a locally stored list (.as_list)
+        # rather than a method function that acts *on* another object type
+        results = pool.map(self.manage_home, self.as_list)
 
         self.timestep += 1
 
@@ -838,12 +833,14 @@ class Aggregator:
         """
         self.agg_log.logger.info(f"Performing baseline run for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
+
+        self.as_list = []
+        for home in self.all_homes:
+            if self.check_type == "all" or home["type"] == self.check_type:
+                self.as_list += [home]
         for t in range(self.num_timesteps):
-            for home in self.all_homes:
-                if self.check_type == "all" or home["type"] == self.check_type:
-                    self.queue.put(home)
             self.redis_set_current_values()
-            self.run_iteration()
+            self.run_threaded()
             self.collect_data()
 
             if (t+1) % (24*7*self.dt) == 0: # weekly checkpoint
@@ -959,6 +956,11 @@ class Aggregator:
         price signal.
         :return: None
         """
+        self.as_list = []
+        for home in self.all_homes:
+            if self.check_type == "all" or home["type"] == self.check_type:
+                self.as_list += [home]
+
         self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
 
@@ -972,25 +974,18 @@ class Aggregator:
         self.agg_setpoint = self._gen_setpoint(self.timestep)
 
         self.num_agents = 2
-        self.rl_agents = [HorizonAgent(self.rl_params, self.rlagent_log, self.config)]
+        self.rl_agents = [HorizonAgent(self.rl_params, self.rlagent_log)]
         for i in range(self.num_agents-1):
-            self.rl_agents += [NextTSAgent(self.rl_params, self.rlagent_log, self.config, i)] # nexttsagent has a smaller actionspace and a correspondingly smaller exploration rate
-        # self.rl_agent = DuelActionAgent(self.rl_params, self.rlagent_log, self.config)
+            self.rl_agents += [NextTSAgent(self.rl_params, self.rlagent_log, i)] # nexttsagent has a smaller actionspace and a correspondingly smaller exploration rate
 
-        self.list = []
-        for home in self.all_homes:
-            if self.check_type == "all" or home["type"] == self.check_type:
-                self.list += [home]
+
         self.redis_set_current_values()
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
             self.prev_forecast_load = self.forecast_load
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
 
-            for home in self.all_homes: # uncomment these for the actual model response
-                 if self.check_type == "all" or home["type"] == self.check_type:
-                     self.queue.put(home)
-            self.run_iteration() # community response to broadcasted price (done in a single iteration)
+            self.run_threaded()
             self.collect_data()
 
             # # version 4.0 = predict immediate price change first

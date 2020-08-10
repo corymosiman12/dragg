@@ -27,13 +27,12 @@ from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 
 class RLAgent(ABC):
-    def __init__(self, parameters, rl_log, config):
+    def __init__(self, parameters, rl_log):
         # self.name = name
         # self.env = environment
         self.data_dir = 'data'
-        # self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
-        # self.config = self._import_config()
-        self.config = config
+        self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
+        self.config = self._import_config()
         self.actionspace = self.config['rl']['utility']['action_space']
         self.theta_mu = None
         self.theta_q = None
