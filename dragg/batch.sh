@@ -9,8 +9,8 @@
 #SBATCH --qos=general-compute
 
 module purge
-module load python
+source /curc/sw/anaconda3/2019.07/bin/activate
+conda activate dragg
 
-source /projects/$USER/software/anaconda/envs/dragg/bin/activate
-
-python ./main.py
+redis-server --daemonize yes
+python -u main.py
