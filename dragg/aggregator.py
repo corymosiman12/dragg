@@ -18,7 +18,7 @@ import pathos
 from pathos.pools import ProcessPool
 
 # Local
-from dragg.mpc_calc import MPCCalc
+from dragg.mpc_calc import MPCCalc, manage_home, manage_home_forecast
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 from dragg.my_agents import HorizonAgent, NextTSAgent
@@ -270,10 +270,10 @@ class Aggregator:
         return df.set_index('ts', drop=False)
 
     def _check_home_configs(self):
-        base_homes = [e for e in self.all_homes if e["type"] == "base"]
-        pv_battery_homes = [e for e in self.all_homes if e["type"] == "pv_battery"]
-        pv_only_homes = [e for e in self.all_homes if e["type"] == "pv_only"]
-        battery_only_homes = [e for e in self.all_homes if e["type"] == "battery_only"]
+        base_homes = [e for e in self.all_homes if e['type'] == "base"]
+        pv_battery_homes = [e for e in self.all_homes if e['type'] == "pv_battery"]
+        pv_only_homes = [e for e in self.all_homes if e['type'] == "pv_only"]
+        battery_only_homes = [e for e in self.all_homes if e['type'] == "battery_only"]
         if not len(base_homes) == self.config['community']['total_number_homes'][0] - self.config['community']['homes_battery'][0] - self.config['community']['homes_pv'][0] - self.config['community']['homes_pv_battery'][0]:
             self.agg_log.logger.error("Incorrect number of base homes.")
             sys.exit(1)
@@ -638,6 +638,9 @@ class Aggregator:
 
         self.all_homes = all_homes
         self.write_home_configs()
+        self.all_homes_obj = []
+        for home in all_homes:
+            self.all_homes_obj += [MPCCalc(home)]
 
     def reset_baseline_data(self):
         self.baseline_agg_load_list = []
@@ -744,17 +747,13 @@ class Aggregator:
         self.reward_price[:-1] = self.reward_price[1:]
         self.reward_price[-1] = self.action/100
 
-    def _manage_home_forecast(self, home):
-        worker = MPCCalc(self.redis_client)
-        return worker.forecast_home(home)
-
     def _threaded_forecast(self):
-        # pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-        # results = pool.map(self._manage_home_forecast, self.as_list)
+        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
+        results = pool.map(manage_home_forecast, self.as_list)
 
-        results = []
-        for i in self.as_list:
-            results.append(self._manage_home_forecast(i))
+        # results = []
+        # for i in self.as_list:
+        #     results.append(manage_home_forecast(i))
 
         pad = len(max(results, key=len))
         results = np.array([i + [0] * (pad - len(i)) for i in results])
@@ -799,16 +798,6 @@ class Aggregator:
                     elif len(v2) != self.hours:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
-    def manage_home(self, home):
-        """
-        Internal manager of the MPCCalc class function run_home. By creating a new
-        class instance worker in this function the multithreaded process can change
-        MPCCalc class parameters such as home system variables.
-        :return: None
-        """
-        worker = MPCCalc(self.redis_client)
-        worker.run_home(home)
-
     def run_threaded(self):
         """
         Calls the MPCCalc class to calculate the control sequence and power demand
@@ -816,14 +805,14 @@ class Aggregator:
         :return: None
         """
         print(self.timestep)
-        # pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-        # # pass a local method (self.) that takes an argument from a locally stored list (.as_list)
-        # # rather than a method function that acts *on* another object type
-        # results = pool.map(self.manage_home, self.as_list)
+        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
+        # pass a local method (self.) that takes an argument from a locally stored list (.as_list)
+        # rather than a method function that acts *on* another object type
+        results = pool.map(manage_home, self.as_list)
 
-        results = []
-        for i in self.as_list:
-            results.append(self.manage_home(i))
+        # results = []
+        # for i in self.as_list:
+        #     results.append(manage_home(i))
 
         self.timestep += 1
 
@@ -857,8 +846,8 @@ class Aggregator:
         self.start_time = datetime.now()
 
         self.as_list = []
-        for home in self.all_homes:
-            if self.check_type == "all" or home["type"] == self.check_type:
+        for home in self.all_homes_obj:
+            if self.check_type == "all" or home.type == self.check_type:
                 self.as_list += [home]
         for t in range(self.num_timesteps):
             self.redis_set_current_values()
