@@ -10,7 +10,7 @@
             "temp_in_min": 18.56039017458077,
             "temp_in_max": 20.644662844312617,
             "temp_in_sp": 19.602526509446694,
-            "temp_in_init": 19.753437262330234
+            "temp_in_init": 18.91830430090561
         },
         "wh": {
             "r": 22.682146980905856,
@@ -19,13 +19,13 @@
             "temp_wh_min": 44.77821015836858,
             "temp_wh_max": 48.53309172308987,
             "temp_wh_sp": 46.655650940729224,
-            "temp_wh_init": 45.498061402869446,
+            "temp_wh_init": 44.99416553171884,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -41,7 +41,7 @@
             "temp_in_min": 20.61429229228326,
             "temp_in_max": 23.346812990425207,
             "temp_in_sp": 21.980552641354233,
-            "temp_in_init": 22.809918171560884
+            "temp_in_init": 21.272980056066547
         },
         "wh": {
             "r": 21.629554250862373,
@@ -50,13 +50,13 @@
             "temp_wh_min": 45.38437847268805,
             "temp_wh_max": 49.190072893033395,
             "temp_wh_sp": 47.28722568286072,
-            "temp_wh_init": 46.91650974652731,
+            "temp_wh_init": 45.84401785483983,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -72,7 +72,7 @@
             "temp_in_min": 17.392156706835124,
             "temp_in_max": 20.02835670066799,
             "temp_in_sp": 18.710256703751558,
-            "temp_in_init": 17.69163355918539
+            "temp_in_init": 17.481999762540205
         },
         "wh": {
             "r": 21.868308769957476,
@@ -81,13 +81,13 @@
             "temp_wh_min": 44.94724347208043,
             "temp_wh_max": 49.717598860946026,
             "temp_wh_sp": 47.33242116651323,
-            "temp_wh_init": 48.70077120707398,
+            "temp_wh_init": 46.07330179257849,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -103,7 +103,7 @@
             "temp_in_min": 20.836433717680634,
             "temp_in_max": 22.864341506542168,
             "temp_in_sp": 21.8503876121114,
-            "temp_in_init": 21.398401875241102
+            "temp_in_init": 21.005024164948775
         },
         "wh": {
             "r": 24.563753679715973,
@@ -112,13 +112,13 @@
             "temp_wh_min": 45.59670322182194,
             "temp_wh_max": 49.00101190856209,
             "temp_wh_sp": 47.298857565192016,
-            "temp_wh_init": 46.4607446611758,
+            "temp_wh_init": 45.855915653628095,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -134,7 +134,7 @@
             "temp_in_min": 18.526916051124434,
             "temp_in_max": 20.827086110948418,
             "temp_in_sp": 19.677001081036426,
-            "temp_in_init": 20.002884785664236
+            "temp_in_init": 18.969706671486374
         },
         "wh": {
             "r": 20.076103223837187,
@@ -143,13 +143,13 @@
             "temp_wh_min": 44.517837163046,
             "temp_wh_max": 48.3558668180135,
             "temp_wh_sp": 46.43685199052975,
-            "temp_wh_init": 44.938045456902984,
+            "temp_wh_init": 44.6438996512031,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -165,7 +165,7 @@
             "temp_in_min": 18.58578352578955,
             "temp_in_max": 20.806636046618436,
             "temp_in_sp": 19.696209786203994,
-            "temp_in_init": 19.680080412674652
+            "temp_in_init": 18.91407259185508
         },
         "wh": {
             "r": 24.934237650231744,
@@ -174,13 +174,13 @@
             "temp_wh_min": 43.56166185095,
             "temp_wh_max": 47.85758019762852,
             "temp_wh_sp": 45.70962102428926,
-            "temp_wh_init": 47.559770015946796,
+            "temp_wh_init": 44.76109430044904,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -196,7 +196,7 @@
             "temp_in_min": 18.82508548223928,
             "temp_in_max": 20.880105475579484,
             "temp_in_sp": 19.852595478909382,
-            "temp_in_init": 19.866068345485168
+            "temp_in_init": 19.137380341213046
         },
         "wh": {
             "r": 19.18490229001895,
@@ -205,13 +205,13 @@
             "temp_wh_min": 45.89055974985325,
             "temp_wh_max": 49.913845655439914,
             "temp_wh_sp": 47.90220270264658,
-            "temp_wh_init": 46.399051927308975,
+            "temp_wh_init": 46.04310740308997,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -227,7 +227,7 @@
             "temp_in_min": 18.233269559906514,
             "temp_in_max": 20.756515630684806,
             "temp_in_sp": 19.49489259529566,
-            "temp_in_init": 19.39759688301685
+            "temp_in_init": 18.582567756839616
         },
         "wh": {
             "r": 22.628006213798198,
@@ -236,13 +236,13 @@
             "temp_wh_min": 46.40046966488535,
             "temp_wh_max": 50.06813463591456,
             "temp_wh_sp": 48.234302150399955,
-            "temp_wh_init": 48.61942674240564,
+            "temp_wh_init": 47.066156788141434,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -258,7 +258,7 @@
             "temp_in_min": 18.65384757204274,
             "temp_in_max": 21.07021722933735,
             "temp_in_sp": 19.862032400690044,
-            "temp_in_init": 20.815877586956603
+            "temp_in_init": 19.3024565765169
         },
         "wh": {
             "r": 18.905597067621656,
@@ -267,13 +267,13 @@
             "temp_wh_min": 43.80555045326827,
             "temp_wh_max": 48.36249732098696,
             "temp_wh_sp": 46.084023887127614,
-            "temp_wh_init": 45.127620703458646,
+            "temp_wh_init": 44.20217152832538,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
@@ -289,7 +289,7 @@
             "temp_in_min": 17.116563670970432,
             "temp_in_max": 19.164782420796005,
             "temp_in_sp": 18.14067304588322,
-            "temp_in_init": 18.35732890027682
+            "temp_in_init": 17.488793239762348
         },
         "wh": {
             "r": 23.090699054703208,
@@ -298,13 +298,13 @@
             "temp_wh_min": 44.49638778199105,
             "temp_wh_max": 47.76725805112626,
             "temp_wh_sp": 46.131822916558654,
-            "temp_wh_init": 46.54568414276995,
+            "temp_wh_init": 45.11117669022472,
             "tank_size": 300.0,
             "draw_times": [],
             "draw_sizes": []
         },
         "hems": {
-            "horizon": 1,
+            "horizon": 4,
             "hourly_agg_steps": 4,
             "sub_subhourly_steps": 1
         }
