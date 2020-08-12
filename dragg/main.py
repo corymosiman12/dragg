@@ -1,11 +1,5 @@
 from dragg.aggregator import Aggregator
 from dragg.reformat import Reformat
-from dragg.logger import Logger
-from datetime import datetime
-import json
-import os
-import sys
-import toml
 
 if __name__ == "__main__":
 
@@ -19,7 +13,7 @@ if __name__ == "__main__":
     # include_runs = {}
     # add_outputs = {}
 
-    # r = Reformat(mpc_params={"mpc_discomfort":[]})
-    # r.main() # use main to plot a suite of graphs
+    r = Reformat(mpc_params={"mpc_discomfort":[]})
+    r.main() # use main to plot a suite of graphs
     # r.save_images() # saves the images
     # r.rl2baseline() # specific plots available through named methods

@@ -8,14 +8,12 @@ import scipy.stats
 from dragg.redis_client import RedisClient
 
 class MPCCalc:
-    def __init__(self, redis_client, mpc_log):
+    def __init__(self, redis_client):
         """
-        :param q: queue.Queue
         :param redis_client: redis.Redis
-        :param mpc_log: int, logging.Logger
         """
-        self.q = None  # depricated for non-threaded uses
-        self.log = mpc_log
+        self.q = None # depricated for threaded uses
+        self.log = None # depricated for threaded uses, set with house
         self.redis_client = redis_client
         self.home = None  # reset every time home retrieved from Queue
         self.type = None  # reset every time home retrieved from Queue
@@ -53,7 +51,6 @@ class MPCCalc:
         self.timestep = None
         self.assumed_wh_draw = None
         self.prev_optimal_vals = None  # set after timestep > 0, set_vals_for_current_run
-        # print("home created")
 
     def redis_write_optimal_vals(self):
         """
@@ -117,7 +114,7 @@ class MPCCalc:
         self.temp_wh_min = float(self.home["wh"]["temp_wh_min"])
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
-        self.t_wh_init = float(self.home["wh"]["temp_wh_min"])
+        self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
         self.wh_size = cp.Constant(float(self.home["wh"]["tank_size"]))
         self.tap_temp = cp.Constant(12) # assumed cold tap water is about 55 deg F
 
@@ -142,7 +139,7 @@ class MPCCalc:
         self.temp_in_min = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
         self.temp_in_max = cp.Constant(float(self.home["hvac"]["temp_in_max"]))
         self.temp_in_sp = cp.Constant(float(self.home["hvac"]["temp_in_sp"]))
-        self.t_in_init = float(self.home["hvac"]["temp_in_min"])
+        self.t_in_init = float(self.home["hvac"]["temp_in_init"])
 
         if self.timestep == 0:
             self.temp_in_init = cp.Constant(self.t_in_init)
@@ -203,20 +200,21 @@ class MPCCalc:
         :return: None
         """
         self.constraints = [
+            # Indoor air temperature constraints
             self.temp_in[0] == self.temp_in_init,
             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
-                                            + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt))
-                                            - self.hvac_cool_on * (self.hvac_p_c / self.dt)
-                                            + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
+                                            + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
+                                            - self.hvac_cool_on * self.hvac_p_c
+                                            + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
             self.temp_in[1:self.h_plus] >= self.temp_in_min,
             self.temp_in[1:self.h_plus] <= self.temp_in_max,
 
+            # Hot water heater contraints
             self.temp_wh[0] == self.temp_wh_init,
             # self.temp_wh[1:] == (cp.multiply(self.temp_wh[:self.horizon],(self.wh_size - self.draw_size[1:]))/self.wh_size + cp.multiply(self.tap_temp, self.draw_size[1:])/self.wh_size)
             self.temp_wh[1:] == self.temp_wh[:self.horizon]
-                                + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / (self.wh_r * self.dt))
-                                + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
-
+                                + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
+                                + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
 
             self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
             self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
@@ -231,7 +229,7 @@ class MPCCalc:
             self.wh_heat_on >= 0
         ]
 
-        # set constraints on HVAC by season
+        # Set constraints on HVAC by season
         if max(self.oat_current) <= 26: # "winter"
             self.constraints += [self.hvac_cool_on == 0]
 
@@ -251,8 +249,8 @@ class MPCCalc:
         self.constraints += [
             # Battery constraints
             self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon]
-                                        + self.batt_ch_eff * self.p_batt_ch[0:self.horizon] / self.dt
-                                        + self.p_batt_disch[0:self.horizon] / self.dt / self.batt_disch_eff,
+                                        + (self.batt_ch_eff * self.p_batt_ch[0:self.horizon]
+                                        + self.p_batt_disch[0:self.horizon] / self.batt_disch_eff) / self.dt,
             self.e_batt[0] == self.e_batt_init,
             self.p_batt_ch[0:self.horizon] <= self.batt_max_rate,
             self.p_batt_ch[0:self.horizon] >= 0,
@@ -358,9 +356,9 @@ class MPCCalc:
         obj = cp.Minimize(new_temp_in_max - new_temp_in_min) # minimize change to deadband
         cons = [self.temp_in[0] == self.temp_in_init,
                 self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
-                                                + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt))
-                                                - self.hvac_cool_on * (self.hvac_p_c / self.dt)
-                                                + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
+                                                + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
+                                                - self.hvac_cool_on * self.hvac_p_c
+                                                + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
 
                 self.temp_in[1:self.h_plus] >= new_temp_in_min,
                 self.temp_in[1:self.h_plus] <= new_temp_in_max,
@@ -402,8 +400,8 @@ class MPCCalc:
         cons = [self.temp_wh[0] == self.temp_wh_init,
                 # self.temp_wh[1:] == (cp.multiply(self.temp_wh[:self.horizon],(self.wh_size - self.draw_size[1:]))/self.wh_size + cp.multiply(self.tap_temp, self.draw_size[1:])/self.wh_size)
                 self.temp_wh[1:] == self.temp_wh[:self.horizon]
-                                    + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / (self.wh_r * self.dt))
-                                    + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
+                                    + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
+                                    + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
 
                 self.temp_wh >= new_temp_wh_min,
                 self.temp_wh <= new_temp_wh_max,
@@ -452,8 +450,8 @@ class MPCCalc:
         obj = cp.Maximize(cp.sum(self.hvac_heat_on) + cp.sum(self.hvac_cool_on))
         cons = [self.temp_wh[0] == self.temp_wh_init,
                 self.temp_wh[1:] == self.temp_wh[:self.horizon]
-                                    + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / (self.wh_r * self.dt))
-                                    + self.wh_heat_on * (self.wh_p / self.dt)) / (self.wh_c),
+                                    + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
+                                    + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
 
                 self.temp_wh >= new_temp_wh_min,
                 self.temp_wh <= new_temp_wh_max,
@@ -466,9 +464,9 @@ class MPCCalc:
 
                 self.temp_in[0] == self.temp_in_init,
                 self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
-                                                + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / (self.home_r * self.dt))
-                                                - self.hvac_cool_on * (self.hvac_p_c / self.dt)
-                                                + self.hvac_heat_on * (self.hvac_p_h / self.dt)) / (self.home_c),
+                                                + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
+                                                - self.hvac_cool_on * self.hvac_p_c
+                                                + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
                 self.temp_in[1:self.h_plus] >= self.temp_in_min,
                 self.temp_in[1:self.h_plus] <= self.temp_in_max,
 
@@ -684,6 +682,7 @@ class MPCCalc:
         """
         # print("setting home")
         self.home = home
+        # self.log = self.home['log']
         # print("getting init vals")
         self.redis_get_initial_values()
         # print("casting init vals")
@@ -699,7 +698,6 @@ class MPCCalc:
         self.cleanup_and_finish()
         self.redis_write_optimal_vals()
         # print("solved")
-        return True
 
     def forecast_home(self, home):
         """
@@ -710,6 +708,7 @@ class MPCCalc:
         :return: list (type float) of length self.horizon
         """
         self.home = home
+        # self.log = self.home['log']
         self.redis_get_initial_values()
         self.cast_redis_init_vals()
         self.cast_redis_timestep()

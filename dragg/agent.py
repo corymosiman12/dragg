@@ -20,6 +20,8 @@ import redis
 from sklearn.linear_model import Ridge
 import scipy.stats
 from abc import ABC, abstractmethod
+import pathos
+from pathos.pools import ProcessPool
 
 # Local
 from dragg.mpc_calc import MPCCalc

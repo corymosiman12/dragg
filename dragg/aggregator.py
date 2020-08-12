@@ -12,11 +12,8 @@ import toml
 import random
 import names
 import string
-import cvxpy as cp
-import dccp
 import itertools as it
 import redis
-# import multiprocessing
 import pathos
 from pathos.pools import ProcessPool
 
@@ -25,7 +22,7 @@ from dragg.mpc_calc import MPCCalc
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 from dragg.my_agents import HorizonAgent, NextTSAgent
-from dragg.duel_action_agent import DuelActionAgent
+from dragg.dual_action_agent import DualActionAgent
 
 class Aggregator:
     def __init__(self):
@@ -351,11 +348,14 @@ class Aggregator:
             self.config['home']['hvac']['temp_deadband_dist'][1],
             self.config['community']['total_number_homes'][0]
         )
+        home_hvac_temp_in_init_pos_dist = np.random.uniform(
+            0,
+            0.3,
+            self.config['community']['total_number_homes'][0]
+        )
         home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
         home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
-        home_hvac_temp_init = []
-        for i in range(len(home_hvac_temp_in_min_dist)):
-            home_hvac_temp_init.append(home_hvac_temp_in_min_dist[i] + np.random.uniform(0, home_hvac_temp_in_db_dist[i]))
+        home_hvac_temp_init = np.add(home_hvac_temp_in_min_dist, np.multiply(home_hvac_temp_in_init_pos_dist, home_hvac_temp_in_db_dist))
 
         # Define water heater parameters
         wh_r_dist = np.random.uniform(
@@ -383,11 +383,14 @@ class Aggregator:
             self.config['home']['wh']['deadband_dist'][1],
             self.config['community']['total_number_homes'][0]
         )
+        home_wh_temp_init_pos_dist = np.random.uniform(
+            0,
+            0.3,
+            self.config['community']['total_number_homes'][0]
+        )
         home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
         home_wh_temp_max_dist = home_wh_temp_sp_dist + 0.5 * home_wh_temp_db_dist
-        home_wh_temp_init = []
-        for i in range(len(home_wh_temp_max_dist)):
-            home_wh_temp_init.append(home_wh_temp_min_dist[i] + np.random.uniform(0, home_wh_temp_db_dist[i]))
+        home_wh_temp_init = np.add(home_wh_temp_min_dist, np.multiply(home_wh_temp_init_pos_dist, home_wh_temp_db_dist))
 
         # define water heater draw events
         home_wh_size_dist = np.random.uniform(
@@ -461,6 +464,9 @@ class Aggregator:
             "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps']
         }
 
+        if not isdir(os.path('home_logs')):
+            os.makedirs('home_logs')
+
         i = 0
         # Define pv and battery homes
         num_pv_battery_homes = self.config['community']['homes_pv_battery']
@@ -472,8 +478,10 @@ class Aggregator:
             else:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
             all_homes.append({
-                "name": names.get_first_name() + '-' + res,
+                "name": name,
+                # "log": Logger(os.path.join('home_logs', name)),
                 "type": "pv_battery",
                 "hvac": {
                     "r": home_r_dist[i],
@@ -513,8 +521,10 @@ class Aggregator:
             else:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
             all_homes.append({
-                "name": names.get_first_name() + '-' + res,
+                "name": name,
+                # "log": Logger(os.path.join('home_logs', name)),
                 "type": "pv_only",
                 "hvac": {
                     "r": home_r_dist[i],
@@ -553,8 +563,10 @@ class Aggregator:
             else:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            names.get_first_name() + '-' + res
             all_homes.append({
-                "name": names.get_first_name() + '-' + res,
+                "name": name,
+                # "log": Logger(os.path.join('home_logs', name)),
                 "type": "battery_only",
                 "hvac": {
                     "r": home_r_dist[i],
@@ -589,12 +601,14 @@ class Aggregator:
         num_base_homes = np.subtract(num_base_homes, np.array(num_pv_homes))
         for j in range(int(num_base_homes[0])):
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
             if j < num_base_homes[1]:
                 hems = non_responsive_hems
             else:
                 hems = responsive_hems
             all_homes.append({
-                "name": names.get_first_name() + '-' + res,
+                "name": name,
+                # "log": Logger(os.path.join('home_logs', name)),
                 "type": "base",
                 "hvac": {
                     "r": home_r_dist[i],
@@ -731,11 +745,11 @@ class Aggregator:
         self.reward_price[-1] = self.action/100
 
     def _manage_home_forecast(self, home):
-        worker = MPCCalc(self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.redis_client)
         return worker.forecast_home(home)
 
     def _threaded_forecast(self):
-        pool = ProcessPool(nodes=4) # open a pool of nodes
+        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
         results = pool.map(self._manage_home_forecast, self.as_list)
 
         pad = len(max(results, key=len))
@@ -788,7 +802,7 @@ class Aggregator:
         MPCCalc class parameters such as home system variables.
         :return: None
         """
-        worker = MPCCalc(self.redis_client, self.mpc_log)
+        worker = MPCCalc(self.redis_client)
         worker.run_home(home)
 
     def run_threaded(self):
@@ -798,7 +812,7 @@ class Aggregator:
         :return: None
         """
         print(self.timestep)
-        pool = ProcessPool(nodes=4) # open a pool of nodes
+        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
         # pass a local method (self.) that takes an argument from a locally stored list (.as_list)
         # rather than a method function that acts *on* another object type
         results = pool.map(self.manage_home, self.as_list)
@@ -843,7 +857,7 @@ class Aggregator:
             self.run_threaded()
             self.collect_data()
 
-            if (t+1) % (24*7*self.dt) == 0: # weekly checkpoint
+            if (t+1) % (self.checkpoint_interval) == 0: # weekly checkpoint
                 self.agg_log.logger.info("Creating a checkpoint file.")
                 self.write_outputs()
 
@@ -875,6 +889,27 @@ class Aggregator:
             "OAT": self.all_data.loc[self.mask, "OAT"].values.tolist(),
             "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist(),
             "TOU": self.all_data.loc[self.mask, "tou"].values.tolist(),
+            "RP": self.all_rps.tolist(),
+            "p_grid_setpoint": self.all_sps.tolist()
+        }
+
+    def summarize_run(self):
+        run_data = {
+            "solve_time": self.t_diff.total_seconds(),
+        }
+
+    def summarize_environment(self):
+        self.baseline_data["Summary"] = {
+            "case": self.case,
+            "start_datetime": self.start_dt.strftime('%Y-%m-%d %H'),
+            "end_datetime": self.end_dt.strftime('%Y-%m-%d %H'),
+            "horizon": self.mpc['horizon'],
+            "num_homes": self.config['community']['total_number_homes'],
+            "p_grid_aggregate": self.baseline_agg_load_list[:self.timestep+1],
+            "SPP": self.all_data.loc[self.mask, "SPP"].values.tolist()[:self.timestep+1],
+            "OAT": self.all_data.loc[self.mask, "OAT"].values.tolist()[:self.timestep+1],
+            "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist()[:self.timestep+1],
+            "TOU": self.all_data.loc[self.mask, "tou"].values.tolist()[:self.timestep+1],
             "RP": self.all_rps.tolist(),
             "p_grid_setpoint": self.all_sps.tolist()
         }
@@ -1015,7 +1050,7 @@ class Aggregator:
 
             self.redis_set_current_values() # broadcast rl price to community
 
-            if (t+1) % (24*7*self.dt) == 0: # weekly checkpoint
+            if (t+1) % (self.checkpoint_interval) == 0: # weekly checkpoint
                 self.agg_log.logger.info("Creating a checkpoint file.")
                 self.write_outputs()
 
@@ -1100,11 +1135,16 @@ class Aggregator:
         :return: None
         """
         self.agg_log.logger.info("Made it to Aggregator Run")
-        # self.get_homes()
 
-        mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']],
-                          # "discomfort": [float(i) for i in self.config['home']['hems']['discomfort']],
-                          # "disutility": [float(i) for i in self.config['home']['hems']['disutility']]
+        self.checkpoint_interval = 500 # default to checkpoints every 1000 timesteps
+        if self.config['simulation']['checkpoint_interval'] == 'hourly':
+            self.checkpoint_interval = self.dt
+        elif self.config['simulation']['checkpoint_interval'] == 'daily':
+            self.checkpoint_interval = self.dt * 24
+        elif self.config['simulation']['checkpoint_interval'] == "weekly":
+            self.checkpoint_interval = self.dt * 24 * 7
+
+        mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']]
                           }
         keys, values = zip(*mpc_parameters.items())
         mpc_permutations = [dict(zip(keys, v)) for v in it.product(*values)]

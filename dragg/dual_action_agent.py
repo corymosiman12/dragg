@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.linear_model import Ridge
 import scipy.stats
-from agent import RLAgent
+from dragg.agent import RLAgent
 
 class DualActionAgent(RLAgent):
     def __init__(self, parameters, rl_log, num_actions=2):
