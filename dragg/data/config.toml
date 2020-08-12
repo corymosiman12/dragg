@@ -53,21 +53,23 @@ house_p_avg = 3.0 # used to generate the setpoint
   # Refers to mpc parameters -- uniform across all homes
   prediction_horizon = [4] # in hours, where 0 is just the next timestep (no MPC)
   price_uncertainty = 0.3
-  sub_subhourly_steps = 4 # number of steps between each RL broadcast reward price
+  sub_subhourly_steps = 1 # number of steps between each RL broadcast reward price
   # minutes_per_step = 5 # Min run time (minutes) for each on/off cycle
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-01-02 00"
+  end_datetime = "2015-01-08 00"
   random_seed = 12
+  n_nodes = 4 # for parallelization
   load_zone = "LZ_HOUSTON"
   check_type = "all"
-  run_rbo_mpc = false # runs homes with MPC (no reward price signal)
+  run_rbo_mpc = true # runs homes with MPC (no reward price signal)
   run_rl_agg = true # runs homes with MPC responding to RL aggregator
   run_rl_simplified = false # runs linear model responding to RL aggregator
+  checkpoint_interval = "daily" # hourly, daily, monthly, yearly
 
 [rl]
-    version = [5.1, 5.4]
+    version = [2.0]
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
@@ -75,8 +77,6 @@ house_p_avg = 3.0 # used to generate the setpoint
     discount_factor = [1.0] # Suggested <0.5
     batch_size = [32] # Suggested ~30
     exploration_rate = [0.01] # in E-greedy is epsilon, in policy gradient is sigma
-    # exploration_decay_rate = 1000 # number of timesteps to approx reach target exploration (exponential)
-    # exploration_decay_frac = 0.025 # reduction of exploration by percentage
     twin_q = false # will default to overwriting the old run file, use versioned runs to solve this
 
   [rl.utility]
@@ -84,9 +84,9 @@ house_p_avg = 3.0 # used to generate the setpoint
     rl_agg_action_horizon = [4] # Currently not in use
     rl_agg_forecast_horizon = 1 # Determines the number of hours the utility agent forecasts
     base_price = 0.10 # Base price for utility ($/kWh)
-    action_space = [-0.05, 0.05] # Max/min price signal in cents/kWh
+    action_space = [-0.05, 0.05] # Max/min price signal in cent/kWh
     action_scale = 1
-    hourly_steps = 1 # Subhourly steps for the utility to send price signal
+    hourly_steps = 4 # Subhourly steps for the utility to send price signal
     # hours_per_step = 2 # Number of hours for which RP signal is sustained
     minutes_per_step = 120 # Number of minutes for which the RP signal is sustained
 
