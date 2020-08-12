@@ -330,7 +330,7 @@ class MPCCalc:
         # print("solving")
         self.cost = cp.Variable(self.horizon)
         self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
-        self.obj = cp.Minimize(cp.norm(self.cost))
+        self.obj = cp.Minimize(cp.sum(self.cost))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():
             # self.log.logger.error("Problem is not DCP")
@@ -338,7 +338,7 @@ class MPCCalc:
         # flag = self.log.logger.getEffectiveLevel() < 20 # outputs from CVX solver if level is debug or lower
         flag = False
         try:
-            self.prob.solve(solver=cp.GUROBI, verbose=flag)
+            self.prob.solve(solver=cp.GLPK_MI, verbose=flag)
             self.solved = True
         except:
             self.solved = False
@@ -379,7 +379,7 @@ class MPCCalc:
             cons += [self.hvac_heat_on == 0]
 
         prob = cp.Problem(obj, cons)
-        prob.solve(solver=cp.GUROBI, verbose=False)
+        prob.solve(solver=cp.GLPK_MI, verbose=False)
         self.temp_in_min = cp.Constant(new_temp_in_min.value)
         self.temp_in_max = cp.Constant(new_temp_in_max.value)
         self.hvac_cool_on = cp.Constant(self.hvac_cool_on.value)
@@ -412,7 +412,7 @@ class MPCCalc:
                 self.wh_heat_on <= 1
                 ]
         prob = cp.Problem(obj, cons)
-        prob.solve(solver=cp.GUROBI, verbose=False)
+        prob.solve(solver=cp.GLPK_MI, verbose=False)
         # self.log.logger.info(f"Problem status {prob.status}")
         self.temp_wh_min = cp.Constant(new_temp_wh_min.value)
         self.temp_wh_max = cp.Constant(new_temp_wh_max.value)
@@ -433,7 +433,7 @@ class MPCCalc:
             self.set_base_p_grid()
         self.obj = cp.Minimize(cp.multiply(self.total_price, self.p_grid))
         self.prob = cp.Problem(self.obj, self.constraints)
-        self.prob.solve(solver=cp.GUROBI, verbose=False)
+        self.prob.solve(solver=cp.GLPK_MI, verbose=False)
         # self.log.logger.info(f"Problem status {self.prob.status}")
 
     def error_handler(self):
@@ -493,7 +493,7 @@ class MPCCalc:
             self.constraints += [self.u_pv_curt == 0]
 
         prob = cp.Problem(obj, cons)
-        prob.solve(solver=cp.GUROBI, verbose=False)
+        prob.solve(solver=cp.GLPK_MI, verbose=False)
 
         self.temp_wh_min = cp.Constant(new_temp_wh_min.value)
         self.temp_wh_max = cp.Constant(new_temp_wh_max.value)
