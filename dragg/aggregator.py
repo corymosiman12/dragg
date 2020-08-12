@@ -464,7 +464,7 @@ class Aggregator:
             "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps']
         }
 
-        if not isdir(os.path('home_logs')):
+        if not os.path.isdir(os.path.join('home_logs')):
             os.makedirs('home_logs')
 
         i = 0
@@ -749,8 +749,12 @@ class Aggregator:
         return worker.forecast_home(home)
 
     def _threaded_forecast(self):
-        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-        results = pool.map(self._manage_home_forecast, self.as_list)
+        # pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
+        # results = pool.map(self._manage_home_forecast, self.as_list)
+
+        results = []
+        for i in self.as_list:
+            results.append(self._manage_home_forecast(i))
 
         pad = len(max(results, key=len))
         results = np.array([i + [0] * (pad - len(i)) for i in results])
@@ -812,10 +816,14 @@ class Aggregator:
         :return: None
         """
         print(self.timestep)
-        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-        # pass a local method (self.) that takes an argument from a locally stored list (.as_list)
-        # rather than a method function that acts *on* another object type
-        results = pool.map(self.manage_home, self.as_list)
+        # pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
+        # # pass a local method (self.) that takes an argument from a locally stored list (.as_list)
+        # # rather than a method function that acts *on* another object type
+        # results = pool.map(self.manage_home, self.as_list)
+
+        results = []
+        for i in self.as_list:
+            results.append(self.manage_home(i))
 
         self.timestep += 1
 
