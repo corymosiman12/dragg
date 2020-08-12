@@ -6,7 +6,6 @@
 #SBATCH --mail-user=aipi0122@colorado.edu
 #SBATCH --job-name="test"
 #SBATCH --mail-type=ALL
-#SBATCH --qos=general-compute
 
 module purge
 source /curc/sw/anaconda3/2019.07/bin/activate
