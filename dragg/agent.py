@@ -28,14 +28,22 @@ from dragg.mpc_calc import MPCCalc
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 
+# class Experience:
+#     def __init__(self, state, action, reward, next_state):
+#         self.state = state
+#         self.action = action
+#         self.reward = reward
+#         self.next_state = next_state
+#
+#     def process(self)
+def manage_experience_processing(exp):
+    return
+
 class RLAgent(ABC):
     def __init__(self, parameters, rl_log):
-        # self.name = name
-        # self.env = environment
         self.data_dir = 'data'
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
         self.config = self._import_config()
-        self.actionspace = self.config['rl']['utility']['action_space']
         self.theta_mu = None
         self.theta_q = None
         self.prev_state = None
@@ -117,6 +125,7 @@ class RLAgent(ABC):
     def memorize(self):
         if self.state and self.action:
             experience = {"state": self.state, "action": self.action, "reward": self.r, "next_state": self.next_state}
+            self.memory.append(experience)
 
     def train(self, env):
         self.next_state = self.calc_state(env)
@@ -151,12 +160,31 @@ class RLAgent(ABC):
             n = len(x_k)
             self.theta_mu = np.zeros(n)
         self.mu = self.theta_mu @ x_k
-        self.mu = np.clip(self.mu, self.actionspace[0], self.actionspace[1])
 
         action = scipy.stats.norm.rvs(loc=self.mu, scale=self.SIGMA)
-        action = np.clip(action, self.actionspace[0], self.actionspace[1])
-
         return action
+
+    def parse_exp(self, exp):
+        x = exp["state"]
+        x1 = exp["next_state"]
+        u = exp["action"]
+        u1 = self.get_policy_action(x1)
+        xu_k = self.state_action_basis(x,u)
+        xu_k1 = self.state_action_basis(x1,u1)
+        q_k1 = min(self.theta_q[:,i] @ xu_k1 for i in range(self.theta_q.shape[1]))
+        y = exp["reward"] + self.BETA * q_k1
+        return y, xu_k
+
+    def process_exp(self, exp):
+        x = exp["state"]
+        x1 = exp["next_state"]
+        u = exp["action"]
+        u1 = self.get_policy_action(x1)
+        xu_k = self.state_action_basis(x,u)
+        xu_k1 = self.state_action_basis(x1,u1)
+        q_k1 = min(self.theta_q[:,i] @ xu_k1 for i in range(self.theta_q.shape[1]))
+        y = exp["reward"] + self.BETA * q_k1
+        return y
 
     def update_qfunction(self):
         if self.TWIN_Q:
@@ -168,40 +196,21 @@ class RLAgent(ABC):
                 m = 2 # generate 2 q networks
             else:
                 m = 1
-            self.theta_q = np.random.normal(-1, 0.3, (n, m))
+            self.theta_q = np.random.normal(0, 0.3, (n, m))
         self.q_predicted = self.theta_q[:,self.i] @  self.xu_k # recorded for analysis
         self.q_observed = self.r + self.BETA * self.theta_q[:,self.i] @ self.xu_k1 # recorded for analysis
-        # temp_theta = deepcopy(self.theta)
 
         if len(self.memory) > self.BATCH_SIZE:
             batch = random.sample(self.memory, self.BATCH_SIZE)
-            batch_y = []
-            batch_phi = []
-            for exp in batch:
-                x = exp["state"]
-                x1 = exp["next_state"]
-                u = exp["action"]
-                u1 = self.get_policy_action(x1)
-                xu_k = self.state_action_basis(x,u)
-                xu_k1 = self.state_action_basis(x1,u1)
-                q_k1 = min(self.theta_q[:,i] @ xu_k1 for i in range(len(q)))
-                y = exp["reward"] + self.BETA * q_k1
-                # y = exp["reward"] + self.BETA * q1_a
-                batch_y.append(y)
-                batch_phi.append(xu_k)
-            batch_y = np.array(batch_y)
-            batch_phi = np.array(batch_phi)
 
-            if np.isnan(batch_y).any():
-                if np.isnan(self.theta_q).any():
-                    self.rla_log.logger.error("Q network has diverged and has caused Q value predictions to be infinite.")
-            if np.isnan(batch_phi).any():
-                self.rla_log.logger.error("Numerical innaccuracies in the state basis calculation.")
+            pool = ProcessPool(nodes=self.config['simulation']['n_nodes'])
+            batch_y = np.array(pool.map(self.process_exp, batch))
+            batch_phi = np.array([self.state_action_basis(exp['state'],exp['action']) for exp in batch])
 
             clf = Ridge(alpha = 0.01)
             clf.fit(batch_phi, batch_y)
             temp_theta = clf.coef_
-            self.theta_q[:,self.i] = self.ALPHA_q * temp_theta + (1-self.ALPHA_q) * theta
+            self.theta_q[:,self.i] = self.ALPHA_q * temp_theta + (1-self.ALPHA_q) * self.theta_q.flatten()
 
     def update_policy(self):
         """
@@ -210,8 +219,7 @@ class RLAgent(ABC):
         """
         x_k = self.state_basis(self.state)
         x_k1 = self.state_basis(self.next_state)
-        delta = self.q_predicted - self.q_observed #- self.average_reward
-        delta = np.clip(delta, -1, 1)
+        delta = np.clip(self.q_predicted - self.q_observed, -1, 1)
         self.average_reward += self.ALPHA_r * delta
         self.cumulative_reward += self.r
         # self.average_reward = self.cummulative_reward / (self.timestep + 1)
@@ -224,8 +232,8 @@ class RLAgent(ABC):
         self.theta_mu += self.ALPHA_mu * delta * self.z_theta_mu
 
     def set_rl_data(self):
-        # temp = {}
-        self.rl_data["theta"] = []
+        self.rl_data["theta_q"] = []
+        self.rl_data["theta_mu"] = []
         self.rl_data["phi"] = []
         self.rl_data["q_obs"] = []
         self.rl_data["q_pred"] = []
@@ -237,18 +245,38 @@ class RLAgent(ABC):
         self.rl_data["mu"] = []
 
     def record_rl_data(self):
-        self.rl_data["theta"].append(self.theta_q[:,self.i].flatten().tolist())
+        self.rl_data["theta_q"].append(self.theta_q[:,self.i].flatten().tolist())
+        self.rl_data["theta_mu"].append(self.theta_mu.flatten().tolist())
         self.rl_data["q_obs"].append(self.q_observed)
         self.rl_data["q_pred"].append(self.q_predicted)
         self.rl_data["action"].append(self.action)
-        # self.rl_data["is_greedy"].append(self.is_greedy)
         self.rl_data["average_reward"].append(self.average_reward)
         self.rl_data["cumulative_reward"].append(self.cumulative_reward)
         self.rl_data["reward"].append(self.r)
         self.rl_data["mu"].append(self.mu)
 
-    # @staticmethod
+    def record_parameters(self):
+        self.rl_data["parameters"] = {
+            "alpha_q": self.ALPHA_q,
+            "alpha_mu": self.ALPHA_mu,
+            "alpha_w": self.ALPHA_w,
+            "alpha_r": self.ALPHA_r,
+            "beta": self.BETA,
+            "batch_size": self.BATCH_SIZE,
+            "twin_q": self.TWIN_Q,
+            "sigma": self.SIGMA
+        }
+
     def write_rl_data(self, output_dir):
         file = os.path.join(output_dir, f"{self.name}_agent-results.json")
         with open(file, "w+") as f:
             json.dump(self.rl_data, f, indent=4)
+
+    def load_from_previous(self, file):
+        with open(file) as f:
+            data = json.load(f)
+        try:
+            self.theta_mu = data[name]['theta_mu']
+            self.theta_q = data[name]['theta_q']
+        except:
+            pass

@@ -30,7 +30,7 @@ class Aggregator:
         self.mpc_log = Logger("mpc_calc")
         self.forecast_log = Logger("forecaster")
         self.rlagent_log = Logger("rl_agent")
-        self.data_dir = 'data'
+        self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
         self.outputs_dir = os.path.join('outputs')
         if not os.path.isdir(self.outputs_dir):
             os.makedirs(self.outputs_dir)
@@ -213,6 +213,8 @@ class Aggregator:
         df["ts"] = df["ts"].apply(lambda x: datetime.strptime(x, '%Y %m %d %H %M'))
         df = df.filter(["ts", "GHI", "OAT"])
         df[["GHI", "OAT"]] = df[["GHI", "OAT"]].astype(int)
+        # if self.config['simulation']['loop_days']:
+        #     df[["GHI", "OAT"]] = self.
         return df.reset_index(drop=True)
 
     def _import_tou_data(self):
@@ -455,13 +457,15 @@ class Aggregator:
         responsive_hems = {
             "horizon": self.mpc['horizon'],
             "hourly_agg_steps": self.dt,
-            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps']
+            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
+            "solver": self.config['home']['hems']['solver']
         }
 
         non_responsive_hems = {
             "horizon": 0,
             "hourly_agg_steps": self.dt,
-            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps']
+            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
+            "solver": self.config['home']['hems']['solver']
         }
 
         if not os.path.isdir(os.path.join('home_logs')):
@@ -481,7 +485,6 @@ class Aggregator:
             name = names.get_first_name() + '-' + res
             all_homes.append({
                 "name": name,
-                # "log": Logger(os.path.join('home_logs', name)),
                 "type": "pv_battery",
                 "hvac": {
                     "r": home_r_dist[i],
@@ -524,7 +527,6 @@ class Aggregator:
             name = names.get_first_name() + '-' + res
             all_homes.append({
                 "name": name,
-                # "log": Logger(os.path.join('home_logs', name)),
                 "type": "pv_only",
                 "hvac": {
                     "r": home_r_dist[i],
@@ -566,7 +568,6 @@ class Aggregator:
             names.get_first_name() + '-' + res
             all_homes.append({
                 "name": name,
-                # "log": Logger(os.path.join('home_logs', name)),
                 "type": "battery_only",
                 "hvac": {
                     "r": home_r_dist[i],
@@ -608,7 +609,6 @@ class Aggregator:
                 hems = responsive_hems
             all_homes.append({
                 "name": name,
-                # "log": Logger(os.path.join('home_logs', name)),
                 "type": "base",
                 "hvac": {
                     "r": home_r_dist[i],
@@ -652,6 +652,7 @@ class Aggregator:
                 "temp_in_opt": [home["hvac"]["temp_in_init"]],
                 "temp_wh_opt": [home["wh"]["temp_wh_init"]],
                 "p_grid_opt": [],
+                "forecast_p_grid_opt": [],
                 "p_load_opt": [],
                 "hvac_cool_on_opt": [],
                 "hvac_heat_on_opt": [],
@@ -701,11 +702,6 @@ class Aggregator:
         self.redis_client.conn.set("start_hour_index", self.start_hour_index)
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
-        if self.case == "agg_mpc":
-            self.iteration = 0
-            self.redis_client.conn.hset("current_values", "iteration", self.iteration)
-            self.redis_client.conn.hset("current_values", "reward_price", self.reward_price.tolist())
-
         if self.case == "rl_agg" or self.case == "simplified":
             self.reward_price = np.zeros(self.util['rl_agg_horizon'] * self.dt)
             for val in self.reward_price.tolist():
@@ -730,9 +726,7 @@ class Aggregator:
         """
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
-        if self.case == "agg_mpc":
-            self.redis_client.conn.hset("current_values", "iteration", self.iteration)
-        elif self.case == "rl_agg" or self.case == "simplified":
+        if self.case == "rl_agg" or self.case == "simplified":
             self.all_sps[self.timestep-1] = self.agg_setpoint
             self.all_rps[self.timestep-1] = self.reward_price[0]
             for i in range(len(self.reward_price)):
@@ -750,10 +744,6 @@ class Aggregator:
     def _threaded_forecast(self):
         pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
         results = pool.map(manage_home_forecast, self.as_list)
-
-        # results = []
-        # for i in self.as_list:
-        #     results.append(manage_home_forecast(i))
 
         pad = len(max(results, key=len))
         results = np.array([i + [0] * (pad - len(i)) for i in results])
@@ -798,21 +788,14 @@ class Aggregator:
                     elif len(v2) != self.hours:
                         self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
-    def run_threaded(self):
+    def _run_iteration(self):
         """
         Calls the MPCCalc class to calculate the control sequence and power demand
         from all homes in the community. Threaded, using pathos
         :return: None
         """
-        print(self.timestep)
         pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-        # pass a local method (self.) that takes an argument from a locally stored list (.as_list)
-        # rather than a method function that acts *on* another object type
         results = pool.map(manage_home, self.as_list)
-
-        # results = []
-        # for i in self.as_list:
-        #     results.append(manage_home(i))
 
         self.timestep += 1
 
@@ -824,14 +807,17 @@ class Aggregator:
         agg_load = 0
         agg_cost = 0
         self.house_load = []
+        self.forecast_house_load = []
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
                     self.baseline_data[home["name"]][k].append(float(v))
                 self.house_load.append(float(vals["p_grid_opt"]))
+                self.forecast_house_load.append(float(vals["forecast_p_grid_opt"]))
                 agg_cost += float(vals["cost_opt"])
         self.agg_load = np.sum(self.house_load)
+        self.forecast_load = np.sum(self.forecast_house_load)
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
 
@@ -851,24 +837,22 @@ class Aggregator:
                 self.as_list += [home]
         for t in range(self.num_timesteps):
             self.redis_set_current_values()
-            self.run_threaded()
+            self._run_iteration()
             self.collect_data()
 
             if (t+1) % (self.checkpoint_interval) == 0: # weekly checkpoint
                 self.agg_log.logger.info("Creating a checkpoint file.")
                 self.write_outputs()
 
-        # Write
-        self.end_time = datetime.now()
-        self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
-        self.check_baseline_vals()
-
     def summarize_baseline(self):
         """
         Get the maximum of the aggregate demand for each simulation.
         :return: None
         """
+        self.end_time = datetime.now()
+        self.t_diff = self.end_time - self.start_time
+        self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+
         self.max_agg_load = max(self.baseline_agg_load_list)
         self.max_agg_load_list.append(self.max_agg_load)
 
@@ -890,33 +874,13 @@ class Aggregator:
             "p_grid_setpoint": self.all_sps.tolist()
         }
 
-    def summarize_run(self):
-        run_data = {
-            "solve_time": self.t_diff.total_seconds(),
-        }
-
-    def summarize_environment(self):
-        self.baseline_data["Summary"] = {
-            "case": self.case,
-            "start_datetime": self.start_dt.strftime('%Y-%m-%d %H'),
-            "end_datetime": self.end_dt.strftime('%Y-%m-%d %H'),
-            "horizon": self.mpc['horizon'],
-            "num_homes": self.config['community']['total_number_homes'],
-            "p_grid_aggregate": self.baseline_agg_load_list[:self.timestep+1],
-            "SPP": self.all_data.loc[self.mask, "SPP"].values.tolist()[:self.timestep+1],
-            "OAT": self.all_data.loc[self.mask, "OAT"].values.tolist()[:self.timestep+1],
-            "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist()[:self.timestep+1],
-            "TOU": self.all_data.loc[self.mask, "tou"].values.tolist()[:self.timestep+1],
-            "RP": self.all_rps.tolist(),
-            "p_grid_setpoint": self.all_sps.tolist()
-        }
-
-    def write_outputs(self):
+    def write_outputs(self, inc_rl_agents=True):
         """
         Writes values for simulation run to a json file for later reference. Is
         called at the end of the simulation run period and optionally at a checkpoint period.
         :return: None
         """
+        self.summarize_baseline()
 
         date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
         if not os.path.isdir(date_output):
@@ -934,23 +898,18 @@ class Aggregator:
             run_name = f"{self.case}_version-{self.version}-results.json"
             file = os.path.join(agg_output, run_name)
 
-        elif self.case == "agg_mpc":
-            file_name = "results.json"
-            f2 = os.path.join(agg_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes'][0]}-horizon_{self.mpc['horizon']}-iter-results.json")
-            with open(f2, 'w+') as f:
-                json.dump(self.agg_mpc_data, f, indent=4)
-
         else: # self.case == "rl_agg" or self.case == "simplified"
             run_name = f"agg_horizon_{self.util['rl_agg_horizon']}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.rl_params['batch_size']}_version-{self.version}"
             run_dir = os.path.join(agg_output, run_name)
             if not os.path.isdir(run_dir):
                 os.makedirs(run_dir)
-            q_data = {}
-            for agent in self.rl_agents:
-                q_data[agent.name] = agent.rl_data
-            q_file = os.path.join(agg_output, run_name, "q-results.json")
-            with open(q_file, 'w+') as f:
-                json.dump(q_data, f, indent=4)
+            if inc_rl_agents:
+                q_data = {}
+                for agent in self.rl_agents:
+                    q_data[agent.name] = agent.rl_data
+                q_file = os.path.join(agg_output, run_name, "q-results.json")
+                with open(q_file, 'w+') as f:
+                    json.dump(q_data, f, indent=4)
 
             file = os.path.join(agg_output, run_name, "results.json")
 
@@ -982,14 +941,17 @@ class Aggregator:
             })
         return temp
 
-    def run_rl_agg(self):
-        """
-        Runs simulation with the RL aggregator agent(s) to determine the reward
-        price signal.
-        :return: None
-        """
+    def set_dummy_rl_parameters(self):
+        self.mpc = self.mpc_permutations[0]
+        self.util = self.util_permutations[0]
+        self.rl_params = self.rl_permutations[0]
+        self.version = self.versions[0]
+
+    def setup_rl_agg_run(self):
+        self.flush_redis()
+
         self.as_list = []
-        for home in self.all_homes:
+        for home in self.all_homes_obj:
             if self.check_type == "all" or home["type"] == self.check_type:
                 self.as_list += [home]
 
@@ -1005,49 +967,43 @@ class Aggregator:
         self.agg_load = self.forecast_load[0] # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
 
+        self.redis_set_current_values()
+
+    def run_rl_agg(self):
+        """
+        Runs simulation with the RL aggregator agent(s) to determine the reward
+        price signal.
+        :return: None
+        """
+        self.setup_rl_agg_run()
+
         self.num_agents = 2
         self.rl_agents = [HorizonAgent(self.rl_params, self.rlagent_log)]
         for i in range(self.num_agents-1):
             self.rl_agents += [NextTSAgent(self.rl_params, self.rlagent_log, i)] # nexttsagent has a smaller actionspace and a correspondingly smaller exploration rate
 
-
-        self.redis_set_current_values()
         for t in range(self.num_timesteps):
             self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
             self.prev_forecast_load = self.forecast_load
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
 
-            self.run_threaded()
+            self._run_iteration()
             self.collect_data()
 
-            # # version 4.0 = predict immediate price change first
-            # for i in range(len(self.rl_agents)-1):
-            #     self.reward_price[:-1] = self.reward_price[1:]
-            #     self.reward_price[-1] = 0
-            #     self.forecast_load = self._gen_forecast()
-            #     y = self.rl_agents[i].train(self) / self.config['rl']['utility']['action_scale']
-            #     self.reward_price[i] = np.clip(self.reward_price[i] + y, -0.05, 0.05)
-            #     self.redis_set_current_values()
-            #
-            # self.forecast_load = self._gen_forecast()
-            # self.reward_price[self.num_agents-1] = self.rl_agents[self.num_agents-1].train(self) / self.config['rl']['utility']['action_scale']
-
-            # version 5.0 = predict horizon price change first
-            self.reward_price[:-1] = self.reward_price[1:]
-            self.reward_price[-1] = 0
-            self.reward_price[1] = self.rl_agents[0].train(self) / self.config['rl']['utility']['action_scale']
-            self.redis_set_current_values()
+            # self.reward_price[:-1] = self.reward_price[1:]
+            # self.reward_price[-1] = 0
+            # self.reward_price[1] = self.rl_agents[0].train(self) / self.config['rl']['utility']['action_scale']
+            # self.redis_set_current_values()
             self.forecast_load = self._gen_forecast()
-            self.reward_price[0] += self.rl_agents[-1].train(self) / self.config['rl']['utility']['action_scale']
-            self.reward_price = np.clip(self.reward_price, -0.05, 0.05)
-
+            self.reward_price[0] = self.rl_agents[-1].train(self)
+            # self.reward_price = np.clip(self.reward_price, self.actionspace[0], self.actionspace[1])
             # # version 6.0 = predict change in both RPs at once
             # self.reward_price[:2] = self.rl_agent.train(self) / self.config['rl']['utility']['action_scale']
-            # self.reward_price = np.clip(self.reward_price, -0.05, 0.05)
+            # self.reward_price = np.clip(self.reward_price, self.actionspace[0], self.actionspace[1])
 
             self.redis_set_current_values() # broadcast rl price to community
 
-            if (t+1) % (self.checkpoint_interval) == 0: # weekly checkpoint
+            if t > 0 and t % (self.checkpoint_interval) == 0: # weekly checkpoint
                 self.agg_log.logger.info("Creating a checkpoint file.")
                 self.write_outputs()
 
@@ -1091,7 +1047,7 @@ class Aggregator:
         self.agg_load = self.forecast_load[0] # approximate load for initial timestep
         self.agg_setpoint = self._gen_setpoint(self.timestep)
 
-        horizon_agent = HorizonAgent(self.rl_params, self.rlagent_log, self.config)
+        horizon_agent = HorizonAgent(self.rl_params, self.rlagent_log)
         # next_timestep_agent = NextTSAgent(self.rl_params, self.rlagent_log)
         self.rl_agents = [horizon_agent]
 
@@ -1124,6 +1080,27 @@ class Aggregator:
         self.check_all_data_indices()
         self.calc_start_hour_index()
         self.redis_add_all_data()
+        self.redis_set_initial_values()
+
+    def set_value_permutations(self):
+        mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']]}
+        keys, values = zip(*mpc_parameters.items())
+        self.mpc_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+
+        util_parameters = {"rl_agg_horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
+        keys, values = zip(*util_parameters.items())
+        self.util_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+
+        rl_parameters = {"alpha": [float(i) for i in self.config['rl']['parameters']['learning_rate']],
+                            "beta": [float(i) for i in self.config['rl']['parameters']['discount_factor']],
+                            "epsilon": [float(i) for i in self.config['rl']['parameters']['exploration_rate']],
+                            "batch_size": [int(i) for i in self.config['rl']['parameters']['batch_size']],
+                            "twin_q": [self.config['rl']['parameters']['twin_q']]
+                            }
+        keys, values = zip(*rl_parameters.items())
+        self.rl_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+
+        self.versions = self.config['rl']['version']
 
     def run(self):
         """
@@ -1141,77 +1118,42 @@ class Aggregator:
         elif self.config['simulation']['checkpoint_interval'] == "weekly":
             self.checkpoint_interval = self.dt * 24 * 7
 
-        mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']]
-                          }
-        keys, values = zip(*mpc_parameters.items())
-        mpc_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+        self.set_value_permutations()
 
         if self.config['simulation']['run_rbo_mpc']:
             # Run baseline MPC with N hour horizon, no aggregator
             # Run baseline with 1 hour horizon for non-MPC HEMS
             self.case = "baseline" # no aggregator
-            for self.mpc in mpc_permutations:
-                for self.version in self.config['rl']['version']:
-                    self.get_homes()
+            for self.mpc in self.mpc_permutations:
+                for self.version in self.versions:
                     self.flush_redis()
-                    self.redis_set_initial_values()
+                    self.get_homes()
                     self.reset_baseline_data()
                     self.run_baseline()
-                    self.summarize_baseline()
                     self.write_outputs()
 
         if self.config['simulation']['run_rl_agg']:
             self.case = "rl_agg"
 
-            util_parameters = {"rl_agg_horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
-            keys, values = zip(*util_parameters.items())
-            util_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
-
-            rl_parameters = {"alpha": [float(i) for i in self.config['rl']['parameters']['learning_rate']],
-                                "beta": [float(i) for i in self.config['rl']['parameters']['discount_factor']],
-                                "epsilon": [float(i) for i in self.config['rl']['parameters']['exploration_rate']],
-                                "batch_size": [int(i) for i in self.config['rl']['parameters']['batch_size']],
-                                "twin_q": [self.config['rl']['parameters']['twin_q']]
-                                }
-            keys, values = zip(*rl_parameters.items())
-            rl_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
-
-            for self.mpc in mpc_permutations:
-                print(self.mpc)
-                for self.util in util_permutations:
-                    for self.rl_params in rl_permutations:
-                        for self.version in self.config['rl']['version']:
-                            self.get_homes()
+            for self.mpc in self.mpc_permutations:
+                for self.util in self.util_permutations:
+                    for self.rl_params in self.rl_permutations:
+                        for self.version in self.versions:
                             self.flush_redis()
-                            self.redis_set_initial_values()
+                            self.get_homes()
                             self.reset_baseline_data()
                             self.run_rl_agg()
-                            self.summarize_baseline()
                             self.write_outputs()
 
         if self.config['simulation']['run_rl_simplified']:
             self.case = "simplified"
             self.all_homes = []
-            util_parameters = {"rl_agg_horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
-            keys, values = zip(*util_parameters.items())
-            util_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
 
-            rl_parameters = {"alpha": [float(i) for i in self.config['rl']['parameters']['learning_rate']],
-                                "beta": [float(i) for i in self.config['rl']['parameters']['discount_factor']],
-                                "epsilon": [float(i) for i in self.config['rl']['parameters']['exploration_rate']],
-                                "batch_size": [int(i) for i in self.config['rl']['parameters']['batch_size']],
-                                "twin_q": [self.config['rl']['parameters']['twin_q']]
-                                }
-            keys, values = zip(*rl_parameters.items())
-            rl_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
-
-            for self.mpc in mpc_permutations:
-                for self.util in util_permutations:
-                    for self.rl_params in rl_permutations:
-                        for self.version in self.config['rl']['version']:
+            for self.mpc in self.mpc_permutations:
+                for self.util in self.util_permutations:
+                    for self.rl_params in self.rl_permutations:
+                        for self.version in self.versions:
                             self.flush_redis()
-                            self.redis_set_initial_values()
                             self.reset_baseline_data()
                             self.run_rl_agg_simplified()
-                            self.summarize_baseline()
                             self.write_outputs()

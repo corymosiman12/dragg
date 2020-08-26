@@ -1,7 +1,7 @@
 [community]
 # Refers to the community makeup of house types.
 # Remaining homes will be considered of type "base" (hvac + wh)
-total_number_homes = [10, 0] # list [All homes, Non-Responsive]
+total_number_homes = [50, 0] # list [All homes, Non-Responsive]
 homes_battery = [0, 0] # list [All homes, Non-Responsive]
 homes_pv = [0, 0] # list [All homes, Non-Responsive]
 homes_pv_battery = [0, 0] # list [All homes, Non-Responsive]
@@ -55,37 +55,39 @@ house_p_avg = 3.0 # used to generate the setpoint
   price_uncertainty = 0.3
   sub_subhourly_steps = 1 # number of steps between each RL broadcast reward price
   # minutes_per_step = 5 # Min run time (minutes) for each on/off cycle
+  solver = "GLPK_MI" # options are GUROBI or GLPK_MI at the moment
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-01-08 00"
+  end_datetime = "2015-01-15 00"
+  loop_days = true
   random_seed = 12
   n_nodes = 4 # for parallelization
   load_zone = "LZ_HOUSTON"
   check_type = "all"
-  run_rbo_mpc = true # runs homes with MPC (no reward price signal)
+  run_rbo_mpc = false # runs homes with MPC (no reward price signal)
   run_rl_agg = true # runs homes with MPC responding to RL aggregator
   run_rl_simplified = false # runs linear model responding to RL aggregator
   checkpoint_interval = "daily" # hourly, daily, monthly, yearly
 
 [rl]
-    version = [2.0]
+    version = [4.0]
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
-    learning_rate = [0.5] # Suggested ~0.001
+    learning_rate = [0.01] # Suggested ~0.001
     discount_factor = [1.0] # Suggested <0.5
-    batch_size = [32] # Suggested ~30
+    batch_size = [4] # Suggested ~30
     exploration_rate = [0.01] # in E-greedy is epsilon, in policy gradient is sigma
     twin_q = false # will default to overwriting the old run file, use versioned runs to solve this
+    # load_from = 'outputs/2015-01-01T00_2015-01-15T00/all-homes_1-horizon_4-interval_15/rl_agg/agg_horizon_4-alpha_0.0001-epsilon_0.01-beta_1.0_batch-4_version-4.0/q-results.json'
 
   [rl.utility]
     # Refers to parameters that change how the electric utility uses the RL agent
     rl_agg_action_horizon = [4] # Currently not in use
     rl_agg_forecast_horizon = 1 # Determines the number of hours the utility agent forecasts
-    base_price = 0.10 # Base price for utility ($/kWh)
-    action_space = [-0.05, 0.05] # Max/min price signal in cent/kWh
-    action_scale = 1
+    base_price = 0.1 # Base price for utility ($/kWh)
+    action_space = [-1.0, 1.0] # Max/min price signal in cent/kWh
     hourly_steps = 4 # Subhourly steps for the utility to send price signal
     # hours_per_step = 2 # Number of hours for which RP signal is sustained
     minutes_per_step = 120 # Number of minutes for which the RP signal is sustained
@@ -93,3 +95,6 @@ house_p_avg = 3.0 # used to generate the setpoint
   [rl.simplified]
     response_rate = 0.3
     offset = 0.2
+
+[reformat]
+  versions = "all"

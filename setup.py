@@ -7,8 +7,9 @@ from setuptools import setup, find_packages
 
 setup(name='dragg',
       license='MIT',
-      version='0',
+      version='0.0',
       packages=find_packages(),
       scripts=["dragg/main.py"],
       install_requires=required,
+      py_modules=['dragg']
      )

@@ -4,6 +4,8 @@ import cvxpy as cp
 from redis import StrictRedis
 import redis
 import scipy.stats
+import logging
+import pathos
 
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
@@ -27,7 +29,7 @@ class MPCCalc:
     def __init__(self, home):
         """
         params
-        home: dictionary
+        home: Dictionary with keys
         """
         self.q = None # depricated for threaded uses
         self.home = home  # reset every time home retrieved from Queue
@@ -62,11 +64,21 @@ class MPCCalc:
         self.temp_wh_max = None
         self.temp_in_min = None
         self.temp_in_max = None
-        self.optimal_vals = None
+        self.optimal_vals = {}
         self.iteration = None
         self.timestep = None
         self.assumed_wh_draw = None
         self.prev_optimal_vals = None  # set after timestep > 0, set_vals_for_current_run
+
+        # setup cvxpy verbose solver
+        self.verbose_flag = os.environ.get('VERBOSE','False')
+        if not self.verbose_flag.lower() == 'true':
+            self.verbose_flag = False
+        else:
+            self.verbose_flag = True
+
+        # calls redis and gets all the environmental variables from beginning of simulation to end
+        self.initialize_environmental_variables()
 
         # setup the base variables of HVAC and water heater
         self.setup_base_problem()
@@ -76,11 +88,6 @@ class MPCCalc:
         if 'pv' in self.type:
             # setup the pv variables
             self.setup_pv_problem()
-
-        # if not os.path.isdir(os.path.join('home_logs')):
-        #     os.makedirs(os.path.join('home_logs'))
-        # self.log = Logger(os.path.join('home_logs', self.name))
-        # self.log.logger.info(f"Home {self.name} of type {self.type} initialized.")
 
     def redis_write_optimal_vals(self):
         """
@@ -99,12 +106,36 @@ class MPCCalc:
         key = self.name
         self.prev_optimal_vals = self.redis_client.conn.hgetall(key)
 
+    def initialize_environmental_variables(self):
+        # get a connection to redis
+        self.redis_client = RedisClient()
+
+        # collect all values necessary
+        self.start_hour_index = self.redis_client.conn.get('start_hour_index')
+        self.all_ghi = self.redis_client.conn.lrange('GHI', 0, -1)
+        self.all_oat = self.redis_client.conn.lrange('OAT', 0, -1)
+        self.all_spp = self.redis_client.conn.lrange('SPP', 0, -1)
+        self.all_tou = self.redis_client.conn.lrange('tou', 0, -1)
+
+        # cast all values to proper type
+        self.start_hour_index = int(float(self.start_hour_index))
+        self.all_ghi = [float(i) for i in self.all_ghi]
+        self.all_oat = [float(i) for i in self.all_oat]
+        self.all_spp = [float(i) for i in self.all_spp]
+
     def setup_base_problem(self):
         """
         Sets variable objects for CVX optimization problem. Includes "base home"
         systems of HVAC and water heater.
         :return: None
         """
+        # Set up the solver parameters
+        solvers = {"GUROBI": cp.GUROBI, "GLPK_MI": cp.GLPK_MI}
+        try:
+            self.solver = solvers[self.home['hems']['solver']]
+        except:
+            self.solver = cp.GUROBI
+
         # Set up the horizon for the MPC calc (min horizon = 1, no MPC)
         self.sub_subhourly_steps = max(1, int(self.home['hems']['sub_subhourly_steps']))
         self.dt = max(1, int(self.home['hems']['hourly_agg_steps'])) * self.sub_subhourly_steps
@@ -163,7 +194,7 @@ class MPCCalc:
         # ed = sum(draw_size_list) / len(draw_size_list)
         # self.expected_draw = cp.Constant(ed)
 
-    def setup_environmental_variables(self):
+    def set_environmental_variables(self):
         """
         Slices cast values of the environmental values for the current timestep.
         :return: None
@@ -282,8 +313,8 @@ class MPCCalc:
             self.constraints += [self.hvac_heat_on == 0]
 
         # set total price for electricity
-        self.total_price_values = np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon]
-        self.total_price = cp.Constant(100*self.total_price_values)
+        total_price_values = np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon]
+        self.total_price = cp.Constant(total_price_values)
 
     def add_battery_constraints(self):
         """
@@ -373,16 +404,15 @@ class MPCCalc:
         :return: None
         """
         self.cost = cp.Variable(self.horizon)
+        self.objective = cp.Variable(self.horizon)
         self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
-        self.obj = cp.Minimize(cp.norm(self.cost))
+        self.weights = cp.Constant(np.power(0.95*np.ones(self.horizon), np.arange(self.horizon)))
+        self.obj = cp.Minimize(cp.sum(cp.multiply(self.weights, self.cost)))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():
-            # self.log.logger.error("Problem is not DCP")
-            print("problem is not DCP")
-        # flag = self.log.logger.getEffectiveLevel() < 20 # outputs from CVX solver if level is debug or lower
-        flag = False
+            self.log.error("Problem is not DCP")
         try:
-            self.prob.solve(solver=cp.GUROBI, verbose=flag)
+            self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
             self.solved = True
         except:
             self.solved = False
@@ -394,7 +424,7 @@ class MPCCalc:
         Resets the HEMS constraints with the new temperature bounds.
         :return: None
         """
-        # self.log.logger.info("Setting minimum changes to HVAC.")
+        self.log.info("Setting minimum changes to HVAC.")
         new_temp_in_min = cp.Variable()
         new_temp_in_max = cp.Variable()
         obj = cp.Minimize(new_temp_in_max - new_temp_in_min) # minimize change to deadband
@@ -423,7 +453,7 @@ class MPCCalc:
             cons += [self.hvac_heat_on == 0]
 
         prob = cp.Problem(obj, cons)
-        prob.solve(solver=cp.GUROBI, verbose=False)
+        prob.solve(solver=self.solver, verbose=self.verbose_flag)
         self.temp_in_min = cp.Constant(new_temp_in_min.value)
         self.temp_in_max = cp.Constant(new_temp_in_max.value)
         self.hvac_cool_on = cp.Constant(self.hvac_cool_on.value)
@@ -436,7 +466,7 @@ class MPCCalc:
         Resets the HEMS constraints with the new temperature bounds.
         :return: None
         """
-        # self.log.logger.info("Setting minimum changes to water heater.")
+        self.log.info("Setting minimum changes to water heater.")
         new_temp_wh_min = cp.Variable()
         new_temp_wh_max = cp.Variable()
         obj = cp.Minimize(cp.abs(self.temp_wh_min - new_temp_wh_min) + cp.abs(self.temp_wh_max - new_temp_wh_max)) # minimize change to deadband
@@ -455,14 +485,14 @@ class MPCCalc:
                 self.wh_heat_on <= 1
                 ]
         prob = cp.Problem(obj, cons)
-        prob.solve(solver=cp.GUROBI, verbose=False)
-        # self.log.logger.info(f"Problem status {prob.status}")
+        prob.solve(solver=self.solver, verbose=self.verbose_flag)
+        self.log.info(f"Problem status {prob.status}")
         self.temp_wh_min = cp.Constant(new_temp_wh_min.value)
         self.temp_wh_max = cp.Constant(new_temp_wh_max.value)
         self.wh_heat_on = cp.Constant(self.wh_heat_on.value)
 
     def get_alt_p_grid(self):
-        # self.log.logger.info("Setting p_grid using alternate objectives.")
+        self.log.info("Setting p_grid using alternate objectives.")
         self.constraints = [self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
                             self.cost == cp.multiply(self.total_price, self.p_grid)] # reset constraints
 
@@ -476,13 +506,14 @@ class MPCCalc:
             self.set_base_p_grid()
         self.obj = cp.Minimize(cp.multiply(self.total_price, self.p_grid))
         self.prob = cp.Problem(self.obj, self.constraints)
-        self.prob.solve(solver=cp.GUROBI, verbose=False)
-        # self.log.logger.info(f"Problem status {self.prob.status}")
+        self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
+        self.log.info(f"Problem status {self.prob.status}")
 
     def error_handler(self):
         """
         Utilizes the CVXPY problem as setup previously to brute force a control signal.
         Turns on HVAC (cooling or heating) and water heater for all timesteps.
+        May exceed the desired deadband conditions.
         Not intended to consider costs, only to resolve errors in normal solve process.
         :return:
         """
@@ -536,7 +567,7 @@ class MPCCalc:
             self.constraints += [self.u_pv_curt == 0]
 
         prob = cp.Problem(obj, cons)
-        prob.solve(solver=cp.GUROBI, verbose=False)
+        prob.solve(solver=self.solver, verbose=self.verbose_flag)
 
         self.temp_wh_min = cp.Constant(new_temp_wh_min.value)
         self.temp_wh_max = cp.Constant(new_temp_wh_max.value)
@@ -550,7 +581,7 @@ class MPCCalc:
         """
         n_iterations = 0
         while not self.solved and n_iterations < 10:
-            # self.log.logger.error(f"Couldn't solve problem for {self.name} of type {self.home['type']}: {self.prob.status}")
+            self.log.error(f"Couldn't solve problem for {self.name} of type {self.home['type']}: {self.prob.status}")
             self.temp_in_min -= 0.2
             self.temp_wh_min -= 0.2
             self.solve_type_problem()
@@ -560,27 +591,38 @@ class MPCCalc:
             self.error_handler()
 
         end_slice = max(1, self.sub_subhourly_steps)
-        # self.log.logger.info(f"Status for {self.name}: {self.prob.status}")
-        self.optimal_vals = {
-            "p_grid_opt": np.average(self.p_grid.value[0:end_slice]),
-            "p_load_opt": np.average(self.p_load.value[0:end_slice]),
-            "temp_in_opt": self.temp_in.value[end_slice],
-            "temp_wh_opt": self.temp_wh.value[end_slice],
-            "hvac_cool_on_opt": np.average(self.hvac_cool_on.value[0:end_slice]),
-            "hvac_heat_on_opt": np.average(self.hvac_heat_on.value[0:end_slice]),
-            "wh_heat_on_opt": np.average(self.wh_heat_on.value[0:end_slice]),
-            "cost_opt": np.average(self.cost.value[0:end_slice])
-        }
-        if 'pv' in self.type:
-            # self.log.logger.debug("Adding pv optimal vals.")
-            self.optimal_vals["p_pv_opt"] = np.average(self.p_pv.value[0:end_slice])
-            self.optimal_vals["u_pv_curt_opt"] = np.average(self.u_pv_curt.value[0:end_slice])
-        if 'battery' in self.type:
-            # self.log.logger.debug("Adding battery optimal vals.")
-            self.optimal_vals["e_batt_opt"] = self.e_batt.value[end_slice]
-            self.optimal_vals["p_batt_ch"] = np.average(self.p_batt_ch.value[0:end_slice])
-            self.optimal_vals["p_batt_disch"] = np.average(self.p_batt_disch.value[0:end_slice])
-        # self.log.logger.info(f"MPC solved with status {self.prob.status} for {self.name}; {self.optimal_vals}")
+        self.log.info(f"Status for {self.name}: {self.prob.status}")
+        try: # if the problem has been solved
+            self.stored_optimal_vals = {
+                "p_grid_opt": np.average(self.p_grid.value.reshape(self.sub_subhourly_steps, -1), axis=0),
+                "forecast_p_grid_opt": np.average(self.p_grid.value.reshape(self.sub_subhourly_steps, -1), axis=0)[1:],
+                "p_load_opt": np.average(self.p_load.value.reshape(self.sub_subhourly_steps, -1), axis=0),
+                "temp_in_opt": self.temp_in.value.reshape(self.sub_subhourly_steps, -1)[-1][1:],
+                "temp_wh_opt": self.temp_wh.value.reshape(self.sub_subhourly_steps, -1)[-1][1:],
+                "hvac_cool_on_opt": np.average(self.hvac_cool_on.value.reshape(self.sub_subhourly_steps, -1), axis=0),
+                "hvac_heat_on_opt": np.average(self.hvac_heat_on.value.reshape(self.sub_subhourly_steps, -1), axis=0),
+                "wh_heat_on_opt": np.average(self.wh_heat_on.value.reshape(self.sub_subhourly_steps, -1), axis=0),
+                "cost_opt": np.average(self.cost.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+            }
+            if 'pv' in self.type:
+                self.stored_optimal_vals["p_pv_opt"] = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                self.stored_optimal_vals["u_pv_curt_opt"] = np.average(self.u_pv_curt.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+            if 'battery' in self.type:
+                self.stored_optimal_vals["e_batt_opt"] = self.e_batt.value.reshape(self.sub_subhourly_steps, -1)[-1][1:]
+                self.stored_optimal_vals["p_batt_ch"] = np.average(self.p_batt_ch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                self.stored_optimal_vals["p_batt_disch"] = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+        except:
+            self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last timestep.")
+            pass
+
+        try:
+            for k in self.stored_optimal_vals:
+                self.optimal_vals[k] = self.stored_optimal_vals[k][0]
+                self.stored_optimal_vals[k] = self.stored_optimal_vals[k][1:]
+        except:
+            self.error_handler()
+        print(self.optimal_vals)
+        self.log.info(f"MPC solved with status {self.prob.status} for {self.name}; {self.optimal_vals}")
 
     def mpc_base(self):
         """
@@ -588,7 +630,7 @@ class MPCCalc:
         self.home == "base"
         :return:
         """
-        self.setup_environmental_variables()
+        self.set_environmental_variables()
         self.add_base_constraints()
         self.set_base_p_grid()
         self.solve_mpc()
@@ -599,7 +641,7 @@ class MPCCalc:
         self.home == "battery_only"
         :return:
         """
-        self.setup_environmental_variables()
+        self.set_environmental_variables()
         self.add_base_constraints()
         self.add_battery_constraints()
         self.set_battery_only_p_grid()
@@ -611,7 +653,7 @@ class MPCCalc:
         self.home == "pv_only"
         :return:
         """
-        self.setup_environmental_variables()
+        self.set_environmental_variables()
         self.add_base_constraints()
         self.add_pv_constraints()
         self.set_pv_only_p_grid()
@@ -623,7 +665,7 @@ class MPCCalc:
         self.home == "pv_battery"
         :return:
         """
-        self.setup_environmental_variables()
+        self.set_environmental_variables()
         self.add_base_constraints()
         self.add_battery_constraints()
         self.add_pv_constraints()
@@ -636,22 +678,7 @@ class MPCCalc:
         the base price set by the utility.
         :return: None
         """
-        self.start_hour_index = self.redis_client.conn.get('start_hour_index')
         self.current_values = self.redis_client.conn.hgetall("current_values")
-        self.all_ghi = self.redis_client.conn.lrange('GHI', 0, -1)
-        self.all_oat = self.redis_client.conn.lrange('OAT', 0, -1)
-        self.all_spp = self.redis_client.conn.lrange('SPP', 0, -1)
-        self.all_tou = self.redis_client.conn.lrange('tou', 0, -1)
-
-    def cast_redis_init_vals(self):
-        """
-        Casts the collected redis values as correct data type.
-        :return: None
-        """
-        self.start_hour_index = int(float(self.start_hour_index))
-        self.all_ghi = [float(i) for i in self.all_ghi]
-        self.all_oat = [float(i) for i in self.all_oat]
-        self.all_spp = [float(i) for i in self.all_spp]
 
     def cast_redis_timestep(self):
         """
@@ -670,7 +697,7 @@ class MPCCalc:
         num_agg_steps_seen = int(np.ceil(self.horizon / self.sub_subhourly_steps))
         self.reward_price[:min(len(rp), num_agg_steps_seen)] = rp[:min(len(rp), num_agg_steps_seen)]
         self.reward_price = np.repeat(self.reward_price, self.sub_subhourly_steps)[:self.horizon]
-        # self.log.logger.info(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
+        self.log.info(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
 
     def solve_type_problem(self):
         """
@@ -692,9 +719,13 @@ class MPCCalc:
         single MPCCalc home.
         :return: None
         """
+        fh = logging.FileHandler(os.path.join("home_logs", f"{self.name}.log"))
+        fh.setLevel(logging.WARN)
+
+        self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
+
         self.redis_client = RedisClient()
         self.redis_get_initial_values()
-        self.cast_redis_init_vals()
         self.cast_redis_timestep()
 
         if self.timestep > 0:
@@ -705,6 +736,8 @@ class MPCCalc:
         self.cleanup_and_finish()
         self.redis_write_optimal_vals()
 
+        self.log.removeHandler(fh)
+
     def forecast_home(self):
         """
         Intended for parallelization in parent class (e.g. aggregator); runs a
@@ -713,9 +746,13 @@ class MPCCalc:
         basis, only tells the forecasting agent what the expected p_grid_agg is for the community.
         :return: list (type float) of length self.horizon
         """
+        fh = logging.FileHandler(os.path.join("home_logs", f"{self.name}.log"))
+        fh.setLevel(logging.WARN)
+
+        self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
+
         self.redis_client = RedisClient()
         self.redis_get_initial_values()
-        self.cast_redis_init_vals()
         self.cast_redis_timestep()
 
         if self.timestep > 0:
@@ -724,5 +761,7 @@ class MPCCalc:
         self.get_initial_conditions()
         self.solve_type_problem()
         self.cleanup_and_finish()
+
+        self.log.removeHandler(fh)
 
         return self.p_grid.value.tolist()
