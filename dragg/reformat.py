@@ -49,7 +49,7 @@ class Reformat:
     def main(self):
         if self.config['simulation']['run_rl_agg'] or self.config['simulation']['run_rbo_mpc']:
             # put a list of plotting functions here
-            self.sample_home = "Crystal-RXFFA"
+            self.sample_home = "Crystal-RXXFA"
             self.plots = [self.rl2baseline,
                         self.rl2baseline_error,
                         self.plot_single_home]
@@ -64,8 +64,10 @@ class Reformat:
 
     def tf_main(self):
         """ Intended for plotting an image suite for use with the tensorflow reinforcement learning package. """
+        self.sample_home = "Crystal-RXXFA"
         self.plots = [self.rl2baseline,
-                    self.rl2baseline_error]
+                    self.rl2baseline_error,
+                    self.plot_single_home]
 
         self.images = self.plot_all()
 
@@ -124,7 +126,8 @@ class Reformat:
         betas = set(self.config['rl']['parameters']['discount_factor'])
         batch_sizes = set(self.config['rl']['parameters']['batch_size'])
         rl_horizons = set(self.config['rl']['utility']['rl_agg_action_horizon'])
-        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons}
+        rl_interval = set(self.config['rl']['utility']['hourly_steps'])
+        temp = {"alpha": alphas, "epsilon": epsilons, "beta": betas, "batch_size": batch_sizes, "rl_horizon": rl_horizons, "rl_interval": rl_interval}
         for key in temp:
             if key in additional_params:
                 temp[key] |= set(additional_params[key])
@@ -133,10 +136,12 @@ class Reformat:
     def add_mpc_params(self, additional_params):
         n_houses = self.config['community']['total_number_homes'][0]
         mpc_horizon = self.config['home']['hems']['prediction_horizon']
-        dt = self.config['rl']['utility']['hourly_steps']
-        # version = self.config['rl']['version']
+        dt = self.config['home']['hems']['sub_subhourly_steps']
+        # for i in self.config['rl']['utility']['hourly_steps']:
+        #     for j in self.config['home']['hems']['sub_subhourly_steps']:
+        #         dt.append(60 // i // j)
         check_type = self.config['simulation']['check_type']
-        temp = {"n_houses": set([n_houses]), "mpc_prediction_horizons": set(mpc_horizon), "mpc_hourly_steps": set([dt]), "check_type": set([check_type])}
+        temp = {"n_houses": set([n_houses]), "mpc_prediction_horizons": set(mpc_horizon), "mpc_hourly_steps": set(dt), "check_type": set([check_type])}
         for key in temp:
             if key in additional_params:
                 temp[key] |= set(additional_params[key])
@@ -171,16 +176,17 @@ class Reformat:
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         for j in self.date_folders:
-            for i in permutations:
-                interval_minutes = 60 // i['mpc_hourly_steps']
-                mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_prediction_horizons']}-interval_{interval_minutes}")
-                if os.path.isdir(mpc_folder):
-                    timesteps = j['hours']*i['mpc_hourly_steps']
-                    x_lims = [j['start_dt'] + timedelta(minutes=x*interval_minutes) for x in range(timesteps + max(self.config['rl']['utility']['rl_agg_action_horizon'])*i['mpc_hourly_steps'])]
-                    name = j['name']
-                    set = {'path': mpc_folder, 'dt': i['mpc_hourly_steps'], 'ts': timesteps, 'x_lims': x_lims, 'name': name}
-                    if not mpc_folder in temp:
-                        temp.append(set)
+            for k in self.config['rl']['utility']['hourly_steps']:
+                for i in permutations:
+                    mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_prediction_horizons']}-interval_{60 // i['mpc_hourly_steps'] // k}")
+                    if os.path.isdir(mpc_folder):
+                        timesteps = j['hours'] * i['mpc_hourly_steps'] * k
+                        minutes = 60 // i['mpc_hourly_steps'] // k
+                        x_lims = [j['start_dt'] + timedelta(minutes=minutes*x) for x in range(timesteps)][::i['mpc_hourly_steps']]
+                        name = j['name']
+                        set = {'path': mpc_folder, 'dt': i['mpc_hourly_steps'], 'ts': timesteps, 'x_lims': x_lims, 'name': name}
+                        if not mpc_folder in temp:
+                            temp.append(set)
 
         return temp
 
@@ -219,7 +225,7 @@ class Reformat:
             for j in permutations:
                 for vers in self.versions:
                     if os.path.isdir(rl_agg_folder):
-                        rl_agg_path = f"agg_horizon_{j['rl_horizon']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_version-{vers}"
+                        rl_agg_path = f"agg_horizon_{j['rl_horizon']}-interval_{60 // j['rl_interval']}-alpha_{j['alpha']}-epsilon_{j['epsilon']}-beta_{j['beta']}_batch-{j['batch_size']}_version-{vers}"
                         rl_agg_file = os.path.join(rl_agg_folder, rl_agg_path, "results.json")
                         self.ref_log.logger.debug(f"Looking for a RL aggregator file at {rl_agg_file}")
                         if os.path.isfile(rl_agg_file):
@@ -378,10 +384,9 @@ class Reformat:
         for file in (self.baselines + self.parametrics):
             with open(file["results"]) as f:
                 comm_data = json.load(f)
-                print(comm_data.keys())
 
             try:
-                data = comm_data["Crystal-RXXFA"]
+                data = comm_data[self.sample_home]
             except:
                 self.ref_log.logger.error(f"No home with name: {self.sample_home}")
                 return
@@ -588,7 +593,6 @@ class Reformat:
 
             hourly_rl_error = np.zeros(np.int(np.ceil(len(rl_error) / (24*file['parent']['dt'])) * (24*file['parent']['dt'])))
             hourly_rl_error[:len(rl_error)] = abs(rl_error)/4
-            print("num ts", len(rl_error), len(hourly_rl_error))
             hourly_rl_error = hourly_rl_error.reshape(file['parent']['dt'],-1).sum(axis=0)
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'][::file['parent']['dt']], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'][::file['parent']['dt']], y=np.cumsum(hourly_rl_error), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
@@ -631,7 +635,7 @@ class Reformat:
     def rl2baseline(self, fig):
         if len(self.parametrics) == 0:
             self.ref_log.logger.warning("No parameterized RL aggregator runs found for comparison to baseline.")
-            fig = self.just_the_baseline()
+            fig = self.just_the_baseline(fig)
             return fig
         # fig = self.plot_greedy(fig)
         fig = self.plot_baseline(fig)
