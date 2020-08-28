@@ -152,16 +152,24 @@ class Reformat:
     def set_date_folders(self, additional_params):
         self.add_date_ranges(additional_params)
         temp = []
+        self.date_ranges['mpc_steps'] = set(self.config['home']['hems']['sub_subhourly_steps'])
+        self.date_ranges['rl_steps'] = set(self.config['rl']['utility']['hourly_steps'])
         keys, values = zip(*self.date_ranges.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         permutations = sorted(permutations, key=lambda i: i['end_datetime'], reverse=True)
         for j in self.outputs_dir:
             for i in permutations:
-                date_folder = os.path.join(j, f"{i['start_datetime'].strftime('%Y-%m-%dT%H')}_{i['end_datetime'].strftime('%Y-%m-%dT%H')}")
+                date_folder = os.path.join(j, f"{i['start_datetime'].strftime('%Y-%m-%dT%H')}_{i['end_datetime'].strftime('%Y-%m-%dT%H')}_{60 // i['rl_steps']}-{60 // i['rl_steps'] // i['mpc_steps']}")
                 if os.path.isdir(date_folder):
                     hours = i['end_datetime'] - i['start_datetime']
                     hours = int(hours.total_seconds() / 3600)
-                    new_folder = {"folder": date_folder, "hours": hours, "start_dt": i['start_datetime'], "name": j+" "}
+
+                    timesteps = hours * i['rl_steps']
+                    print(hours, i['rl_steps'])
+                    minutes = 60 // i['rl_steps']
+                    x_lims = [i['start_datetime'] + timedelta(minutes=minutes*x) for x in range(timesteps)]
+
+                    new_folder = {"folder": date_folder, "hours": hours, "start_dt": i['start_datetime'], "name": j+" ", "ts": timesteps, "x_lims": x_lims}
                     temp.append(new_folder)
 
         if len(temp) == 0:
@@ -180,11 +188,11 @@ class Reformat:
                 for i in permutations:
                     mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_prediction_horizons']}-interval_{60 // i['mpc_hourly_steps'] // k}")
                     if os.path.isdir(mpc_folder):
-                        timesteps = j['hours'] * i['mpc_hourly_steps'] * k
-                        minutes = 60 // i['mpc_hourly_steps'] // k
-                        x_lims = [j['start_dt'] + timedelta(minutes=minutes*x) for x in range(timesteps)][::i['mpc_hourly_steps']]
+                        # timesteps = j['hours'] * i['mpc_hourly_steps'] * k
+                        # minutes = 60 // i['mpc_hourly_steps'] // k
+                        # x_lims = [j['start_dt'] + timedelta(minutes=minutes*x) for x in range(timesteps)]
                         name = j['name']
-                        set = {'path': mpc_folder, 'dt': i['mpc_hourly_steps'], 'ts': timesteps, 'x_lims': x_lims, 'name': name}
+                        set = {'path': mpc_folder, 'dt': i['mpc_hourly_steps'], 'ts': j['ts'], 'x_lims': j['x_lims'], 'name': name}
                         if not mpc_folder in temp:
                             temp.append(set)
 
@@ -234,15 +242,16 @@ class Reformat:
                             # name = i['name']
                             name = ""
                             for k,v in j.items():
-                                if len(all_params[k]) > 1:
+                                if len(all_params[k]) > 1 or k == "mpc_hourly_steps":
                                     name += f"{k} = {v}, "
                             # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}, discomf={j['mpc_discomfort']}"
-                            name += f"v{vers}"
+                            name += f"v = {vers}"
                             with open(rl_agg_file) as f:
                                 data = json.load(f)
                             if "Summary" not in data:
                                 self.create_summary(rl_agg_file)
-                            set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"], "params": j}
+                            name = i['path']
+                            set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"], "params": j, "skip": j['rl_interval'] // i['dt']}
                             temp.append(set)
                             self.ref_log.logger.info(f"Adding an RL aggregator agent file at {rl_agg_file}")
 
@@ -323,10 +332,10 @@ class Reformat:
         return data
 
     def plot_environmental_values(self, name, fig, summary, file, fname):
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=summary["OAT"][0:file["parent"]["ts"]], name=f"OAT (C)"))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=summary["GHI"][0:file["parent"]["ts"]], name=f"GHI (W/m2)"))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=summary["TOU"][0:file["parent"]["ts"]], name=f"TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
-        fig = self.plot_thermal_bounds(fig, file["parent"]["x_lims"], name, fname)
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["OAT"][0:file["parent"]["ts"]], name=f"OAT (C)"))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["GHI"][0:file["parent"]["ts"]], name=f"GHI (W/m2)"))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["TOU"][0:file["parent"]["ts"]], name=f"TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
+        fig = self.plot_thermal_bounds(fig, ['parent']['x_lims'], name, fname)
         return fig
 
     def plot_thermal_bounds(self, fig, x_lims, name, fname):
@@ -346,28 +355,29 @@ class Reformat:
         return fig
 
     def plot_base_home(self, name, fig, data, summary, fname, file):
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_in_opt"], name=f"Tin (C) - {fname}"))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["temp_wh_opt"], name=f"Twh (C) - {fname}"))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_in_opt"], name=f"Tin (C) - {fname}"))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_wh_opt"], name=f"Twh (C) - {fname}"))
+        self.plot_thermal_bounds(fig, file['parent']['x_lims'], name, fname)
 
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_grid_opt"], name=f"Pgrid (kW) - {fname}", line_shape='hv', visible='legendonly'))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_load_opt"], name=f"Pload (kW) - {fname}", line_shape='hv', visible='legendonly'))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["hvac_cool_on_opt"], name=f"HVAC Cool Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["hvac_heat_on_opt"], name=f"HVAC Heat Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["wh_heat_on_opt"], name=f"WH Heat Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_grid_opt"], name=f"Pgrid (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_load_opt"], name=f"Pload (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["hvac_cool_on_opt"], name=f"HVAC Cool Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["hvac_heat_on_opt"], name=f"HVAC Heat Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["wh_heat_on_opt"], name=f"WH Heat Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
         try: # only for aggregator files
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.add(summary["TOU"], summary["RP"]), name=f"Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.add(summary["TOU"], summary["RP"]), name=f"Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
         except:
             pass
         return fig
 
     def plot_pv(self, name, fig, data, fname, file):
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_pv_opt"], name=f"Ppv (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_pv_opt"], name=f"Ppv (kW) - {fname}", line_shape='hv'))
         return fig
 
     def plot_battery(self, name, fig, data, fname, file):
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["e_batt_opt"], name=f"SOC (kW) - {fname}", line_shape='hv'))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_batt_ch"], name=f"Pch (kW) - {fname}", line_shape='hv'))
-        fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["p_batt_disch"], name=f"Pdis (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["e_batt_opt"], name=f"SOC (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_batt_ch"], name=f"Pch (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_batt_disch"], name=f"Pdis (kW) - {fname}", line_shape='hv'))
         return fig
 
     def plot_single_home(self, fig):
@@ -423,13 +433,13 @@ class Reformat:
             fname = file["name"]
             for name, house in data.items():
                 if name != "Summary":
-                    fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=house["temp_in_opt"], name=f"Tin (C) - {name} - {fname}"))
-                    fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=house["temp_wh_opt"], name=f"Twh (C) - {name} - {fname}"))
-                    fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=house["p_grid_opt"], name=f"Pgrid (kW) - {name} - {fname}", line_shape='hv', visible='legendonly'))
-                    fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=house["p_load_opt"], name=f"Pload (kW) - {name} - {fname}", line_shape='hv', visible='legendonly'))
-                    fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=house["hvac_cool_on_opt"], name=f"HVAC Cool Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
-                    fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=house["hvac_heat_on_opt"], name=f"HVAC Heat Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
-                    fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=house["wh_heat_on_opt"], name=f"WH Heat Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["temp_in_opt"], name=f"Tin (C) - {name} - {fname}"))
+                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["temp_wh_opt"], name=f"Twh (C) - {name} - {fname}"))
+                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["p_grid_opt"], name=f"Pgrid (kW) - {name} - {fname}", line_shape='hv', visible='legendonly'))
+                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["p_load_opt"], name=f"Pload (kW) - {name} - {fname}", line_shape='hv', visible='legendonly'))
+                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["hvac_cool_on_opt"], name=f"HVAC Cool Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["hvac_heat_on_opt"], name=f"HVAC Heat Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
+                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["wh_heat_on_opt"], name=f"WH Heat Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
 
         return fig
 
@@ -440,11 +450,11 @@ class Reformat:
             with open(file['results']) as f:
                 data = json.load(f)
             if flag == False:
-                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_setpoint"][1:], name=f"Aggregate Load Setpoint"))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_setpoint"], name=f"Aggregate Load Setpoint"))
                 setpoint = np.array(data["Summary"]["p_grid_setpoint"])
                 flag = True
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"][1:], name=f"Aggregate Load - {file['name']}"))
-            agg = np.array(data["Summary"]["p_grid_aggregate"][1:])
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Aggregate Load - {file['name']}"))
+            agg = np.array(data["Summary"]["p_grid_aggregate"])
             error = np.subtract(agg, 50*np.ones(len(agg)))
             # fig1.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.square(error)), name=f"L2 Norm Error {file['name']}"))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(abs(error)), name=f"Cummulative Error - {file['name']}"))
@@ -481,7 +491,7 @@ class Reformat:
             for agent in data:
                 agent_data = data[agent]
                 mu = np.array(agent_data["mu"])
-                fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=mu, name=f"Mu (Assumed Best Action) - {file['name']} - {agent}"))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=mu, name=f"Mu (Assumed Best Action) - {file['name']} - {agent}"))
                 fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=mu + file['params']['epsilon'], name=f"Mu +1 std dev - {file['name']} - {agent}", fill=None , mode='lines', line_color=plotly.colors.sequential.Blues[3]))
                 fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=mu - file['params']['epsilon'], name=f"Mu -1 std dev - {file['name']} - {agent}", fill='tonexty' , mode='lines', line_color=plotly.colors.sequential.Blues[3]))
                 if len(mu) > 0:
@@ -497,9 +507,9 @@ class Reformat:
                 data = json.load(f)
 
             ts = len(data['Summary']['p_grid_aggregate'])-1
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["p_grid_aggregate"][1:], name=f"Agg Load - {file['name']}"))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.cumsum(data["Summary"]["p_grid_aggregate"][1:]), name=f"Cumulative Agg Load - {file['name']}", visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:]), np.arange(ts) + 1), name=f"Cumulative Agg Load - {file['name']}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - {file['name']}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - {file['name']}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"]), np.arange(ts) + 1), name=f"Cumulative Agg Load - {file['name']}", line_shape='hv', visible='legendonly'))
         return fig
 
     def plot_parametric(self, fig):
@@ -508,7 +518,7 @@ class Reformat:
             with open(file["results"]) as f:
                 rldata = json.load(f)
 
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
 
         for file in self.parametrics:
             with open(file["results"]) as f:
@@ -516,9 +526,9 @@ class Reformat:
 
             name = file["name"]
             ts = len(data['Summary']['p_grid_aggregate'])-1
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["Summary"]["p_grid_aggregate"][1:], name=f"Agg Load - RL - {name}"))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.cumsum(data["Summary"]["p_grid_aggregate"][1:]), name=f"Cumulative Agg Load - RL - {name}", visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][1:ts+1]),np.arange(ts)+1), name=f"Avg Load - RL - {name}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - RL - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - RL - {name}", line_shape='hv', visible='legendonly'))
+            # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][:ts+1]),np.arange(ts)+1), name=f"Avg Load - RL - {name}", line_shape='hv', visible='legendonly'))
             # fig = self.plot_mu(fig)
         return fig
 
@@ -535,7 +545,7 @@ class Reformat:
                 base2rl_conversion = max(1, rl_file['parent']['dt'] // file['parent']['dt'])
                 base_load = np.repeat(data['Summary']['p_grid_aggregate'], base2rl_conversion)
                 rl_setpoint = np.repeat(rldata['Summary']['p_grid_setpoint'], rl2base_conversion)
-                rl_load = np.repeat(rldata['Summary']['p_grid_aggregate'][1:], rl2base_conversion)
+                rl_load = np.repeat(rldata['Summary']['p_grid_aggregate'], rl2base_conversion)
                 if rl_setpoint[0] == 10:
                     rl_setpoint = rl_setpoint*3
                 rl_setpoint = rl_setpoint[:len(rl_load)]
@@ -584,7 +594,7 @@ class Reformat:
                 data = json.load(f)
 
             name = file['name']
-            rl_load = data['Summary']['p_grid_aggregate'][1:]
+            rl_load = data['Summary']['p_grid_aggregate']
             rl_setpoint = data['Summary']['p_grid_setpoint']
             rl_error = np.subtract(rl_load, rl_setpoint[:len(rl_load)])
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_error, name=f"Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
@@ -594,8 +604,8 @@ class Reformat:
             hourly_rl_error = np.zeros(np.int(np.ceil(len(rl_error) / (24*file['parent']['dt'])) * (24*file['parent']['dt'])))
             hourly_rl_error[:len(rl_error)] = abs(rl_error)/4
             hourly_rl_error = hourly_rl_error.reshape(file['parent']['dt'],-1).sum(axis=0)
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'][::file['parent']['dt']], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'][::file['parent']['dt']], y=np.cumsum(hourly_rl_error), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 
             period = self.config['simulation']['checkpoint_interval']
             period_hours = {"hourly": 1, "daily": 24, "weekly": 7*24}
@@ -607,7 +617,7 @@ class Reformat:
             periodic_acum_error[:len(hourly_rl_error)] = hourly_rl_error
             periodic_acum_error = hourly_rl_error.reshape(num_periods, -1)
             periodic_acum_error = np.cumsum(periodic_acum_error, axis=1).flatten()
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'][::file['parent']['dt']], y=periodic_acum_error, name=f"Accumulated Hourly Error - {name}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=periodic_acum_error, name=f"Accumulated Hourly Error - {name}", visible='legendonly'))
         return fig
 
     def plot_rewards(self, fig):
@@ -620,9 +630,9 @@ class Reformat:
             except:
                 data = data["next"]
             name = file["name"]
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["average_reward"], name=f"Average Reward - {name}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["cumulative_reward"], name=f"Cumulative Reward - {name}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["reward"], name=f"Reward - {name}", line_shape='hv', visible='legendonly'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["average_reward"], name=f"Average Reward - {name}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["cumulative_reward"], name=f"Cumulative Reward - {name}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["reward"], name=f"Reward - {name}", line_shape='hv', visible='legendonly'), secondary_y=True)
         return fig
 
     def just_the_baseline(self, fig):
@@ -670,8 +680,8 @@ class Reformat:
             with open(file["q_results"]) as f:
                 data = json.load(f)
 
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["q_pred"], name=f"Q predicted - {file['name']}", marker={'opacity':0.2}))
-            fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=data["q_obs"], name=f"Q observed - {file['name']}"))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["q_pred"], name=f"Q predicted - {file['name']}", marker={'opacity':0.2}))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["q_obs"], name=f"Q observed - {file['name']}"))
 
         fig.update_layout(title_text="Critic Network")
         fig.show()
@@ -690,7 +700,7 @@ class Reformat:
                 y = []
                 for j in range(file['parent']['ts']):
                     y.append(theta[j][i])
-                fig.add_trace(go.Scatter(x=file["parent"]["x_lims"], y=y, name=f"Theta_{i}", line_shape='hv', legendgroup=file['name']))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=y, name=f"Theta_{i}", line_shape='hv', legendgroup=file['name']))
             counter += 1
         fig.update_layout(title_text="Critic Network Coefficients")
         return fig
