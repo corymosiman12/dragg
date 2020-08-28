@@ -137,8 +137,9 @@ class MPCCalc:
             self.solver = cp.GUROBI
 
         # Set up the horizon for the MPC calc (min horizon = 1, no MPC)
-        self.sub_subhourly_steps = max(1, int(self.home['hems']['sub_subhourly_steps']))
-        self.dt = max(1, int(self.home['hems']['hourly_agg_steps'])) * self.sub_subhourly_steps
+        self.sub_subhourly_steps = max(1, int(self.home['hems']['sub_subhourly_steps'][0]))
+        print(self.sub_subhourly_steps)
+        self.dt = max(1, int(self.home['hems']['hourly_agg_steps']))# * self.sub_subhourly_steps
         self.horizon = max(1, int(self.home['hems']['horizon'] * self.dt))
         self.h_plus = self.horizon + 1
 
@@ -158,9 +159,9 @@ class MPCCalc:
         self.temp_in = cp.Variable(self.h_plus)
         self.temp_wh = cp.Variable(self.h_plus)
         self.p_grid = cp.Variable(self.horizon)
-        self.hvac_cool_on = cp.Variable(self.horizon, boolean=True)
-        self.hvac_heat_on = cp.Variable(self.horizon, boolean=True)
-        self.wh_heat_on = cp.Variable(self.horizon, boolean=True)
+        self.hvac_cool_on = cp.Variable(self.horizon, integer=True)
+        self.hvac_heat_on = cp.Variable(self.horizon, integer=True)
+        self.wh_heat_on = cp.Variable(self.horizon, integer=True)
 
         # Water heater temperature constraints
         self.temp_wh_min = float(self.home["wh"]["temp_wh_min"])
@@ -297,11 +298,11 @@ class MPCCalc:
 
             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
 
-            self.hvac_cool_on <= 1,
+            self.hvac_cool_on <= self.sub_subhourly_steps,
             self.hvac_cool_on >= 0,
-            self.hvac_heat_on <= 1,
+            self.hvac_heat_on <= self.sub_subhourly_steps,
             self.hvac_heat_on >= 0,
-            self.wh_heat_on <= 1,
+            self.wh_heat_on <= self.sub_subhourly_steps,
             self.wh_heat_on >= 0
         ]
 
@@ -406,7 +407,7 @@ class MPCCalc:
         self.cost = cp.Variable(self.horizon)
         self.objective = cp.Variable(self.horizon)
         self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
-        self.weights = cp.Constant(np.power(0.95*np.ones(self.horizon), np.arange(self.horizon)))
+        self.weights = cp.Constant(np.power(1.0*np.ones(self.horizon), np.arange(self.horizon)))
         self.obj = cp.Minimize(cp.sum(cp.multiply(self.weights, self.cost)))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():
@@ -594,15 +595,15 @@ class MPCCalc:
         self.log.info(f"Status for {self.name}: {self.prob.status}")
         try: # if the problem has been solved
             self.stored_optimal_vals = {
-                "p_grid_opt": np.average(self.p_grid.value.reshape(self.sub_subhourly_steps, -1), axis=0),
-                "forecast_p_grid_opt": np.average(self.p_grid.value.reshape(self.sub_subhourly_steps, -1), axis=0)[1:],
-                "p_load_opt": np.average(self.p_load.value.reshape(self.sub_subhourly_steps, -1), axis=0),
-                "temp_in_opt": self.temp_in.value.reshape(self.sub_subhourly_steps, -1)[-1][1:],
-                "temp_wh_opt": self.temp_wh.value.reshape(self.sub_subhourly_steps, -1)[-1][1:],
-                "hvac_cool_on_opt": np.average(self.hvac_cool_on.value.reshape(self.sub_subhourly_steps, -1), axis=0),
-                "hvac_heat_on_opt": np.average(self.hvac_heat_on.value.reshape(self.sub_subhourly_steps, -1), axis=0),
-                "wh_heat_on_opt": np.average(self.wh_heat_on.value.reshape(self.sub_subhourly_steps, -1), axis=0),
-                "cost_opt": np.average(self.cost.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                "p_grid_opt": self.p_grid.value / self.sub_subhourly_steps,
+                "forecast_p_grid_opt": self.p_grid.value[1:] / self.sub_subhourly_steps,
+                "p_load_opt": self.p_load.value / self.sub_subhourly_steps,
+                "temp_in_opt": self.temp_in.value[1:],
+                "temp_wh_opt": self.temp_wh.value[1:],
+                "hvac_cool_on_opt": self.hvac_cool_on.value / self.sub_subhourly_steps,
+                "hvac_heat_on_opt": self.hvac_heat_on.value / self.sub_subhourly_steps,
+                "wh_heat_on_opt": self.wh_heat_on.value / self.sub_subhourly_steps,
+                "cost_opt": self.cost.value
             }
             if 'pv' in self.type:
                 self.stored_optimal_vals["p_pv_opt"] = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
