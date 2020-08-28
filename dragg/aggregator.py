@@ -199,7 +199,7 @@ class Aggregator:
         df = pd.read_csv(self.ts_data_file, skiprows=2)
         # self.dt_interval = int(self.config['rl']['utility']['minutes_per_step'])
         # self.dt = 60 // self.dt_interval
-        self.dt = int(self.config['rl']['utility']['hourly_steps'])
+        self.dt = int(self.config['rl']['utility']['hourly_steps'][0])
         self.dt_interval = 60 // self.dt
         reps = [np.ceil(self.dt/2) if val==0 else np.floor(self.dt/2) for val in df.Minute]
         df = df.loc[np.repeat(df.index.values, reps)]
@@ -882,11 +882,11 @@ class Aggregator:
         """
         self.summarize_baseline()
 
-        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
+        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}_{self.dt_interval}-{self.dt_interval // self.config['home']['hems']['sub_subhourly_steps'][0]}")
         if not os.path.isdir(date_output):
             os.makedirs(date_output)
 
-        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes'][0]}-horizon_{self.mpc['horizon']}-interval_{self.dt_interval}")
+        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes'][0]}-horizon_{self.mpc['horizon']}-interval_{self.dt_interval // self.config['home']['hems']['sub_subhourly_steps'][0]}")
         if not os.path.isdir(mpc_output):
             os.makedirs(mpc_output)
 
@@ -899,7 +899,7 @@ class Aggregator:
             file = os.path.join(agg_output, run_name)
 
         else: # self.case == "rl_agg" or self.case == "simplified"
-            run_name = f"agg_horizon_{self.util['rl_agg_horizon']}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.rl_params['batch_size']}_version-{self.version}"
+            run_name = f"agg_horizon_{self.util['rl_agg_horizon']}-interval_{self.dt_interval}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.rl_params['batch_size']}_version-{self.version}"
             run_dir = os.path.join(agg_output, run_name)
             if not os.path.isdir(run_dir):
                 os.makedirs(run_dir)
