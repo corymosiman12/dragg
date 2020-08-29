@@ -65,6 +65,17 @@ class MPCCalc:
         self.temp_in_min = None
         self.temp_in_max = None
         self.optimal_vals = {}
+        self.stored_optimal_vals = {
+            "p_grid_opt": None,
+            "forecast_p_grid_opt": None,
+            "p_load_opt": None,
+            "temp_in_opt": None,
+            "temp_wh_opt": None,
+            "hvac_cool_on_opt": None,
+            "hvac_heat_on_opt": None,
+            "wh_heat_on_opt": None,
+            "cost_opt": None
+        }
         self.iteration = None
         self.timestep = None
         self.assumed_wh_draw = None
@@ -138,7 +149,6 @@ class MPCCalc:
 
         # Set up the horizon for the MPC calc (min horizon = 1, no MPC)
         self.sub_subhourly_steps = max(1, int(self.home['hems']['sub_subhourly_steps'][0]))
-        print(self.sub_subhourly_steps)
         self.dt = max(1, int(self.home['hems']['hourly_agg_steps']))# * self.sub_subhourly_steps
         self.horizon = max(1, int(self.home['hems']['horizon'] * self.dt))
         self.h_plus = self.horizon + 1
@@ -148,11 +158,11 @@ class MPCCalc:
 
         self.home_r = cp.Constant(float(self.home["hvac"]["r"]))
         self.home_c = cp.Constant(float(self.home["hvac"]["c"]))
-        self.hvac_p_c = cp.Constant(float(self.home["hvac"]["p_c"]))
-        self.hvac_p_h = cp.Constant((float(self.home["hvac"]["p_h"])))
+        self.hvac_p_c = cp.Constant(float(self.home["hvac"]["p_c"]) / self.sub_subhourly_steps)
+        self.hvac_p_h = cp.Constant((float(self.home["hvac"]["p_h"])) / self.sub_subhourly_steps)
         self.wh_r = cp.Constant(float(self.home["wh"]["r"]))
         self.wh_c = cp.Constant(float(self.home["wh"]["c"]))
-        self.wh_p = cp.Constant(float(self.home["wh"]["p"]))
+        self.wh_p = cp.Constant(float(self.home["wh"]["p"]) / self.sub_subhourly_steps)
 
         # Define optimization variables
         self.p_load = cp.Variable(self.horizon)
@@ -296,7 +306,7 @@ class MPCCalc:
             self.temp_wh[1:self.h_plus] >= self.temp_wh_min,
             self.temp_wh[1:self.h_plus] <= self.temp_wh_max,
 
-            self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
+            self.p_load ==  self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on),
 
             self.hvac_cool_on <= self.sub_subhourly_steps,
             self.hvac_cool_on >= 0,
@@ -593,36 +603,42 @@ class MPCCalc:
 
         end_slice = max(1, self.sub_subhourly_steps)
         self.log.info(f"Status for {self.name}: {self.prob.status}")
-        try: # if the problem has been solved
-            self.stored_optimal_vals = {
-                "p_grid_opt": self.p_grid.value / self.sub_subhourly_steps,
-                "forecast_p_grid_opt": self.p_grid.value[1:] / self.sub_subhourly_steps,
-                "p_load_opt": self.p_load.value / self.sub_subhourly_steps,
-                "temp_in_opt": self.temp_in.value[1:],
-                "temp_wh_opt": self.temp_wh.value[1:],
-                "hvac_cool_on_opt": self.hvac_cool_on.value / self.sub_subhourly_steps,
-                "hvac_heat_on_opt": self.hvac_heat_on.value / self.sub_subhourly_steps,
-                "wh_heat_on_opt": self.wh_heat_on.value / self.sub_subhourly_steps,
-                "cost_opt": self.cost.value
-            }
-            if 'pv' in self.type:
-                self.stored_optimal_vals["p_pv_opt"] = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                self.stored_optimal_vals["u_pv_curt_opt"] = np.average(self.u_pv_curt.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-            if 'battery' in self.type:
-                self.stored_optimal_vals["e_batt_opt"] = self.e_batt.value.reshape(self.sub_subhourly_steps, -1)[-1][1:]
-                self.stored_optimal_vals["p_batt_ch"] = np.average(self.p_batt_ch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                self.stored_optimal_vals["p_batt_disch"] = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-        except:
-            self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last timestep.")
-            pass
+        i = 0
+        while i < 2:
+            try: # if the problem has been solved
+                self.stored_optimal_vals = {
+                    "p_grid_opt": self.p_grid.value / self.sub_subhourly_steps,
+                    "forecast_p_grid_opt": self.p_grid.value[1:] / self.sub_subhourly_steps,
+                    "p_load_opt": self.p_load.value / self.sub_subhourly_steps,
+                    "temp_in_opt": self.temp_in.value[1:],
+                    "temp_wh_opt": self.temp_wh.value[1:],
+                    "hvac_cool_on_opt": self.hvac_cool_on.value / self.sub_subhourly_steps,
+                    "hvac_heat_on_opt": self.hvac_heat_on.value / self.sub_subhourly_steps,
+                    "wh_heat_on_opt": self.wh_heat_on.value / self.sub_subhourly_steps,
+                    "cost_opt": self.cost.value
+                }
+                if 'pv' in self.type:
+                    self.stored_optimal_vals["p_pv_opt"] = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                    self.stored_optimal_vals["u_pv_curt_opt"] = np.average(self.u_pv_curt.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                if 'battery' in self.type:
+                    self.stored_optimal_vals["e_batt_opt"] = self.e_batt.value.reshape(self.sub_subhourly_steps, -1)[-1][1:]
+                    self.stored_optimal_vals["p_batt_ch"] = np.average(self.p_batt_ch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                    self.stored_optimal_vals["p_batt_disch"] = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+            except:
+                self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last timestep.")
+                pass
 
-        try:
-            for k in self.stored_optimal_vals:
-                self.optimal_vals[k] = self.stored_optimal_vals[k][0]
-                self.stored_optimal_vals[k] = self.stored_optimal_vals[k][1:]
-        except:
-            self.error_handler()
-        print(self.optimal_vals)
+            try:
+                for k in self.stored_optimal_vals:
+                    self.optimal_vals[k] = self.stored_optimal_vals[k][0]
+                    self.stored_optimal_vals[k] = self.stored_optimal_vals[k][1:]
+                return
+            except:
+                self.error_handler()
+                self.temp_wh_min = cp.Constant(float(self.home["wh"]["temp_wh_min"]))
+                self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
+                self.temp_in_min = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
+                self.temp_in_max = cp.Constant(float(self.home["hvac"]["temp_in_max"]))
         self.log.info(f"MPC solved with status {self.prob.status} for {self.name}; {self.optimal_vals}")
 
     def mpc_base(self):

@@ -64,7 +64,7 @@ class Reformat:
 
     def tf_main(self):
         """ Intended for plotting an image suite for use with the tensorflow reinforcement learning package. """
-        self.sample_home = "Crystal-RXXFA"
+        self.sample_home = "Lillie-NMHUH"
         self.plots = [self.rl2baseline,
                     self.rl2baseline_error,
                     self.plot_single_home]

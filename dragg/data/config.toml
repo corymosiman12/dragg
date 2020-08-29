@@ -1,12 +1,12 @@
 [community]
 # Refers to the community makeup of house types.
 # Remaining homes will be considered of type "base" (hvac + wh)
-total_number_homes = [50, 0] # list [All homes, Non-Responsive]
+total_number_homes = [10, 0] # list [All homes, Non-Responsive]
 homes_battery = [0, 0] # list [All homes, Non-Responsive]
 homes_pv = [0, 0] # list [All homes, Non-Responsive]
 homes_pv_battery = [0, 0] # list [All homes, Non-Responsive]
 overwrite_existing = true # Creates new config file of all homes using home info given below.
-house_p_avg = 3.0 # used to generate the setpoint
+house_p_avg = 1.0 # used to generate the setpoint
 
 [home]
 # Refers to the construction of home and home subsystems.
@@ -17,6 +17,7 @@ house_p_avg = 3.0 # used to generate the setpoint
   p_cool_dist = [2, 9]
   p_heat_dist = [2.0, 13.5]
   temp_sp_dist = [18, 22]
+  # temp_sp_dist = [18, 18]
   temp_deadband_dist = [2, 3]
 
   [home.wh]
@@ -28,10 +29,6 @@ house_p_avg = 3.0 # used to generate the setpoint
   size_dist = [300, 300] # tank size (liters)
 
   [home.wh.waterdraws]
-  # n_big_draw_dist = [4, 6]
-  # n_small_draw_dist = [10, 20]
-  # big_draw_size_dist = [5, 10] # in liters
-  # small_draw_size_dist = [0.2, 0.5]
   n_big_draw_dist = [0, 0]
   n_small_draw_dist = [0, 0]
   big_draw_size_dist = [5, 10] # in liters
@@ -53,13 +50,13 @@ house_p_avg = 3.0 # used to generate the setpoint
   # Refers to mpc parameters -- uniform across all homes
   prediction_horizon = [4] # in hours, where 0 is just the next timestep (no MPC)
   price_uncertainty = 0.3
-  sub_subhourly_steps = 1 # number of steps between each RL broadcast reward price
+  sub_subhourly_steps = [4,1] # number of steps between each RL broadcast reward price
   # minutes_per_step = 5 # Min run time (minutes) for each on/off cycle
   solver = "GLPK_MI" # options are GUROBI or GLPK_MI at the moment
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-01-15 00"
+  end_datetime = "2015-01-11 00"
   loop_days = true
   random_seed = 12
   n_nodes = 4 # for parallelization
@@ -71,13 +68,14 @@ house_p_avg = 3.0 # used to generate the setpoint
   checkpoint_interval = "daily" # hourly, daily, monthly, yearly
 
 [rl]
-    version = [4.0]
+    # version = ["random_agent", "do_nothing_agent", "random_agent-lower-setpoint", "do_nothing_agent-lower-setpoint"]
+    version = ["do_nothing_agent"]
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
     learning_rate = [0.01] # Suggested ~0.001
     discount_factor = [1.0] # Suggested <0.5
-    batch_size = [4] # Suggested ~30
+    batch_size = [32] # Suggested ~30
     exploration_rate = [0.01] # in E-greedy is epsilon, in policy gradient is sigma
     twin_q = false # will default to overwriting the old run file, use versioned runs to solve this
     # load_from = 'outputs/2015-01-01T00_2015-01-15T00/all-homes_1-horizon_4-interval_15/rl_agg/agg_horizon_4-alpha_0.0001-epsilon_0.01-beta_1.0_batch-4_version-4.0/q-results.json'
@@ -88,7 +86,7 @@ house_p_avg = 3.0 # used to generate the setpoint
     rl_agg_forecast_horizon = 1 # Determines the number of hours the utility agent forecasts
     base_price = 0.1 # Base price for utility ($/kWh)
     action_space = [-1.0, 1.0] # Max/min price signal in cent/kWh
-    hourly_steps = 4 # Subhourly steps for the utility to send price signal
+    hourly_steps = [1,4] # Subhourly steps for the utility to send price signal
     # hours_per_step = 2 # Number of hours for which RP signal is sustained
     minutes_per_step = 120 # Number of minutes for which the RP signal is sustained
 
