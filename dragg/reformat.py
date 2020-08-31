@@ -75,6 +75,12 @@ class Reformat:
         figs = []
         for plot in self.plots:
             fig = make_subplots(specs=[[{"secondary_y": True}]])
+            fig.update_layout(
+                font=dict(
+                    # family="Courier New, monospace",
+                    size=22,
+                )
+            )
             fig = plot(fig)
             fig.show()
             figs += [fig]
@@ -338,7 +344,7 @@ class Reformat:
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["OAT"][0:file["parent"]["ts"]], name=f"OAT (C)"))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["GHI"][0:file["parent"]["ts"]], name=f"GHI (W/m2)"))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["TOU"][0:file["parent"]["ts"]], name=f"TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
-        fig = self.plot_thermal_bounds(fig, ['parent']['x_lims'], name, fname)
+        fig = self.plot_thermal_bounds(fig, file['parent']['x_lims'], name, fname)
         return fig
 
     def plot_thermal_bounds(self, fig, x_lims, name, fname):
@@ -357,7 +363,7 @@ class Reformat:
         fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_max'] * np.ones(len(x_lims)), name=f"Twh_max - {fname}", fill='tonexty' , mode='lines', line_color='red'))
         return fig
 
-    def plot_base_home(self, name, fig, data, summary, fname, file):
+    def plot_base_home(self, name, fig, data, summary, fname, file, plot_price=True):
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_in_opt"], name=f"Tin (C) - {fname}"))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_wh_opt"], name=f"Twh (C) - {fname}"))
         self.plot_thermal_bounds(fig, file['parent']['x_lims'], name, fname)
@@ -367,10 +373,10 @@ class Reformat:
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["hvac_cool_on_opt"], name=f"HVAC Cool Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["hvac_heat_on_opt"], name=f"HVAC Heat Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["wh_heat_on_opt"], name=f"WH Heat Cmd - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
-        try: # only for aggregator files
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.add(summary["TOU"], summary["RP"]), name=f"Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
-        except:
-            pass
+        if plot_price:
+            actual_price = np.add(summary["TOU"][:len(summary['RP'])], summary["RP"])
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=actual_price, name=f"Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(actual_price), np.arange(len(actual_price))+1), name=f"Average Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
         return fig
 
     def plot_pv(self, name, fig, data, fname, file):
@@ -408,11 +414,8 @@ class Reformat:
             summary = comm_data["Summary"]
 
             if not flag:
-                try:
-                    fig = self.plot_environmental_values(self.sample_home, fig, summary, file, file["name"])
-                    flag = True
-                except:
-                    pass
+                fig = self.plot_environmental_values(self.sample_home, fig, summary, file, file["name"])
+                flag = True
 
             fig = self.plot_base_home(self.sample_home, fig, data, summary, file["name"], file)
 
@@ -593,28 +596,30 @@ class Reformat:
             name = file['name']
             rl_load = data['Summary']['p_grid_aggregate']
             rl_setpoint = data['Summary']['p_grid_setpoint']
-            rl_error = np.subtract(rl_load, rl_setpoint[:len(rl_load)])
+            rl_error = np.subtract(rl_load, rl_setpoint[:len(rl_load)]) / file['parent']['agg_dt']
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_error, name=f"Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(rl_error), np.arange(len(rl_error))+1), name=f"Average Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_setpoint, name=f"Setpoint - {name} (kW)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=abs(rl_error), name=f"Abs Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 
             hourly_rl_error = np.zeros(np.int(np.ceil(len(rl_error) / (24*file['parent']['agg_dt'])) * (24*file['parent']['agg_dt'])))
-            hourly_rl_error[:len(rl_error)] = abs(rl_error)/file['parent']['agg_dt']
+            hourly_rl_error[:len(rl_error)] = abs(rl_error)
             hourly_rl_error = hourly_rl_error.reshape(file['parent']['agg_dt'],-1).sum(axis=0)
+            hourly_rl_error = np.repeat(hourly_rl_error, file['parent']['agg_dt'])
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error/file['parent']['agg_dt']), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 
             period = self.config['simulation']['checkpoint_interval']
             period_hours = {"hourly": 1, "daily": 24, "weekly": 7*24}
             if not period in period_hours:
                 if isinstance(period, int):
                     period_hours[period] = period
-            num_periods = int(np.ceil(len(hourly_rl_error) / period_hours[period]))
+            num_periods = int(np.ceil(len(hourly_rl_error) / (period_hours[period]*file['parent']['agg_dt'])))
             periodic_acum_error = np.zeros(num_periods * period_hours[period])
-            periodic_acum_error[:len(hourly_rl_error)] = hourly_rl_error
+            periodic_acum_error[:len(hourly_rl_error)] = hourly_rl_error[::file['parent']['agg_dt']]
             periodic_acum_error = hourly_rl_error.reshape(num_periods, -1)
             periodic_acum_error = np.cumsum(periodic_acum_error, axis=1).flatten()
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=periodic_acum_error, name=f"Accumulated Hourly Error - {name}", visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=periodic_acum_error/file['parent']['agg_dt'], name=f"Accumulated Hourly Error - {name}", visible='legendonly'))
         return fig
 
     def plot_rewards(self, fig):
