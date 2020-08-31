@@ -169,7 +169,7 @@ class Reformat:
                     minutes = 60 // i['rl_steps']
                     x_lims = [i['start_datetime'] + timedelta(minutes=minutes*x) for x in range(timesteps)]
 
-                    new_folder = {"folder": date_folder, "hours": hours, "start_dt": i['start_datetime'], "name": j+" ", "ts": timesteps, "x_lims": x_lims}
+                    new_folder = {"folder": date_folder, "hours": hours, "start_dt": i['start_datetime'], "name": j+" ", "ts": timesteps, "x_lims": x_lims, "agg_dt": i['rl_steps']}
                     temp.append(new_folder)
 
         if len(temp) == 0:
@@ -184,18 +184,19 @@ class Reformat:
         keys, values = zip(*self.mpc_params.items())
         permutations = [dict(zip(keys, v)) for v in it.product(*values)]
         for j in self.date_folders:
-            for k in self.config['rl']['utility']['hourly_steps']:
-                for i in permutations:
-                    mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_prediction_horizons']}-interval_{60 // i['mpc_hourly_steps'] // k}")
-                    if os.path.isdir(mpc_folder):
-                        # timesteps = j['hours'] * i['mpc_hourly_steps'] * k
-                        # minutes = 60 // i['mpc_hourly_steps'] // k
-                        # x_lims = [j['start_dt'] + timedelta(minutes=minutes*x) for x in range(timesteps)]
-                        name = j['name']
-                        set = {'path': mpc_folder, 'dt': i['mpc_hourly_steps'], 'ts': j['ts'], 'x_lims': j['x_lims'], 'name': name}
-                        if not mpc_folder in temp:
-                            temp.append(set)
-
+            # for k in self.config['rl']['utility']['hourly_steps']:
+            for i in permutations:
+                mpc_folder = os.path.join(j["folder"], f"{i['check_type']}-homes_{i['n_houses']}-horizon_{i['mpc_prediction_horizons']}-interval_{60 // i['mpc_hourly_steps'] // j['agg_dt']}")
+                if os.path.isdir(mpc_folder):
+                    # timesteps = j['hours'] * i['mpc_hourly_steps'] * k
+                    # minutes = 60 // i['mpc_hourly_steps'] // k
+                    # x_lims = [j['start_dt'] + timedelta(minutes=minutes*x) for x in range(timesteps)]
+                    name = j['name']
+                    set = {'path': mpc_folder, 'dt': i['mpc_hourly_steps'], 'ts': j['ts'], 'x_lims': j['x_lims'], 'name': name, "agg_dt":j['agg_dt']}
+                    if not mpc_folder in temp:
+                        temp.append(set)
+        for x in temp:
+            print(x['path'])
         return temp
 
     def set_base_file(self):
@@ -222,6 +223,7 @@ class Reformat:
 
     def set_rl_files(self, additional_params):
         temp = []
+        names = []
         self.add_agg_params(additional_params)
         counter = 1
         for i in self.mpc_folders:
@@ -241,18 +243,19 @@ class Reformat:
                             q_file = os.path.join(rl_agg_folder, q_results)
                             # name = i['name']
                             name = ""
-                            for k,v in j.items():
-                                if len(all_params[k]) > 1 or k == "mpc_hourly_steps":
-                                    name += f"{k} = {v}, "
+                            # for k,v in j.items():
+                            #     if len(all_params[k]) > 1 or k == "mpc_hourly_steps":
+                            #         name += f"{k} = {v}, "
                             # name =  f"horizon={j['rl_horizon']}, alpha={j['alpha']}, beta={j['beta']}, epsilon={j['epsilon']}, batch={j['batch_size']}, disutil={j['mpc_disutility']}, discomf={j['mpc_discomfort']}"
                             name += f"v = {vers}"
                             with open(rl_agg_file) as f:
                                 data = json.load(f)
                             if "Summary" not in data:
                                 self.create_summary(rl_agg_file)
-                            name = i['path']
                             set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"], "params": j, "skip": j['rl_interval'] // i['dt']}
-                            temp.append(set)
+                            if not name in names:
+                                temp.append(set)
+                                names.append(name)
                             self.ref_log.logger.info(f"Adding an RL aggregator agent file at {rl_agg_file}")
 
         if len(temp) == 0:
@@ -508,26 +511,20 @@ class Reformat:
 
             ts = len(data['Summary']['p_grid_aggregate'])-1
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - {file['name']}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - {file['name']}", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"]), np.arange(ts) + 1), name=f"Cumulative Agg Load - {file['name']}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.divide(data["Summary"]["p_grid_aggregate"], file['parent']['agg_dt'])), name=f"Cumulative Agg Load - {file['name']}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"]), np.arange(ts) + 1), name=f"Avg Cumulative Agg Load - {file['name']}", line_shape='hv', visible='legendonly'))
         return fig
 
     def plot_parametric(self, fig):
-        if self.parametrics[0]:
-            file = self.parametrics[0]
-            with open(file["results"]) as f:
-                rldata = json.load(f)
-
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rldata["Summary"]["p_grid_setpoint"], name="RL Setpoint Load"))
-
         for file in self.parametrics:
             with open(file["results"]) as f:
                 data = json.load(f)
 
             name = file["name"]
             ts = len(data['Summary']['p_grid_aggregate'])-1
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_setpoint"], name=f"RL Setpoint Load - {name}"))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - RL - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(data["Summary"]["p_grid_aggregate"]), name=f"Cumulative Agg Load - RL - {name}", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.divide(data["Summary"]["p_grid_aggregate"],file['parent']['agg_dt'])), name=f"Cumulative Agg Load - RL - {name}", line_shape='hv', visible='legendonly'))
             # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][:ts+1]),np.arange(ts)+1), name=f"Avg Load - RL - {name}", line_shape='hv', visible='legendonly'))
             # fig = self.plot_mu(fig)
         return fig
@@ -598,12 +595,12 @@ class Reformat:
             rl_setpoint = data['Summary']['p_grid_setpoint']
             rl_error = np.subtract(rl_load, rl_setpoint[:len(rl_load)])
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_error, name=f"Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_error, name=f"Setpoint - {name} (kW)", line_shape='hv', visible='legendonly'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_setpoint, name=f"Setpoint - {name} (kW)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=abs(rl_error), name=f"Abs Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 
-            hourly_rl_error = np.zeros(np.int(np.ceil(len(rl_error) / (24*file['parent']['dt'])) * (24*file['parent']['dt'])))
-            hourly_rl_error[:len(rl_error)] = abs(rl_error)/4
-            hourly_rl_error = hourly_rl_error.reshape(file['parent']['dt'],-1).sum(axis=0)
+            hourly_rl_error = np.zeros(np.int(np.ceil(len(rl_error) / (24*file['parent']['agg_dt'])) * (24*file['parent']['agg_dt'])))
+            hourly_rl_error[:len(rl_error)] = abs(rl_error)/file['parent']['agg_dt']
+            hourly_rl_error = hourly_rl_error.reshape(file['parent']['agg_dt'],-1).sum(axis=0)
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 
