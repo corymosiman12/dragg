@@ -772,7 +772,10 @@ class Aggregator:
         #     return max
         # else:
         #     return min
-        sp = self.config['community']['total_number_homes'][0]*self.config['community']['house_p_avg']
+        # sp = self.config['community']['total_number_homes'][0]*self.config['community']['house_p_avg']
+        self.avg_load += 0.2 * (self.agg_load - self.avg_load)
+        sp = self.avg_load
+        print("calcing setpoint")
         return sp
 
     def check_baseline_vals(self):
@@ -820,6 +823,7 @@ class Aggregator:
         self.forecast_load = np.sum(self.forecast_house_load)
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
+        self.agg_setpoint = self._gen_setpoint(self.timestep)
 
     def run_baseline(self):
         """
