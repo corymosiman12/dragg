@@ -606,6 +606,7 @@ class Reformat:
             hourly_rl_error[:len(rl_error)] = abs(rl_error)
             hourly_rl_error = hourly_rl_error.reshape(file['parent']['agg_dt'],-1).sum(axis=0)
             hourly_rl_error = np.repeat(hourly_rl_error, file['parent']['agg_dt'])
+            print(file['name'], np.std(rl_load))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error/file['parent']['agg_dt']), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 
