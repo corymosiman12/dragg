@@ -68,7 +68,7 @@ house_p_avg = 1.0 # used to generate the setpoint
   checkpoint_interval = "daily" # hourly, daily, monthly, yearly
 
 [rl]
-    version = ["ppo2_60-15min_AVGkW_Lstm"]
+    version = ["ppo2_60-15min_AVGkW_20k"]
     # version = ["do_nothing_agent_60-15_3kW", "ppo2_60-15_3kW", "ppo2_60-15_AVGkW", "ppo2_60-15_AVGkW_comp"]
     # version = ["ppo2_60-15_1kW", "ppo2_60-15_3kW", "do_nothing_agent_3kW", "do_nothing_agent_1kW"]
 
