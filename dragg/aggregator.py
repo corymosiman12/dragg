@@ -26,9 +26,7 @@ from dragg.dual_action_agent import DualActionAgent
 
 class Aggregator:
     def __init__(self):
-        self.agg_log = Logger("aggregator")
-        self.mpc_log = Logger("mpc_calc")
-        self.forecast_log = Logger("forecaster")
+        self.log = Logger("aggregator")
         self.rlagent_log = Logger("rl_agent")
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
         self.outputs_dir = os.path.join('outputs')
@@ -126,7 +124,7 @@ class Aggregator:
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
-            self.agg_log.logger.error(f"Configuration file does not exist: {self.config_file}")
+            self.log.logger.error(f"Configuration file does not exist: {self.config_file}")
             sys.exit(1)
         with open(self.config_file, 'r') as f:
             data = toml.load(f)
@@ -134,7 +132,7 @@ class Aggregator:
             req_keys = set(self.required_keys.keys())
             if not req_keys.issubset(d_keys):
                 missing_keys = req_keys - d_keys
-                self.agg_log.logger.error(f"{missing_keys} must be configured in the config file.")
+                self.log.logger.error(f"{missing_keys} must be configured in the config file.")
                 sys.exit(1)
             else:
                 for subsystem in self.required_keys.keys():
@@ -142,7 +140,7 @@ class Aggregator:
                     given_keys = set(data[subsystem].keys())
                     if not req_keys.issubset(given_keys):
                         missing_keys = req_keys - given_keys
-                        self.agg_logger.error(f"Parameters for {subsystem}: {missing_keys} must be specified in the config file.")
+                        self.logger.error(f"Parameters for {subsystem}: {missing_keys} must be specified in the config file.")
                         sys.exit(1)
         if 'run_rl_agg' in data['simulation'] or 'run_rl_simplified' in data['simulation']:
             self._check_rl_config(data)
@@ -156,7 +154,7 @@ class Aggregator:
         elif 'run_rl_simplified' in data['simulation']:
             req_keys = {"simplified": {"response_rate", "offset"}}
         if not 'rl' in data:
-            self.agg_log.logger.error(f"{missing_keys} must be configured in the config file.")
+            self.log.logger.error(f"{missing_keys} must be configured in the config file.")
             sys.exit(1)
         else:
             for subsystem in req_keys.keys():
@@ -176,14 +174,14 @@ class Aggregator:
             self.start_dt = datetime.strptime(self.config['simulation']['start_datetime'], '%Y-%m-%d %H')
             self.end_dt = datetime.strptime(self.config['simulation']['end_datetime'], '%Y-%m-%d %H')
         except ValueError as e:
-            self.agg_log.logger.error(f"Error parsing datetimes: {e}")
+            self.log.logger.error(f"Error parsing datetimes: {e}")
             sys.exit(1)
         self.hours = self.end_dt - self.start_dt
         self.hours = int(self.hours.total_seconds() / 3600)
 
         self.num_timesteps = int(np.ceil(self.hours * self.dt))
         self.mask = (self.all_data.index >= self.start_dt) & (self.all_data.index < self.end_dt)
-        self.agg_log.logger.info(f"Start: {self.start_dt.isoformat()}; End: {self.end_dt.isoformat()}; Number of hours: {self.hours}")
+        self.log.logger.info(f"Start: {self.start_dt.isoformat()}; End: {self.end_dt.isoformat()}; Number of hours: {self.hours}")
 
     def _import_ts_data(self):
         """
@@ -193,7 +191,7 @@ class Aggregator:
         :return: pandas.DataFrame, columns: ts, GHI, OAT
         """
         if not os.path.exists(self.ts_data_file):
-            self.agg_log.logger.error(f"Timeseries data file does not exist: {self.ts_data_file}")
+            self.log.logger.error(f"Timeseries data file does not exist: {self.ts_data_file}")
             sys.exit(1)
 
         df = pd.read_csv(self.ts_data_file, skiprows=2)
@@ -226,7 +224,7 @@ class Aggregator:
         :return: pandas.DataFrame, columns: ts, SPP
         """
         if not os.path.exists(self.spp_data_file):
-            self.agg_log.logger.error(f"TOU data file does not exist: {self.spp_data_file}")
+            self.log.logger.error(f"TOU data file does not exist: {self.spp_data_file}")
             sys.exit(1)
         df_all = pd.read_excel(self.spp_data_file, sheet_name=None)
         k1 = list(df_all.keys())[0]
@@ -277,19 +275,19 @@ class Aggregator:
         pv_only_homes = [e for e in self.all_homes if e['type'] == "pv_only"]
         battery_only_homes = [e for e in self.all_homes if e['type'] == "battery_only"]
         if not len(base_homes) == self.config['community']['total_number_homes'][0] - self.config['community']['homes_battery'][0] - self.config['community']['homes_pv'][0] - self.config['community']['homes_pv_battery'][0]:
-            self.agg_log.logger.error("Incorrect number of base homes.")
+            self.log.logger.error("Incorrect number of base homes.")
             sys.exit(1)
         elif not len(pv_battery_homes) == self.config['community']['homes_pv_battery'][0]:
-            self.agg_log.logger.error("Incorrect number of base pv_battery homes.")
+            self.log.logger.error("Incorrect number of base pv_battery homes.")
             sys.exit(1)
         elif not len(pv_only_homes) == self.config['community']['homes_pv'][0]:
-            self.agg_log.logger.error("Incorrect number of base pv_only homes.")
+            self.log.logger.error("Incorrect number of base pv_only homes.")
             sys.exit(1)
         elif not len(battery_only_homes) == self.config['community']['homes_battery'][0]:
-            self.agg_log.logger.error("Incorrect number of base pv_only homes.")
+            self.log.logger.error("Incorrect number of base pv_only homes.")
             sys.exit(1)
         else:
-            self.agg_log.logger.info("Homes looking ok!")
+            self.log.logger.info("Homes looking ok!")
 
     def reset_seed(self, new_seed):
         """
@@ -674,10 +672,10 @@ class Aggregator:
         :return: None
         """
         if not self.start_dt >= self.all_data.index[0]:
-            self.agg_log.logger.error("The start datetime must exist in the data provided.")
+            self.log.logger.error("The start datetime must exist in the data provided.")
             sys.exit(1)
         if not self.end_dt + timedelta(hours=max(self.config['home']['hems']['prediction_horizon'])) <= self.all_data.index[-1]:
-            self.agg_log.logger.error("The end datetime + the largest prediction horizon must exist in the data provided.")
+            self.log.logger.error("The end datetime + the largest prediction horizon must exist in the data provided.")
             sys.exit(1)
 
     def calc_start_hour_index(self):
@@ -766,16 +764,10 @@ class Aggregator:
         :return: float
         @kyri
         """
-        # max = 1.5*self.config['community']['total_number_homes']*self.config['community']['house_p_avg'] # increased for homes with plug load
-        # min = 0.5*self.config['community']['total_number_homes']*self.config['community']['house_p_avg']
-        # if (self.timestep % 96)/96 > 0.5:
-        #     return max
-        # else:
-        #     return min
-        # sp = self.config['community']['total_number_homes'][0]*self.config['community']['house_p_avg']
         self.avg_load += 0.2 * (self.agg_load - self.avg_load)
         sp = self.avg_load
-        print("calcing setpoint")
+        # print("calcing setpoint")
+        # sp = 30
         return sp
 
     def check_baseline_vals(self):
@@ -787,9 +779,9 @@ class Aggregator:
             if home in homes_to_check:
                 for k, v2 in vals.items():
                     if k in ["temp_in_opt", "temp_wh_opt", "e_batt_opt"] and len(v2) != self.hours + 1:
-                        self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
+                        self.log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
                     elif len(v2) != self.hours:
-                        self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
+                        self.log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
     def _run_iteration(self):
         """
@@ -832,7 +824,7 @@ class Aggregator:
         (For no MPC in HEMS specify the MPC prediction horizon as 0.)
         :return: None
         """
-        self.agg_log.logger.info(f"Performing baseline run for horizon: {self.mpc['horizon']}")
+        self.log.logger.info(f"Performing baseline run for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
 
         self.as_list = []
@@ -845,7 +837,7 @@ class Aggregator:
             self.collect_data()
 
             if (t+1) % (self.checkpoint_interval) == 0: # weekly checkpoint
-                self.agg_log.logger.info("Creating a checkpoint file.")
+                self.log.logger.info("Creating a checkpoint file.")
                 self.write_outputs()
 
     def summarize_baseline(self):
@@ -855,12 +847,12 @@ class Aggregator:
         """
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+        self.log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
         self.max_agg_load = max(self.baseline_agg_load_list)
         self.max_agg_load_list.append(self.max_agg_load)
 
-        self.agg_log.logger.info(f"Max load list: {self.max_agg_load_list}")
+        self.log.logger.info(f"Max load list: {self.max_agg_load_list}")
         self.baseline_data["Summary"] = {
             "case": self.case,
             "start_datetime": self.start_dt.strftime('%Y-%m-%d %H'),
@@ -959,7 +951,7 @@ class Aggregator:
             if self.check_type == "all" or home["type"] == self.check_type:
                 self.as_list += [home]
 
-        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.mpc['horizon']}")
+        self.log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
 
         self.actionspace = self.config['rl']['utility']['action_space']
@@ -1008,12 +1000,12 @@ class Aggregator:
             self.redis_set_current_values() # broadcast rl price to community
 
             if t > 0 and t % (self.checkpoint_interval) == 0: # weekly checkpoint
-                self.agg_log.logger.info("Creating a checkpoint file.")
+                self.log.logger.info("Creating a checkpoint file.")
                 self.write_outputs()
 
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+        self.log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
     def test_response(self):
         """
@@ -1028,7 +1020,7 @@ class Aggregator:
             self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
         self.agg_load = self.agg_load - c * self.reward_price[-1] * (self.agg_setpoint - self.agg_load)
         self.agg_cost = self.agg_load * self.reward_price[0]
-        self.agg_log.logger.info(f"Iteration {self.timestep} finished. Aggregate load {self.agg_load}")
+        self.log.logger.info(f"Iteration {self.timestep} finished. Aggregate load {self.agg_load}")
         self.timestep += 1
 
     def run_rl_agg_simplified(self):
@@ -1038,7 +1030,7 @@ class Aggregator:
         :return: None
         """
         # self.mpc['discomfort'] = self.config['home']['hems']['discomfort'][0]
-        self.agg_log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with simplified community model.")
+        self.log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with simplified community model.")
         self.start_time = datetime.now()
 
         self.actionspace = self.config['rl']['utility']['action_space']
@@ -1070,7 +1062,7 @@ class Aggregator:
 
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+        self.log.logger.info(f"Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
     def flush_redis(self):
         """
@@ -1079,7 +1071,7 @@ class Aggregator:
         :return: None
         """
         self.redis_client.conn.flushall()
-        self.agg_log.logger.info("Flushing Redis")
+        self.log.logger.info("Flushing Redis")
         time.sleep(1)
         self.check_all_data_indices()
         self.calc_start_hour_index()
@@ -1112,7 +1104,7 @@ class Aggregator:
         parameters specified in the config file.
         :return: None
         """
-        self.agg_log.logger.info("Made it to Aggregator Run")
+        self.log.logger.info("Made it to Aggregator Run")
 
         self.checkpoint_interval = 500 # default to checkpoints every 1000 timesteps
         if self.config['simulation']['checkpoint_interval'] == 'hourly':
