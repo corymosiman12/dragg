@@ -852,7 +852,7 @@ class Aggregator:
         self.max_agg_load = max(self.baseline_agg_load_list)
         self.max_agg_load_list.append(self.max_agg_load)
 
-        self.log.logger.info(f"Max load list: {self.max_agg_load_list}")
+        # self.log.logger.info(f"Max load list: {self.max_agg_load_list}")
         self.baseline_data["Summary"] = {
             "case": self.case,
             "start_datetime": self.start_dt.strftime('%Y-%m-%d %H'),
