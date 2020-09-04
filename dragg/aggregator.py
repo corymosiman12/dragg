@@ -764,7 +764,10 @@ class Aggregator:
         :return: float
         @kyri
         """
-        self.avg_load += 0.2 * (self.agg_load - self.avg_load)
+        self.tracked_loads[:-1] = [1:]
+        self.tracked_loads[-1] = self.agg_load
+        # self.avg_load += 0.2 * (self.agg_load - self.avg_load) # moving average
+        self.avg_load = np.average(self.tracked_loads)
         sp = self.avg_load
         # print("calcing setpoint")
         # sp = 30
@@ -938,6 +941,7 @@ class Aggregator:
         return temp
 
     def set_dummy_rl_parameters(self):
+        self.tracked_loads = 30*np.ones(12)
         self.mpc = self.mpc_permutations[0]
         self.util = self.util_permutations[0]
         self.rl_params = self.rl_permutations[0]
