@@ -764,7 +764,7 @@ class Aggregator:
         :return: float
         @kyri
         """
-        self.tracked_loads[:-1] = [1:]
+        self.tracked_loads[:-1] = self.tracked_loads[1:]
         self.tracked_loads[-1] = self.agg_load
         # self.avg_load += 0.2 * (self.agg_load - self.avg_load) # moving average
         self.avg_load = np.average(self.tracked_loads)
