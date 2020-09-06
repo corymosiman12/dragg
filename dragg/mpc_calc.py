@@ -719,8 +719,8 @@ class MPCCalc:
         num_agg_steps_seen = int(np.ceil(self.horizon / self.sub_subhourly_steps))
         self.reward_price[:min(len(rp), num_agg_steps_seen)] = rp[:min(len(rp), num_agg_steps_seen)]
         self.reward_price = self.reward_price[:self.horizon]
-        # self.tracked_price[:-1] = self.tracked_price[1:]
-        # self.tracked_price = self.reward_price[0] + self.base_cents
+        self.tracked_price[:-1] = self.tracked_price[1:]
+        self.tracked_price = self.reward_price[0] + self.base_cents
         self.log.info(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
 
     def solve_type_problem(self):
