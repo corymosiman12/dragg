@@ -68,7 +68,7 @@ house_p_avg = 1.0 # used to generate the setpoint
   checkpoint_interval = "daily" # hourly, daily, monthly, yearly
 
 [rl]
-  version = ['ppo2_LastN12AVGkW']
+  version = ['a2c_LastN12AVGkW_learnMPC']
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns

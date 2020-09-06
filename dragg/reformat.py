@@ -20,13 +20,8 @@ class Reformat:
     def __init__(self, add_outputs={}, agg_params={"rl_horizon":[1]}, mpc_params={}, versions=set([0.0]), date_ranges={"end_datetime":[]}, include_runs={}, log=Logger("reformat")):
         self.ref_log = log
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR',' data'))
-        self.outputs_dir = set()
-        if os.path.isdir('outputs'):
-            self.outputs_dir = {'outputs'}
-            for i in add_outputs:
-                path = os.path.join('outputs', i)
-                if os.path.isdir(path):
-                    self.outputs_dir.add(path)
+        # self.outputs_dir = set()
+        self.outputs_dir = {"outputs"}
         if len(self.outputs_dir) == 0:
             self.ref_log.logger.error("No outputs directory found.")
             quit()
@@ -166,6 +161,7 @@ class Reformat:
         for j in self.outputs_dir:
             for i in permutations:
                 date_folder = os.path.join(j, f"{i['start_datetime'].strftime('%Y-%m-%dT%H')}_{i['end_datetime'].strftime('%Y-%m-%dT%H')}_{60 // i['rl_steps']}-{60 // i['rl_steps'] // i['mpc_steps']}")
+                print(date_folder)
                 if os.path.isdir(date_folder):
                     hours = i['end_datetime'] - i['start_datetime']
                     hours = int(hours.total_seconds() / 3600)
@@ -348,7 +344,8 @@ class Reformat:
         return fig
 
     def plot_thermal_bounds(self, fig, x_lims, name, fname):
-        ah_file = os.path.join('outputs', f"all_homes-{self.config['community']['total_number_homes'][0]}-config.json")
+        for i in self.outputs_dir:
+            ah_file = os.path.join(i, f"all_homes-{self.config['community']['total_number_homes'][0]}-config.json")
         with open(ah_file) as f:
             data = json.load(f)
 

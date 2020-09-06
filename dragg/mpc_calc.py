@@ -127,6 +127,8 @@ class MPCCalc:
         self.all_oat = self.redis_client.conn.lrange('OAT', 0, -1)
         self.all_spp = self.redis_client.conn.lrange('SPP', 0, -1)
         self.all_tou = self.redis_client.conn.lrange('tou', 0, -1)
+        self.base_cents = float(self.all_tou[0])
+        self.tracked_price = [float(i) for i in self.all_tou[:12]]
 
         # cast all values to proper type
         self.start_hour_index = int(float(self.start_hour_index))
@@ -325,6 +327,8 @@ class MPCCalc:
 
         # set total price for electricity
         total_price_values = np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon]
+        learned_price = np.average(self.tracked_price) * np.ones(self.horizon - 1)
+        total_price_values[1:] = total_price_values[1:] + learned_price
         self.total_price = cp.Constant(total_price_values)
 
     def add_battery_constraints(self):
@@ -626,6 +630,7 @@ class MPCCalc:
                     self.stored_optimal_vals["p_batt_disch"] = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
             except:
                 self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last timestep.")
+                i+=1
                 pass
 
             try:
@@ -713,7 +718,9 @@ class MPCCalc:
 
         num_agg_steps_seen = int(np.ceil(self.horizon / self.sub_subhourly_steps))
         self.reward_price[:min(len(rp), num_agg_steps_seen)] = rp[:min(len(rp), num_agg_steps_seen)]
-        self.reward_price = np.repeat(self.reward_price, self.sub_subhourly_steps)[:self.horizon]
+        self.reward_price = self.reward_price[:self.horizon]
+        # self.tracked_price[:-1] = self.tracked_price[1:]
+        # self.tracked_price = self.reward_price[0] + self.base_cents
         self.log.info(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
 
     def solve_type_problem(self):
