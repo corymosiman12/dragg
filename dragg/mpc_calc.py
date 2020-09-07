@@ -128,7 +128,7 @@ class MPCCalc:
         self.all_spp = self.redis_client.conn.lrange('SPP', 0, -1)
         self.all_tou = self.redis_client.conn.lrange('tou', 0, -1)
         self.base_cents = float(self.all_tou[0])
-        self.tracked_price = [float(i) for i in self.all_tou[:12]]
+        self.tracked_price = [float(i) for i in self.all_tou[:6]]
 
         # cast all values to proper type
         self.start_hour_index = int(float(self.start_hour_index))
