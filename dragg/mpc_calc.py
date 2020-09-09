@@ -328,7 +328,7 @@ class MPCCalc:
         # set total price for electricity
         total_price_values = np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon]
         learned_price = np.average(self.tracked_price) * np.ones(self.horizon - 1)
-        # total_price_values[1:] = total_price_values[1:] + learned_price
+        total_price_values[1:] = total_price_values[1:] + learned_price
         self.total_price = cp.Constant(total_price_values)
 
     def add_battery_constraints(self):
@@ -421,8 +421,8 @@ class MPCCalc:
         self.cost = cp.Variable(self.horizon)
         self.objective = cp.Variable(self.horizon)
         self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
-        self.weights = cp.Constant(np.power(1.0*np.ones(self.horizon), np.arange(self.horizon)))
-        self.obj = cp.Minimize(cp.sum(cp.multiply(self.weights, self.cost)))
+        self.weights = cp.Constant(np.power(0.95*np.ones(self.horizon), np.arange(self.horizon)))
+        self.obj = cp.Minimize(cp.sum(cp.multiply(self.cost, self.weights)))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():
             self.log.error("Problem is not DCP")
