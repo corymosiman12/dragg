@@ -421,7 +421,7 @@ class MPCCalc:
         self.cost = cp.Variable(self.horizon)
         self.objective = cp.Variable(self.horizon)
         self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
-        self.weights = cp.Constant(np.power(0.95*np.ones(self.horizon), np.arange(self.horizon)))
+        self.weights = cp.Constant(np.power(1.0*np.ones(self.horizon), np.arange(self.horizon)))
         self.obj = cp.Minimize(cp.sum(cp.multiply(self.weights, self.cost)))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():

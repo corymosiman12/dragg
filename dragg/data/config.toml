@@ -56,7 +56,7 @@ house_p_avg = 1.0 # used to generate the setpoint
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-01-15 00"
+  end_datetime = "2015-12-15 00"
   loop_days = true
   random_seed = 12
   n_nodes = 4 # for parallelization
@@ -68,7 +68,7 @@ house_p_avg = 1.0 # used to generate the setpoint
   checkpoint_interval = "daily" # hourly, daily, monthly, yearly
 
 [rl]
-  version = ['a2c_LastN12AVGkW_discountedMPC']
+  version = ['a2c_LastN12AVGkW_learnMPC6', 'a2c_LastN12AVGkW_learnMPC12', 'do_nothing_agent_60-15_3kW']
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
