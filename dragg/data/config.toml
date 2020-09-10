@@ -1,7 +1,7 @@
 [community]
 # Refers to the community makeup of house types.
 # Remaining homes will be considered of type "base" (hvac + wh)
-total_number_homes = [10, 0] # list [All homes, Non-Responsive]
+total_number_homes = [30, 0] # list [All homes, Non-Responsive]
 homes_battery = [0, 0] # list [All homes, Non-Responsive]
 homes_pv = [0, 0] # list [All homes, Non-Responsive]
 homes_pv_battery = [0, 0] # list [All homes, Non-Responsive]
@@ -59,7 +59,7 @@ house_p_avg = 1.0 # used to generate the setpoint
   end_datetime = "2015-12-15 00"
   loop_days = true
   random_seed = 12
-  n_nodes = 4 # for parallelization
+  n_nodes = 10 # for parallelization
   load_zone = "LZ_HOUSTON"
   check_type = "all"
   run_rbo_mpc = false # runs homes with MPC (no reward price signal)
@@ -68,8 +68,10 @@ house_p_avg = 1.0 # used to generate the setpoint
   checkpoint_interval = "daily" # hourly, daily, monthly, yearly
 
 [rl]
-  version = ['a2c_discounted_learn']
-
+  # version = ['ppo2_discounted_learn_penalizedRP', 'ppo2_discounted_learn', 'do_nothing_agent_60-15_3kW', 'do_nothing_discounted']
+  # version = ['ppo2_shiftedRP','ppo2_discounted_learn_penalizedRP','do_nothing_agent_60-15_3kW', 'do_nothing_discounted']
+  version = ['penalizedRP']
+  
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
     learning_rate = [0.01] # Suggested ~0.001
