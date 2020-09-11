@@ -26,6 +26,7 @@ from dragg.dual_action_agent import DualActionAgent
 
 class Aggregator:
     def __init__(self):
+        self.thermal_trend = 0
         self.log = Logger("aggregator")
         self.rlagent_log = Logger("rl_agent")
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
@@ -213,6 +214,7 @@ class Aggregator:
         df[["GHI", "OAT"]] = df[["GHI", "OAT"]].astype(int)
         # if self.config['simulation']['loop_days']:
         #     df[["GHI", "OAT"]] = self.
+        self.oat = df['OAT'].to_numpy()
         return df.reset_index(drop=True)
 
     def _import_tou_data(self):
@@ -637,8 +639,11 @@ class Aggregator:
         self.all_homes = all_homes
         self.write_home_configs()
         self.all_homes_obj = []
+        self.max_load = 0
         for home in all_homes:
-            self.all_homes_obj += [MPCCalc(home)]
+            obj = MPCCalc(home)
+            self.all_homes_obj += [obj]
+            self.max_load += obj.max_load
 
     def reset_baseline_data(self):
         self.baseline_agg_load_list = []
@@ -768,7 +773,7 @@ class Aggregator:
         self.tracked_loads[-1] = self.agg_load
         # self.avg_load += 0.2 * (self.agg_load - self.avg_load) # moving average
         self.avg_load = np.average(self.tracked_loads)
-        sp = self.avg_load
+        sp = np.clip(self.avg_load, 1.5*len(self.all_homes), 5.0*len(self.all_homes))
         # print("calcing setpoint")
         # sp = 30
         return sp
@@ -794,6 +799,8 @@ class Aggregator:
         """
         pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
         results = pool.map(manage_home, self.as_list)
+
+        self.thermal_trend = self.oat[self.timestep + 4] - self.oat[self.timestep]
 
         self.timestep += 1
 

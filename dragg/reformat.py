@@ -363,7 +363,7 @@ class Reformat:
     def plot_base_home(self, name, fig, data, summary, fname, file, plot_price=True):
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_in_opt"], name=f"Tin (C) - {fname}"))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_wh_opt"], name=f"Twh (C) - {fname}"))
-        self.plot_thermal_bounds(fig, file['parent']['x_lims'], name, fname)
+        # self.plot_thermal_bounds(fig, file['parent']['x_lims'], name, fname)
 
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_grid_opt"], name=f"Pgrid (kW) - {fname}", line_shape='hv', visible='legendonly'))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_load_opt"], name=f"Pload (kW) - {fname}", line_shape='hv', visible='legendonly'))
@@ -593,7 +593,7 @@ class Reformat:
             name = file['name']
             rl_load = data['Summary']['p_grid_aggregate']
             rl_setpoint = data['Summary']['p_grid_setpoint']
-            rl_error = np.subtract(rl_load, rl_setpoint[:len(rl_load)]) / file['parent']['agg_dt']
+            rl_error = np.subtract(rl_load[:len(rl_setpoint)], rl_setpoint[:len(rl_load)]) / file['parent']['agg_dt']
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_error, name=f"Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(rl_error), np.arange(len(rl_error))+1), name=f"Average Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_setpoint, name=f"Setpoint - {name} (kW)", line_shape='hv', visible='legendonly'))
@@ -603,7 +603,8 @@ class Reformat:
             hourly_rl_error[:len(rl_error)] = abs(rl_error)
             hourly_rl_error = hourly_rl_error.reshape(file['parent']['agg_dt'],-1).sum(axis=0)
             hourly_rl_error = np.repeat(hourly_rl_error, file['parent']['agg_dt'])
-            print(file['name'], np.std(rl_load))
+            print("standard deviation of p_grid", file['name'], np.std(rl_load))
+            print("standard deviation of p_grid excluding first day", file['name'], np.std(rl_load[24:]))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error/file['parent']['agg_dt']), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 

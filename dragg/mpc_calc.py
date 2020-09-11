@@ -189,6 +189,8 @@ class MPCCalc:
         self.temp_in_sp = cp.Constant(float(self.home["hvac"]["temp_in_sp"]))
         self.t_in_init = float(self.home["hvac"]["temp_in_init"])
 
+        self.max_load = max(self.hvac_p_c.value, self.hvac_p_h.value) + self.wh_p.value
+
     def water_draws(self):
         # Do water draws with no prior knowledge
         draw_times = np.array(self.home["wh"]["draw_times"])
