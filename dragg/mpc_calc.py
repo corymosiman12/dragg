@@ -6,6 +6,9 @@ import redis
 import scipy.stats
 import logging
 import pathos
+from copy import deepcopy
+from collections import defaultdict
+import json
 
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
@@ -66,20 +69,23 @@ class MPCCalc:
         self.temp_in_max = None
         self.optimal_vals = {}
         self.stored_optimal_vals = {
-            "p_grid_opt": None,
-            "forecast_p_grid_opt": None,
-            "p_load_opt": None,
-            "temp_in_opt": None,
-            "temp_wh_opt": None,
-            "hvac_cool_on_opt": None,
-            "hvac_heat_on_opt": None,
-            "wh_heat_on_opt": None,
-            "cost_opt": None
+           "p_grid_opt": None,
+           "forecast_p_grid_opt": None,
+           "p_load_opt": None,
+           "temp_in_opt": None,
+           "temp_wh_opt": None,
+           "hvac_cool_on_opt": None,
+           "hvac_heat_on_opt": None,
+           "wh_heat_on_opt": None,
+           "cost_opt": None
         }
+        self.counter = 0
         self.iteration = None
-        self.timestep = None
+        # self.timestep = None
         self.assumed_wh_draw = None
         self.prev_optimal_vals = None  # set after timestep > 0, set_vals_for_current_run
+        self.timestep = 0
+        self.p_grid_opt = None
 
         # setup cvxpy verbose solver
         self.verbose_flag = os.environ.get('VERBOSE','False')
@@ -107,7 +113,8 @@ class MPCCalc:
         """
         key = self.name
         for field, value in self.optimal_vals.items():
-            self.redis_client.conn.hset(key, field, value)
+            if field != "test":
+                self.redis_client.conn.hset(key, field, value)
 
     def redis_get_prev_optimal_vals(self):
         """
@@ -180,8 +187,10 @@ class MPCCalc:
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
         self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
-        self.wh_size = cp.Constant(float(self.home["wh"]["tank_size"]))
-        self.tap_temp = cp.Constant(12) # assumed cold tap water is about 55 deg F
+        # self.wh_size = cp.Constant(float(self.home["wh"]["tank_size"]))
+        self.wh_size = float(self.home["wh"]["tank_size"])
+        # self.tap_temp = cp.Constant(12) # assumed cold tap water is about 55 deg F
+        self.tap_temp = 12
 
         # Home temperature constraints
         self.temp_in_min = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
@@ -203,11 +212,7 @@ class MPCCalc:
             else:
                 total_draw = 0
             draw_size_list.append(total_draw)
-        np.repeat(draw_size_list, self.sub_subhourly_steps)
-        self.draw_size = cp.Constant(draw_size_list)
-        # self.draw_size = cp.Constant(draw_size_list[0])
-        # ed = sum(draw_size_list) / len(draw_size_list)
-        # self.expected_draw = cp.Constant(ed)
+        self.draw_size = draw_size_list
 
     def set_environmental_variables(self):
         """
@@ -267,9 +272,12 @@ class MPCCalc:
         self.u_pv_curt = cp.Variable(self.horizon)
 
     def get_initial_conditions(self):
+        self.water_draws()
+
         if self.timestep == 0:
             self.temp_in_init = cp.Constant(self.t_in_init)
-            self.temp_wh_init = cp.Constant(self.t_wh_init)
+            self.temp_wh_init = cp.Constant((self.t_wh_init*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
+            # self.temp_wh_init = cp.Constant(self.t_wh_init)
 
             if 'battery' in self.type:
                 self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]))
@@ -277,7 +285,8 @@ class MPCCalc:
 
         else:
             self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
-            self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
+            self.temp_wh_init = cp.Constant((float(self.prev_optimal_vals["temp_wh_opt"])*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
+            # self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
 
             if 'battery' in self.type:
                 self.e_batt_init = cp.Constant(float(self.prev_optimal_vals["e_batt_opt"]))
@@ -302,7 +311,6 @@ class MPCCalc:
 
             # Hot water heater contraints
             self.temp_wh[0] == self.temp_wh_init,
-            # self.temp_wh[1:] == (cp.multiply(self.temp_wh[:self.horizon],(self.wh_size - self.draw_size[1:]))/self.wh_size + cp.multiply(self.tap_temp, self.draw_size[1:])/self.wh_size)
             self.temp_wh[1:] == self.temp_wh[:self.horizon]
                                 + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
                                 + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
@@ -591,6 +599,14 @@ class MPCCalc:
         self.temp_in_min = cp.Constant(new_temp_in_min.value)
         self.temp_in_max = cp.Constant(new_temp_in_max.value)
 
+    # pickle(cleanup_and_finish <-- house method, list of houses)
+    # agg.run_all_homes:
+    #   home.run_home() <-- pickled pickle(run_home, homes)
+    # home.run_home()
+    #   home.create optimization()
+    #   home.solve()
+    #   home.cleanup()
+
     def cleanup_and_finish(self):
         """
         Resolves .solve_mpc() with error handling and collects all data on solver.
@@ -608,45 +624,47 @@ class MPCCalc:
             self.error_handler()
 
         end_slice = max(1, self.sub_subhourly_steps)
-        self.log.info(f"Status for {self.name}: {self.prob.status}")
+        # self.log.info(f"Status for {self.name}: {self.prob.status}")
         i = 0
-        while i < 2:
-            try: # if the problem has been solved
-                self.stored_optimal_vals = {
-                    "p_grid_opt": self.p_grid.value / self.sub_subhourly_steps,
-                    "forecast_p_grid_opt": self.p_grid.value[1:] / self.sub_subhourly_steps,
-                    "p_load_opt": self.p_load.value / self.sub_subhourly_steps,
-                    "temp_in_opt": self.temp_in.value[1:],
-                    "temp_wh_opt": self.temp_wh.value[1:],
-                    "hvac_cool_on_opt": self.hvac_cool_on.value / self.sub_subhourly_steps,
-                    "hvac_heat_on_opt": self.hvac_heat_on.value / self.sub_subhourly_steps,
-                    "wh_heat_on_opt": self.wh_heat_on.value / self.sub_subhourly_steps,
-                    "cost_opt": self.cost.value
-                }
-                if 'pv' in self.type:
-                    self.stored_optimal_vals["p_pv_opt"] = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                    self.stored_optimal_vals["u_pv_curt_opt"] = np.average(self.u_pv_curt.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                if 'battery' in self.type:
-                    self.stored_optimal_vals["e_batt_opt"] = self.e_batt.value.reshape(self.sub_subhourly_steps, -1)[-1][1:]
-                    self.stored_optimal_vals["p_batt_ch"] = np.average(self.p_batt_ch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                    self.stored_optimal_vals["p_batt_disch"] = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-            except:
-                self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last timestep.")
-                i+=1
-                pass
+        # stored[k] = None; stored[k] = [1,2,3]
+        # while i < 2:
+        if self.prob.status == 'optimal': # if the problem has been solved
+            self.counter = 0
+            self.timestep += 1
+            # stored[k] = [1,2,3,4]
+            self.stored_optimal_vals = defaultdict()
+            self.stored_optimal_vals["p_grid_opt"] = (self.p_grid.value / self.sub_subhourly_steps).tolist()
+            self.stored_optimal_vals["forecast_p_grid_opt"] = (self.p_grid.value[1:] / self.sub_subhourly_steps).tolist()
+            self.stored_optimal_vals["p_load_opt"] = (self.p_load.value / self.sub_subhourly_steps).tolist()
+            self.stored_optimal_vals["temp_in_opt"] = (self.temp_in.value[1:]).tolist()
+            self.stored_optimal_vals["temp_wh_opt"] = (self.temp_wh.value[1:]).tolist()
+            self.stored_optimal_vals["hvac_cool_on_opt"] = (self.hvac_cool_on.value / self.sub_subhourly_steps).tolist()
+            self.stored_optimal_vals["hvac_heat_on_opt"] = (self.hvac_heat_on.value / self.sub_subhourly_steps).tolist()
+            self.stored_optimal_vals["wh_heat_on_opt"] = (self.wh_heat_on.value / self.sub_subhourly_steps).tolist()
+            self.stored_optimal_vals["cost_opt"] = (self.cost.value).tolist()
+            self.all_optimal_vals = {}
+            for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt"]:
+                self.optimal_vals[k] = self.stored_optimal_vals[k][0]
+                for j in range(self.horizon-1):
+                    self.optimal_vals[f"{k}_{j}"] = self.stored_optimal_vals[k][j]
 
-            try:
-                for k in self.stored_optimal_vals:
-                    self.optimal_vals[k] = self.stored_optimal_vals[k][0]
-                    self.stored_optimal_vals[k] = self.stored_optimal_vals[k][1:]
-                return
-            except:
-                self.error_handler()
-                self.temp_wh_min = cp.Constant(float(self.home["wh"]["temp_wh_min"]))
-                self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
-                self.temp_in_min = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
-                self.temp_in_max = cp.Constant(float(self.home["hvac"]["temp_in_max"]))
-        self.log.info(f"MPC solved with status {self.prob.status} for {self.name}; {self.optimal_vals}")
+            if 'pv' in self.type:
+                self.p_pv_opt = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                self.u_pv_curt_opt = np.average(self.u_pv_curt.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+            if 'battery' in self.type:
+                self.e_batt_opt = self.e_batt.value.reshape(self.sub_subhourly_steps, -1)[-1][1:]
+                self.p_batt_ch = np.average(self.p_batt_ch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                self.p_batt_disch = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+            self.json_hack = json.dumps(self.stored_optimal_vals)
+        else:
+            self.counter += 1
+            self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
+            for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt"]:
+                self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
+            i+=1
+            pass
+
+        self.log.info(f"MPC solved with status {self.prob.status} for {self.name}; {self.optimal_vals[k]}")
 
     def mpc_base(self):
         """

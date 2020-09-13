@@ -791,7 +791,7 @@ class Aggregator:
                     elif len(v2) != self.hours:
                         self.log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
-    def _run_iteration(self):
+    def run_iteration(self):
         """
         Calls the MPCCalc class to calculate the control sequence and power demand
         from all homes in the community. Threaded, using pathos
@@ -817,7 +817,8 @@ class Aggregator:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
-                    self.baseline_data[home["name"]][k].append(float(v))
+                    if k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt"]:
+                        self.baseline_data[home["name"]][k].append(float(v))
                 self.house_load.append(float(vals["p_grid_opt"]))
                 self.forecast_house_load.append(float(vals["forecast_p_grid_opt"]))
                 agg_cost += float(vals["cost_opt"])
@@ -843,7 +844,7 @@ class Aggregator:
                 self.as_list += [home]
         for t in range(self.num_timesteps):
             self.redis_set_current_values()
-            self._run_iteration()
+            self.run_iteration()
             self.collect_data()
 
             if (t+1) % (self.checkpoint_interval) == 0: # weekly checkpoint
@@ -994,7 +995,7 @@ class Aggregator:
             self.prev_forecast_load = self.forecast_load
             self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
 
-            self._run_iteration()
+            self.run_iteration()
             self.collect_data()
 
             # self.reward_price[:-1] = self.reward_price[1:]
