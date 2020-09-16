@@ -773,7 +773,7 @@ class Aggregator:
         self.tracked_loads[-1] = self.agg_load
         # self.avg_load += 0.2 * (self.agg_load - self.avg_load) # moving average
         self.avg_load = np.average(self.tracked_loads)
-        sp = np.clip(self.avg_load, 1.5*len(self.all_homes), 3.0*len(self.all_homes))
+        sp = np.clip(self.avg_load, None, None)
         # print("calcing setpoint")
         # sp = 30
         return sp
