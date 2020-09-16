@@ -424,7 +424,7 @@ class Aggregator:
             small_draw_times = (np.tile(typ_draw_times, ndays) + perturbations)
             small_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['small_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['small_draw_size_dist'][1], ndays * n_daily_draws))
 
-            all_draw_times = np.concatenate((big_draw_times, small_draw_times))
+            all_draw_times = np.clip(np.concatenate((big_draw_times, small_draw_times)), 1, None)
             all_draw_sizes = np.concatenate((big_draw_sizes, small_draw_sizes))
             ind = np.argsort(all_draw_times)
             all_draw_times = all_draw_times[ind].tolist()
@@ -773,7 +773,7 @@ class Aggregator:
         self.tracked_loads[-1] = self.agg_load
         # self.avg_load += 0.2 * (self.agg_load - self.avg_load) # moving average
         self.avg_load = np.average(self.tracked_loads)
-        sp = np.clip(self.avg_load, 1.5*len(self.all_homes), 5.0*len(self.all_homes))
+        sp = np.clip(self.avg_load, 1.5*len(self.all_homes), 3.0*len(self.all_homes))
         # print("calcing setpoint")
         # sp = 30
         return sp
@@ -817,7 +817,7 @@ class Aggregator:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
-                    if k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt"]:
+                    if k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraw"]:
                         self.baseline_data[home["name"]][k].append(float(v))
                 self.house_load.append(float(vals["p_grid_opt"]))
                 self.forecast_house_load.append(float(vals["forecast_p_grid_opt"]))

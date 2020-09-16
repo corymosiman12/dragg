@@ -17,7 +17,6 @@ house_p_avg = 1.0 # used to generate the setpoint
   p_cool_dist = [2, 9]
   p_heat_dist = [2.0, 13.5]
   temp_sp_dist = [18, 22]
-  # temp_sp_dist = [18, 18]
   temp_deadband_dist = [2, 3]
 
   [home.wh]
@@ -29,8 +28,10 @@ house_p_avg = 1.0 # used to generate the setpoint
   size_dist = [300, 300] # tank size (liters)
 
   [home.wh.waterdraws]
-  n_big_draw_dist = [0, 0]
-  n_small_draw_dist = [0, 0]
+  n_big_draw_dist = [5, 8]
+  n_small_draw_dist = [15, 30]
+  # n_big_draw_dist = [0, 0]
+  # n_small_draw_dist = [0, 0]
   big_draw_size_dist = [5, 10] # in liters
   small_draw_size_dist = [0.2, 0.5]
 
@@ -69,7 +70,8 @@ house_p_avg = 1.0 # used to generate the setpoint
 
 [rl]
   # version = ['penalizedRP', 'shiftedRP', 'do_nothing_discounted', 'do_nothing_agent_60-15_3kW', 'ppo2_discounted_learn']
-  version = ['more_data2']
+  # version = ['twoRP-unknown_waterdraws']
+  version = ['smaller_action_space-normalizedU']
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns

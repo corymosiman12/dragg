@@ -534,6 +534,34 @@ class MPCCalc:
         self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
         self.log.info(f"Problem status {self.prob.status}")
 
+    def implement_presolve(self):
+        # constraints = [
+        #     # Indoor air temperature constraints
+        #     self.temp_in[0] == self.temp_in_init,
+        #     self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
+        #                                     + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
+        #                                     - self.hvac_cool_on * self.hvac_p_c
+        #                                     + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
+        #     self.temp_in[1:self.h_plus] == 0,
+        #
+        #     # Hot water heater contraints
+        #     self.temp_wh[0] == self.temp_wh_init,
+        #     self.temp_wh[1:] == self.temp_wh[:self.horizon]
+        #                         + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
+        #                         + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
+        #
+        #     self.p_load == self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on),
+        #
+        #     self.hvac_cool_on == np.array(self.presolve_hvac_cool_on, dtype=np.double),
+        #     self.hvac_heat_on == np.array(self.presolve_hvac_heat_on, dtype=np.double),
+        #     self.wh_heat_on == np.array(self.presolve_wh_heat_on, dtype=np.double)
+        # ]
+        constraints = [self.p_load >= 0, self.p_load <= 2]
+        obj = cp.Minimize(sum(self.p_load))
+        prob = cp.Problem(obj, constraints)
+        prob.solve(solver=self.solver, verbose=self.verbose_flag)
+        print('solved')
+
     def error_handler(self):
         """
         Utilizes the CVXPY problem as setup previously to brute force a control signal.
@@ -599,14 +627,6 @@ class MPCCalc:
         self.temp_in_min = cp.Constant(new_temp_in_min.value)
         self.temp_in_max = cp.Constant(new_temp_in_max.value)
 
-    # pickle(cleanup_and_finish <-- house method, list of houses)
-    # agg.run_all_homes:
-    #   home.run_home() <-- pickled pickle(run_home, homes)
-    # home.run_home()
-    #   home.create optimization()
-    #   home.solve()
-    #   home.cleanup()
-
     def cleanup_and_finish(self):
         """
         Resolves .solve_mpc() with error handling and collects all data on solver.
@@ -627,44 +647,61 @@ class MPCCalc:
         # self.log.info(f"Status for {self.name}: {self.prob.status}")
         i = 0
         # stored[k] = None; stored[k] = [1,2,3]
-        # while i < 2:
-        if self.prob.status == 'optimal': # if the problem has been solved
-            self.counter = 0
-            self.timestep += 1
-            # stored[k] = [1,2,3,4]
-            self.stored_optimal_vals = defaultdict()
-            self.stored_optimal_vals["p_grid_opt"] = (self.p_grid.value / self.sub_subhourly_steps).tolist()
-            self.stored_optimal_vals["forecast_p_grid_opt"] = (self.p_grid.value[1:] / self.sub_subhourly_steps).tolist()
-            self.stored_optimal_vals["p_load_opt"] = (self.p_load.value / self.sub_subhourly_steps).tolist()
-            self.stored_optimal_vals["temp_in_opt"] = (self.temp_in.value[1:]).tolist()
-            self.stored_optimal_vals["temp_wh_opt"] = (self.temp_wh.value[1:]).tolist()
-            self.stored_optimal_vals["hvac_cool_on_opt"] = (self.hvac_cool_on.value / self.sub_subhourly_steps).tolist()
-            self.stored_optimal_vals["hvac_heat_on_opt"] = (self.hvac_heat_on.value / self.sub_subhourly_steps).tolist()
-            self.stored_optimal_vals["wh_heat_on_opt"] = (self.wh_heat_on.value / self.sub_subhourly_steps).tolist()
-            self.stored_optimal_vals["cost_opt"] = (self.cost.value).tolist()
-            self.all_optimal_vals = {}
-            for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt"]:
-                self.optimal_vals[k] = self.stored_optimal_vals[k][0]
-                for j in range(self.horizon-1):
-                    self.optimal_vals[f"{k}_{j}"] = self.stored_optimal_vals[k][j]
+        while i < 1:
+            if self.prob.status == 'optimal': # if the problem has been solved
+                self.counter = 0
+                self.timestep += 1
+                # stored[k] = [1,2,3,4]
+                self.stored_optimal_vals = defaultdict()
+                self.stored_optimal_vals["p_grid_opt"] = (self.p_grid.value / self.sub_subhourly_steps).tolist()
+                self.stored_optimal_vals["forecast_p_grid_opt"] = (self.p_grid.value[1:] / self.sub_subhourly_steps).tolist() + [0]
+                self.stored_optimal_vals["p_load_opt"] = (self.p_load.value / self.sub_subhourly_steps).tolist()
+                self.stored_optimal_vals["temp_in_opt"] = (self.temp_in.value[1:]).tolist()
+                self.stored_optimal_vals["temp_wh_opt"] = (self.temp_wh.value[1:]).tolist()
+                self.stored_optimal_vals["hvac_cool_on_opt"] = (self.hvac_cool_on.value / self.sub_subhourly_steps).tolist()
+                self.stored_optimal_vals["hvac_heat_on_opt"] = (self.hvac_heat_on.value / self.sub_subhourly_steps).tolist()
+                self.stored_optimal_vals["wh_heat_on_opt"] = (self.wh_heat_on.value / self.sub_subhourly_steps).tolist()
+                self.stored_optimal_vals["cost_opt"] = (self.cost.value).tolist()
+                self.stored_optimal_vals["waterdraws"] = self.draw_size
+                print(self.draw_size)
+                self.all_optimal_vals = {}
+                for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"]:
+                    if not k == "waterdraws":
+                        self.optimal_vals[k] = self.stored_optimal_vals[k][0]
+                    else:
+                        self.optimal_vals[k] = self.stored_optimal_vals[k][0]
+                    for j in range(self.horizon):
+                        self.optimal_vals[f"{k}_{j}"] = self.stored_optimal_vals[k][j]
 
-            if 'pv' in self.type:
-                self.p_pv_opt = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                self.u_pv_curt_opt = np.average(self.u_pv_curt.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-            if 'battery' in self.type:
-                self.e_batt_opt = self.e_batt.value.reshape(self.sub_subhourly_steps, -1)[-1][1:]
-                self.p_batt_ch = np.average(self.p_batt_ch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                self.p_batt_disch = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-            self.json_hack = json.dumps(self.stored_optimal_vals)
-        else:
-            self.counter += 1
-            self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
-            for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt"]:
-                self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
-            i+=1
-            pass
+                if 'pv' in self.type:
+                    self.p_pv_opt = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                    self.u_pv_curt_opt = np.average(self.u_pv_curt.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                if 'battery' in self.type:
+                    self.e_batt_opt = self.e_batt.value.reshape(self.sub_subhourly_steps, -1)[-1][1:]
+                    self.p_batt_ch = np.average(self.p_batt_ch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                    self.p_batt_disch = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                # self.json_hack = json.dumps(self.stored_optimal_vals)
+                return
+            else:
+                self.counter += 1
+                self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
+                self.presolve_hvac_cool_on = [0]*self.horizon
+                self.presolve_hvac_heat_on = [0]*self.horizon
+                self.presolve_wh_heat_on = [0]*self.horizon
 
-        self.log.info(f"MPC solved with status {self.prob.status} for {self.name}; {self.optimal_vals[k]}")
+                # self.presolve_wh_heat_on[:-1*self.counter] = [float(self.sub_subhourly_steps * float(self.prev_optimal_vals[f"wh_heat_on_opt_{i}"])) for i in range(self.counter, self.horizon)]
+                # self.presolve_hvac_heat_on[:-1*self.counter] = [float(self.sub_subhourly_steps * float(self.prev_optimal_vals[f"hvac_heat_on_opt_{i}"])) for i in range(self.counter, self.horizon)]
+                # self.presolve_hvac_cool_on[:-1*self.counter] = [float(self.sub_subhourly_steps * float(self.prev_optimal_vals[f"hvac_cool_on_opt_{i}"])) for i in range(self.counter, self.horizon)]
+                # print(self.presolve_wh_heat_on)
+                # i+=1
+
+                for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"]:
+                    self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
+                i+=1
+                pass
+
+
+        self.log.info(f"MPC solved with status {self.prob.status} for {self.name}; {self.optimal_vals}")
 
     def mpc_base(self):
         """
