@@ -187,10 +187,10 @@ class MPCCalc:
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
         self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
+        # self.t_wh_init = float(self.home["wh"]["temp_wh_max"])
         # self.wh_size = cp.Constant(float(self.home["wh"]["tank_size"]))
         self.wh_size = float(self.home["wh"]["tank_size"])
-        # self.tap_temp = cp.Constant(12) # assumed cold tap water is about 55 deg F
-        self.tap_temp = 12
+        self.tap_temp = 12 # assumed cold tap water is about 55 deg F
 
         # Home temperature constraints
         self.temp_in_min = cp.Constant(float(self.home["hvac"]["temp_in_min"]))
@@ -213,6 +213,9 @@ class MPCCalc:
                 total_draw = 0
             draw_size_list.append(total_draw)
         self.draw_size = draw_size_list
+        df = np.divide(self.draw_size, self.wh_size)
+        self.draw_frac = cp.Constant(df)
+        self.remainder_frac = cp.Constant(1-df)
 
     def set_environmental_variables(self):
         """
@@ -311,8 +314,8 @@ class MPCCalc:
 
             # Hot water heater contraints
             self.temp_wh[0] == self.temp_wh_init,
-            self.temp_wh[1:] == self.temp_wh[:self.horizon]
-                                + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
+            self.temp_wh[1:] == (cp.multiply(self.remainder_frac[1:],self.temp_wh[:self.horizon]) + self.draw_frac[1:]*self.tap_temp)
+                                + (((self.temp_in[1:self.h_plus] - (cp.multiply(self.remainder_frac[1:],self.temp_wh[:self.horizon]) + self.draw_frac[1:]*self.tap_temp)) / self.wh_r)
                                 + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
 
             self.temp_wh[1:self.h_plus] >= self.temp_wh_min,

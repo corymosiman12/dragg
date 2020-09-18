@@ -59,7 +59,7 @@ class Reformat:
 
     def tf_main(self):
         """ Intended for plotting an image suite for use with the tensorflow reinforcement learning package. """
-        self.sample_home = "Lillie-NMHUH"
+        self.sample_home = "Gary-U95TS"
         self.plots = [self.rl2baseline,
                     self.rl2baseline_error,
                     self.plot_single_home]
@@ -603,8 +603,8 @@ class Reformat:
             hourly_rl_error[:len(rl_error)] = abs(rl_error)
             hourly_rl_error = hourly_rl_error.reshape(file['parent']['agg_dt'],-1).sum(axis=0)
             hourly_rl_error = np.repeat(hourly_rl_error, file['parent']['agg_dt'])
-            print("standard deviation of p_grid", file['name'], np.std(rl_load))
-            print("standard deviation of p_grid excluding first day", file['name'], np.std(rl_load[24:]))
+            print("standard deviation of p_grid and error", file['name'], np.std(rl_load), np.std(hourly_rl_error))
+            print("standard deviation of p_grid and error excluding first day", file['name'], np.std(rl_load[24:]), np.std(hourly_rl_error[24:]))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error/file['parent']['agg_dt']), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 

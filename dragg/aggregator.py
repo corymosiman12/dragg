@@ -27,6 +27,9 @@ from dragg.dual_action_agent import DualActionAgent
 class Aggregator:
     def __init__(self):
         self.thermal_trend = 0
+        self.max_daily_temp = 8
+        self.min_daily_temp = 5
+        self.prev_load = 30
         self.log = Logger("aggregator")
         self.rlagent_log = Logger("rl_agent")
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
@@ -351,8 +354,8 @@ class Aggregator:
             self.config['community']['total_number_homes'][0]
         )
         home_hvac_temp_in_init_pos_dist = np.random.uniform(
-            0,
-            0.3,
+            0.25,
+            0.75,
             self.config['community']['total_number_homes'][0]
         )
         home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
@@ -424,7 +427,7 @@ class Aggregator:
             small_draw_times = (np.tile(typ_draw_times, ndays) + perturbations)
             small_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['small_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['small_draw_size_dist'][1], ndays * n_daily_draws))
 
-            all_draw_times = np.clip(np.concatenate((big_draw_times, small_draw_times)), 1, None)
+            all_draw_times = np.clip(np.concatenate((big_draw_times, small_draw_times)), self.mpc['horizon'], None)
             all_draw_sizes = np.concatenate((big_draw_sizes, small_draw_sizes))
             ind = np.argsort(all_draw_times)
             all_draw_times = all_draw_times[ind].tolist()
@@ -802,6 +805,9 @@ class Aggregator:
         results = pool.map(manage_home, self.as_list)
 
         self.thermal_trend = self.oat[self.timestep + 4] - self.oat[self.timestep]
+        day_of_year = self.timestep // (self.dt * 24)
+        self.max_daily_temp = max(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.min_daily_temp = min(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
 
         self.timestep += 1
 
@@ -1031,7 +1037,7 @@ class Aggregator:
         k = self.config['rl']['simplified']['offset']
         if self.timestep == 0:
             self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
-        self.agg_load = self.agg_load - c * self.reward_price[-1] * (self.agg_setpoint - self.agg_load)
+        self.agg_load = self.agg_load - c * self.reward_price[0] * (self.agg_setpoint - self.agg_load)
         self.agg_cost = self.agg_load * self.reward_price[0]
         self.log.logger.info(f"Iteration {self.timestep} finished. Aggregate load {self.agg_load}")
         self.timestep += 1
