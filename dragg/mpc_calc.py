@@ -214,6 +214,7 @@ class MPCCalc:
             draw_size_list.append(total_draw)
         self.draw_size = draw_size_list
         df = np.divide(self.draw_size, self.wh_size)
+        df[1:] = df[1:]
         self.draw_frac = cp.Constant(df)
         self.remainder_frac = cp.Constant(1-df)
 
@@ -635,17 +636,6 @@ class MPCCalc:
         Resolves .solve_mpc() with error handling and collects all data on solver.
         :return: None
         """
-        n_iterations = 0
-        while not self.solved and n_iterations < 10:
-            self.log.error(f"Couldn't solve problem for {self.name} of type {self.home['type']}: {self.prob.status}")
-            self.temp_in_min -= 0.2
-            self.temp_wh_min -= 0.2
-            self.solve_type_problem()
-            n_iterations +=1
-
-        if not self.solved:
-            self.error_handler()
-
         end_slice = max(1, self.sub_subhourly_steps)
         # self.log.info(f"Status for {self.name}: {self.prob.status}")
         i = 0
@@ -677,12 +667,12 @@ class MPCCalc:
                         self.optimal_vals[f"{k}_{j}"] = self.stored_optimal_vals[k][j]
 
                 if 'pv' in self.type:
-                    self.p_pv_opt = np.average(self.p_pv.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                    self.u_pv_curt_opt = np.average(self.u_pv_curt.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                    self.p_pv_opt = (self.p_pv.value / self.sub_subhourly_steps).tolist()
+                    self.u_pv_curt_opt = (self.u_pv_curt.value / self.sub_subhourly_steps).tolist()
                 if 'battery' in self.type:
-                    self.e_batt_opt = self.e_batt.value.reshape(self.sub_subhourly_steps, -1)[-1][1:]
-                    self.p_batt_ch = np.average(self.p_batt_ch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
-                    self.p_batt_disch = np.average(self.p_batt_disch.value.reshape(self.sub_subhourly_steps, -1), axis=0)
+                    self.e_batt_opt = (self.e_batt.value / self.sub_subhourly_steps).tolist()[1:]
+                    self.p_batt_ch = (self.p_batt_ch.value / self.sub_subhourly_steps).tolist()
+                    self.p_batt_disch = (self.p_batt_disch.value / self.sub_subhourly_steps).tolist()
                 # self.json_hack = json.dumps(self.stored_optimal_vals)
                 return
             else:
