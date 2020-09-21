@@ -28,8 +28,8 @@ house_p_avg = 1.0 # used to generate the setpoint
   size_dist = [300, 300] # tank size (liters)
 
   [home.wh.waterdraws]
-  n_big_draw_dist = [5, 8]
-  n_small_draw_dist = [15, 30]
+  n_big_draw_dist = [10, 16]
+  n_small_draw_dist = [30, 50]
   big_draw_size_dist = [5, 10] # in liters
   small_draw_size_dist = [0.2, 0.5]
 
@@ -47,7 +47,7 @@ house_p_avg = 1.0 # used to generate the setpoint
 
   [home.hems]
   # Refers to mpc parameters -- uniform across all homes
-  prediction_horizon = [4] # in hours, where 0 is just the next timestep (no MPC)
+  prediction_horizon = [8,6,4] # in hours, where 0 is just the next timestep (no MPC)
   price_uncertainty = 0.3
   sub_subhourly_steps = [4] # number of steps between each RL broadcast reward price
   # minutes_per_step = 5 # Min run time (minutes) for each on/off cycle
@@ -55,7 +55,7 @@ house_p_avg = 1.0 # used to generate the setpoint
 
 [simulation]
   start_datetime = "2015-01-01 00"
-  end_datetime = "2015-12-15 00"
+  end_datetime = "2015-01-15 00"
   loop_days = true
   random_seed = 12
   n_nodes = 4 # for parallelization
@@ -70,7 +70,7 @@ house_p_avg = 1.0 # used to generate the setpoint
   # version = ['penalizedRP', 'shiftedRP', 'do_nothing_discounted', 'do_nothing_agent_60-15_3kW', 'ppo2_discounted_learn']
   # version = ['unknown_waterdraws', 'do_nothing-unknown_waterdraws']
   # version = ['do_nothing-unknown_waterdraws', 'normalizedXU', 'normalizedU-lowerbound_avg', 'lowerbound_avg', 'normalizedU', 'smaller_action_space-waterdraws']
-  version = ['known_waterdraws']
+  version = ['do_nothing-8hr', 'do_nothing-6hr', 'do_nothing-4hr']
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
