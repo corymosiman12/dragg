@@ -637,14 +637,12 @@ class MPCCalc:
         :return: None
         """
         end_slice = max(1, self.sub_subhourly_steps)
-        # self.log.info(f"Status for {self.name}: {self.prob.status}")
+
         i = 0
-        # stored[k] = None; stored[k] = [1,2,3]
         while i < 1:
             if self.prob.status == 'optimal': # if the problem has been solved
                 self.counter = 0
                 self.timestep += 1
-                # stored[k] = [1,2,3,4]
                 self.stored_optimal_vals = defaultdict()
                 self.stored_optimal_vals["p_grid_opt"] = (self.p_grid.value / self.sub_subhourly_steps).tolist()
                 self.stored_optimal_vals["forecast_p_grid_opt"] = (self.p_grid.value[1:] / self.sub_subhourly_steps).tolist() + [0]
@@ -673,7 +671,6 @@ class MPCCalc:
                     self.e_batt_opt = (self.e_batt.value / self.sub_subhourly_steps).tolist()[1:]
                     self.p_batt_ch = (self.p_batt_ch.value / self.sub_subhourly_steps).tolist()
                     self.p_batt_disch = (self.p_batt_disch.value / self.sub_subhourly_steps).tolist()
-                # self.json_hack = json.dumps(self.stored_optimal_vals)
                 return
             else:
                 self.counter += 1
@@ -681,12 +678,6 @@ class MPCCalc:
                 self.presolve_hvac_cool_on = [0]*self.horizon
                 self.presolve_hvac_heat_on = [0]*self.horizon
                 self.presolve_wh_heat_on = [0]*self.horizon
-
-                # self.presolve_wh_heat_on[:-1*self.counter] = [float(self.sub_subhourly_steps * float(self.prev_optimal_vals[f"wh_heat_on_opt_{i}"])) for i in range(self.counter, self.horizon)]
-                # self.presolve_hvac_heat_on[:-1*self.counter] = [float(self.sub_subhourly_steps * float(self.prev_optimal_vals[f"hvac_heat_on_opt_{i}"])) for i in range(self.counter, self.horizon)]
-                # self.presolve_hvac_cool_on[:-1*self.counter] = [float(self.sub_subhourly_steps * float(self.prev_optimal_vals[f"hvac_cool_on_opt_{i}"])) for i in range(self.counter, self.horizon)]
-                # print(self.presolve_wh_heat_on)
-                # i+=1
 
                 for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"]:
                     self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
