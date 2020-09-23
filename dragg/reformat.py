@@ -523,7 +523,15 @@ class Reformat:
             name = file["name"]
             ts = len(data['Summary']['p_grid_aggregate'])-1
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_setpoint"], name=f"RL Setpoint Load - {name}"))
+            loads = np.array(data["Summary"]["p_grid_aggregate"])
+            daily_max_loads = np.repeat(np.amax(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+            daily_avg_loads = np.repeat(np.mean(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+            daily_std_loads = np.repeat(np.std(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - RL - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_max_loads, name=f"Daily Max Agg Load - RL - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_avg_loads, name=f"Daily Avg Agg Load - RL - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.subtract(daily_max_loads, daily_avg_loads), name=f"Daily Max-Avg Agg Load - RL - {name}", line_shape='hv'))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_std_loads, name=f"Daily Std Agg Load - RL - {name}", line_shape='hv'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.divide(data["Summary"]["p_grid_aggregate"],file['parent']['agg_dt'])), name=f"Cumulative Agg Load - RL - {name}", line_shape='hv', visible='legendonly'))
             # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][:ts+1]),np.arange(ts)+1), name=f"Avg Load - RL - {name}", line_shape='hv', visible='legendonly'))
             # fig = self.plot_mu(fig)

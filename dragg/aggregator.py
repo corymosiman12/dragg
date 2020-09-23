@@ -924,11 +924,14 @@ class Aggregator:
                 q_file = os.path.join(agg_output, run_name, "q-results.json")
                 with open(q_file, 'w+') as f:
                     json.dump(q_data, f, indent=4)
+            rewards_data_file = os.path.join(agg_output, run_name, "rewards.json")
 
             file = os.path.join(agg_output, run_name, "results.json")
 
         with open(file, 'w+') as f:
             json.dump(self.baseline_data, f, indent=4)
+        with open(rewards_data_file, 'w+') as f:
+            json.dump(self.all_rewards, f, indent=4)
 
     def write_home_configs(self):
         """
