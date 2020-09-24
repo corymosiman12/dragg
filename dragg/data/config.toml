@@ -3,7 +3,7 @@
 # Remaining homes will be considered of type "base" (hvac + wh)
 total_number_homes = [10, 0] # list [All homes, Non-Responsive]
 homes_battery = [0, 0] # list [All homes, Non-Responsive]
-homes_pv = [3, 0] # list [All homes, Non-Responsive]
+homes_pv = [0, 0] # list [All homes, Non-Responsive]
 homes_pv_battery = [0, 0] # list [All homes, Non-Responsive]
 overwrite_existing = true # Creates new config file of all homes using home info given below.
 house_p_avg = 1.0 # used to generate the setpoint
@@ -72,7 +72,7 @@ house_p_avg = 1.0 # used to generate the setpoint
   # version = ['do_nothing-unknown_waterdraws', 'normalizedXU', 'normalizedU-lowerbound_avg', 'lowerbound_avg', 'normalizedU', 'smaller_action_space-waterdraws']
   # version = ['6hr_10dayEp', '6hr_normalizedR', '6hr_stableR', '6hr_sac','do_nothing-6hr']
   # version = ['6hr_normalizedR']
-  version = ['with_pv']
+  version = ['do_nothing-with_pv']
   # version = ['do_nothing-6hr']
 
   [rl.parameters]
