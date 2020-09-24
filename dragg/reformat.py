@@ -524,6 +524,7 @@ class Reformat:
             ts = len(data['Summary']['p_grid_aggregate'])-1
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_setpoint"], name=f"RL Setpoint Load - {name}"))
             loads = np.array(data["Summary"]["p_grid_aggregate"])
+            loads = loads[:len(loads) // (24*file['parent']['agg_dt']) * 24 * file['parent']['agg_dt']]
             daily_max_loads = np.repeat(np.amax(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
             daily_avg_loads = np.repeat(np.mean(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
             daily_std_loads = np.repeat(np.std(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
