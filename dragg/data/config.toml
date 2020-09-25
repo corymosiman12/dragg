@@ -71,7 +71,7 @@ house_p_avg = 1.0 # used to generate the setpoint
   # version = ['unknown_waterdraws', 'do_nothing-unknown_waterdraws']
   # version = ['do_nothing-unknown_waterdraws', 'normalizedXU', 'normalizedU-lowerbound_avg', 'lowerbound_avg', 'normalizedU', 'smaller_action_space-waterdraws']
   # version = ['real_with_pv', 'max_load', '6hr_10dayEp', '6hr_normalizedR', '6hr_stableR', '6hr_sac','do_nothing-6hr']
-  version = ['max_load2']
+  version = ['moreTS_normalizedR']
 
   [rl.parameters]
     # Refers to parameterization of the RL agent and impacts how it learns
