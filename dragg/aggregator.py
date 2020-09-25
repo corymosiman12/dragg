@@ -30,6 +30,7 @@ class Aggregator:
         self.max_daily_temp = 8
         self.min_daily_temp = 5
         self.prev_load = 30
+        self.all_rewards = []
         self.log = Logger("aggregator")
         self.rlagent_log = Logger("rl_agent")
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
@@ -777,7 +778,10 @@ class Aggregator:
         # self.avg_load += 0.2 * (self.agg_load - self.avg_load) # moving average
         self.avg_load = np.average(self.tracked_loads)
         # sp = np.clip(self.avg_load, None, None)
-        sp = self.avg_load
+        if self.agg_load > self.max_load or self.timestep % 24 == 0:
+            self.max_load = self.agg_load
+        sp = self.max_load
+        # sp = self.avg_load
         # print("calcing setpoint")
         # sp = 30
         return sp
