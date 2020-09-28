@@ -267,6 +267,7 @@ class MPCCalc:
         Adds CVX variables for photovoltaic subsystem in pv and battery_pv homes.
         :return: None
         """
+        print("setting up pv problem")
         # Define constants
         self.pv_area = cp.Constant(float(self.home["pv"]["area"]))
         self.pv_eff = cp.Constant(float(self.home["pv"]["eff"]))
@@ -637,6 +638,7 @@ class MPCCalc:
         :return: None
         """
         end_slice = max(1, self.sub_subhourly_steps)
+        opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"]
 
         i = 0
         while i < 1:
@@ -656,21 +658,24 @@ class MPCCalc:
                 self.stored_optimal_vals["waterdraws"] = self.draw_size
                 print(self.draw_size)
                 self.all_optimal_vals = {}
-                for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"]:
+
+                if 'pv' in self.type:
+                    self.stored_optimal_vals['p_pv_opt'] = (self.p_pv.value / self.sub_subhourly_steps).tolist()
+                    self.stored_optimal_vals['u_pv_curt_opt'] = (self.u_pv_curt.value / self.sub_subhourly_steps).tolist()
+                    opt_keys += ['p_pv_opt', 'p_pv_opt']
+                if 'battery' in self.type:
+                    self.stored_optimal_vals['e_batt_opt'] = (self.e_batt.value / self.sub_subhourly_steps).tolist()[1:]
+                    self.stored_optimal_vals['p_batt_ch'] = (self.p_batt_ch.value / self.sub_subhourly_steps).tolist()
+                    self.stored_optimal_vals['p_batt_disch'] = (self.p_batt_disch.value / self.sub_subhourly_steps).tolist()
+                    opt_keys += ['p_batt_ch', 'p_batt_disch', 'e_batt_opt']
+
+                for k in opt_keys:
                     if not k == "waterdraws":
                         self.optimal_vals[k] = self.stored_optimal_vals[k][0]
                     else:
                         self.optimal_vals[k] = self.stored_optimal_vals[k][0]
                     for j in range(self.horizon):
                         self.optimal_vals[f"{k}_{j}"] = self.stored_optimal_vals[k][j]
-
-                if 'pv' in self.type:
-                    self.p_pv_opt = (self.p_pv.value / self.sub_subhourly_steps).tolist()
-                    self.u_pv_curt_opt = (self.u_pv_curt.value / self.sub_subhourly_steps).tolist()
-                if 'battery' in self.type:
-                    self.e_batt_opt = (self.e_batt.value / self.sub_subhourly_steps).tolist()[1:]
-                    self.p_batt_ch = (self.p_batt_ch.value / self.sub_subhourly_steps).tolist()
-                    self.p_batt_disch = (self.p_batt_disch.value / self.sub_subhourly_steps).tolist()
                 return
             else:
                 self.counter += 1
@@ -679,7 +684,7 @@ class MPCCalc:
                 self.presolve_hvac_heat_on = [0]*self.horizon
                 self.presolve_wh_heat_on = [0]*self.horizon
 
-                for k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"]:
+                for k in opt_keys:
                     self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
                 i+=1
                 pass
@@ -774,6 +779,7 @@ class MPCCalc:
         elif self.type == "battery_only":
             self.mpc_battery()
         elif self.type == "pv_only":
+            print("solving pv home")
             self.mpc_pv()
         elif self.type == "pv_battery":
             self.mpc_pv_battery()
@@ -802,31 +808,3 @@ class MPCCalc:
         self.redis_write_optimal_vals()
 
         self.log.removeHandler(fh)
-
-    def forecast_home(self):
-        """
-        Intended for parallelization in parent class (e.g. aggregator); runs a
-        single MPCCalc home.
-        For use of aggregator agent only; does not implement the solution on a house-by-house
-        basis, only tells the forecasting agent what the expected p_grid_agg is for the community.
-        :return: list (type float) of length self.horizon
-        """
-        fh = logging.FileHandler(os.path.join("home_logs", f"{self.name}.log"))
-        fh.setLevel(logging.WARN)
-
-        self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
-
-        self.redis_client = RedisClient()
-        self.redis_get_initial_values()
-        self.cast_redis_timestep()
-
-        if self.timestep > 0:
-            self.redis_get_prev_optimal_vals()
-
-        self.get_initial_conditions()
-        self.solve_type_problem()
-        self.cleanup_and_finish()
-
-        self.log.removeHandler(fh)
-
-        return self.p_grid.value.tolist()

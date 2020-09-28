@@ -775,13 +775,11 @@ class Aggregator:
         """
         self.tracked_loads[:-1] = self.tracked_loads[1:]
         self.tracked_loads[-1] = self.agg_load
-        # self.avg_load += 0.2 * (self.agg_load - self.avg_load) # moving average
         self.avg_load = np.average(self.tracked_loads)
-        # sp = np.clip(self.avg_load, None, None)
         if self.agg_load > self.max_load or self.timestep % 24 == 0:
             self.max_load = self.agg_load
-        sp = self.max_load
-        # sp = self.avg_load
+        # sp = self.max_load
+        sp = self.avg_load
         # print("calcing setpoint")
         # sp = 30
         return sp
@@ -828,7 +826,12 @@ class Aggregator:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
-                    if k in ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraw"]:
+                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraw"]
+                    if 'pv' in home["type"]:
+                        opt_keys += ['p_pv_opt','u_pv_curt_opt']
+                    if 'battery' in home["type"]:
+                        opt_keys += ['p_batt_ch', 'p_batt_disch', 'e_batt_opt']
+                    if k in opt_keys:
                         self.baseline_data[home["name"]][k].append(float(v))
                 self.house_load.append(float(vals["p_grid_opt"]))
                 self.forecast_house_load.append(float(vals["forecast_p_grid_opt"]))
@@ -983,7 +986,7 @@ class Aggregator:
         self.actionspace = self.config['rl']['utility']['action_space']
         self.baseline_agg_load_list = [0]
 
-        self.forecast_load = self._gen_forecast()
+        self.forecast_load = [3*len(self.all_homes_obj)]
         self.prev_forecast_load = self.forecast_load
         self.forecast_setpoint = self._gen_setpoint(self.timestep)
         self.agg_load = self.forecast_load[0] # approximate load for initial timestep
