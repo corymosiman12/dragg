@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = ["alpha2"]
+version = ["her_model"]
 
 [reformat]
 versions = "all"
