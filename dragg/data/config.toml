@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = ["with_pv_no_discount"]
+version = ["alpha03"]
 
 [reformat]
 versions = "all"
