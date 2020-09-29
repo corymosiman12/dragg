@@ -436,7 +436,7 @@ class MPCCalc:
         self.cost = cp.Variable(self.horizon)
         self.objective = cp.Variable(self.horizon)
         self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
-        self.weights = cp.Constant(np.power(0.95*np.ones(self.horizon), np.arange(self.horizon)))
+        self.weights = cp.Constant(np.power(1.0*np.ones(self.horizon), np.arange(self.horizon)))
         self.obj = cp.Minimize(cp.sum(cp.multiply(self.cost, self.weights)))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():
@@ -662,7 +662,7 @@ class MPCCalc:
                 if 'pv' in self.type:
                     self.stored_optimal_vals['p_pv_opt'] = (self.p_pv.value / self.sub_subhourly_steps).tolist()
                     self.stored_optimal_vals['u_pv_curt_opt'] = (self.u_pv_curt.value / self.sub_subhourly_steps).tolist()
-                    opt_keys += ['p_pv_opt', 'p_pv_opt']
+                    opt_keys += ['p_pv_opt', 'u_pv_curt_opt']
                 if 'battery' in self.type:
                     self.stored_optimal_vals['e_batt_opt'] = (self.e_batt.value / self.sub_subhourly_steps).tolist()[1:]
                     self.stored_optimal_vals['p_batt_ch'] = (self.p_batt_ch.value / self.sub_subhourly_steps).tolist()
