@@ -8,7 +8,7 @@ house_p_avg = 1.0
 
 [simulation]
 start_datetime = "2015-01-01 00"
-end_datetime = "2015-12-15 00"
+end_datetime = "2015-01-15 00"
 loop_days = true
 random_seed = 12
 n_nodes = 4
@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = ["her_model"]
+version = ["higher_alpha03"]
 
 [reformat]
 versions = "all"
