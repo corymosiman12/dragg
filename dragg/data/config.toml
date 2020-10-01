@@ -21,7 +21,7 @@ checkpoint_interval = "daily"
 
 [rl]
 # version = ['do_nothing-no_pv', 'all_pv', 'do_nothing-all_pv', 'with_pv', 'do_nothing-pv', ]
-version = ['do_nothing-pv_batt']
+version = ['with_pv_batt']
 
 [reformat]
 versions = "all"
