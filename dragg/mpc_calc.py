@@ -267,7 +267,6 @@ class MPCCalc:
         Adds CVX variables for photovoltaic subsystem in pv and battery_pv homes.
         :return: None
         """
-        print("setting up pv problem")
         # Define constants
         self.pv_area = cp.Constant(float(self.home["pv"]["area"]))
         self.pv_eff = cp.Constant(float(self.home["pv"]["eff"]))
@@ -364,7 +363,7 @@ class MPCCalc:
             self.p_batt_disch[0:self.horizon] <= 0,
             self.e_batt[1:self.h_plus] <= self.batt_cap_max,
             self.e_batt[1:self.h_plus] >= self.batt_cap_min,
-            self.p_load + self.p_batt_ch + self.p_batt_disch >= 0
+            # self.p_load + self.p_batt_ch + self.p_batt_disch >= 0
         ]
 
     def add_pv_constraints(self):
@@ -411,7 +410,7 @@ class MPCCalc:
         """
         self.constraints += [
             # Set grid load
-            self.p_grid == self.p_load - self.p_pv
+            self.p_grid == self.p_load - self.sub_subhourly_steps * self.p_pv
         ]
 
     def set_pv_battery_p_grid(self):
@@ -565,7 +564,6 @@ class MPCCalc:
         obj = cp.Minimize(sum(self.p_load))
         prob = cp.Problem(obj, constraints)
         prob.solve(solver=self.solver, verbose=self.verbose_flag)
-        print('solved')
 
     def error_handler(self):
         """
@@ -656,17 +654,16 @@ class MPCCalc:
                 self.stored_optimal_vals["wh_heat_on_opt"] = (self.wh_heat_on.value / self.sub_subhourly_steps).tolist()
                 self.stored_optimal_vals["cost_opt"] = (self.cost.value).tolist()
                 self.stored_optimal_vals["waterdraws"] = self.draw_size
-                print(self.draw_size)
                 self.all_optimal_vals = {}
 
                 if 'pv' in self.type:
-                    self.stored_optimal_vals['p_pv_opt'] = (self.p_pv.value / self.sub_subhourly_steps).tolist()
-                    self.stored_optimal_vals['u_pv_curt_opt'] = (self.u_pv_curt.value / self.sub_subhourly_steps).tolist()
+                    self.stored_optimal_vals['p_pv_opt'] = (self.p_pv.value).tolist()
+                    self.stored_optimal_vals['u_pv_curt_opt'] = (self.u_pv_curt.value).tolist()
                     opt_keys += ['p_pv_opt', 'u_pv_curt_opt']
                 if 'battery' in self.type:
-                    self.stored_optimal_vals['e_batt_opt'] = (self.e_batt.value / self.sub_subhourly_steps).tolist()[1:]
-                    self.stored_optimal_vals['p_batt_ch'] = (self.p_batt_ch.value / self.sub_subhourly_steps).tolist()
-                    self.stored_optimal_vals['p_batt_disch'] = (self.p_batt_disch.value / self.sub_subhourly_steps).tolist()
+                    self.stored_optimal_vals['e_batt_opt'] = (self.e_batt.value).tolist()[1:]
+                    self.stored_optimal_vals['p_batt_ch'] = (self.p_batt_ch.value).tolist()
+                    self.stored_optimal_vals['p_batt_disch'] = (self.p_batt_disch.value).tolist()
                     opt_keys += ['p_batt_ch', 'p_batt_disch', 'e_batt_opt']
 
                 for k in opt_keys:
@@ -676,6 +673,7 @@ class MPCCalc:
                         self.optimal_vals[k] = self.stored_optimal_vals[k][0]
                     for j in range(self.horizon):
                         self.optimal_vals[f"{k}_{j}"] = self.stored_optimal_vals[k][j]
+                self.log.debug(f"MPC solved with status {self.prob.status} for {self.name}")
                 return
             else:
                 self.counter += 1
@@ -688,9 +686,6 @@ class MPCCalc:
                     self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
                 i+=1
                 pass
-
-
-        self.log.info(f"MPC solved with status {self.prob.status} for {self.name}; {self.optimal_vals}")
 
     def mpc_base(self):
         """
@@ -779,7 +774,6 @@ class MPCCalc:
         elif self.type == "battery_only":
             self.mpc_battery()
         elif self.type == "pv_only":
-            print("solving pv home")
             self.mpc_pv()
         elif self.type == "pv_battery":
             self.mpc_pv_battery()
