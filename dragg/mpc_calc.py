@@ -398,7 +398,7 @@ class MPCCalc:
         """
         self.constraints += [
             # Set grid load
-            self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch
+            self.p_grid == self.p_load + self.sub_subhourly_steps * (self.p_batt_ch + self.p_batt_disch)
         ]
 
     def set_pv_only_p_grid(self):
@@ -422,7 +422,7 @@ class MPCCalc:
         """
         self.constraints += [
             # Set grid load
-            self.p_grid == self.p_load + self.p_batt_ch + self.p_batt_disch - self.p_pv
+            self.p_grid == self.p_load + self.sub_subhourly_steps * (self.p_batt_ch + self.p_batt_disch - self.p_pv)
         ]
 
     def solve_mpc(self):

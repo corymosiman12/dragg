@@ -1,8 +1,8 @@
 [community]
 total_number_homes = [ 10, 0,]
 homes_battery = [ 0, 0,]
-homes_pv = [ 10, 0,]
-homes_pv_battery = [ 0, 0,]
+homes_pv = [ 0, 0,]
+homes_pv_battery = [ 3, 0,]
 overwrite_existing = true
 house_p_avg = 1.0
 
@@ -21,7 +21,7 @@ checkpoint_interval = "daily"
 
 [rl]
 # version = ['do_nothing-no_pv', 'all_pv', 'do_nothing-all_pv', 'with_pv', 'do_nothing-pv', ]
-version = ['all_pv',]
+version = ['do_nothing-pv_batt']
 
 [reformat]
 versions = "all"
