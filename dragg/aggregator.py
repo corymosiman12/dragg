@@ -892,7 +892,8 @@ class Aggregator:
             "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist(),
             "TOU": self.all_data.loc[self.mask, "tou"].values.tolist(),
             "RP": self.all_rps.tolist(),
-            "p_grid_setpoint": self.all_sps.tolist()
+            "p_grid_setpoint": self.all_sps.tolist(),
+            "rl_rewards": self.all_rewards
         }
 
     def write_outputs(self, inc_rl_agents=True):
@@ -985,6 +986,7 @@ class Aggregator:
 
         self.actionspace = self.config['rl']['utility']['action_space']
         self.baseline_agg_load_list = [0]
+        self.all_rewards = []
 
         self.forecast_load = [3*len(self.all_homes_obj)]
         self.prev_forecast_load = self.forecast_load
