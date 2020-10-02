@@ -1,8 +1,8 @@
 [community]
 total_number_homes = [ 10, 0,]
 homes_battery = [ 0, 0,]
-homes_pv = [ 0, 0,]
-homes_pv_battery = [ 3, 0,]
+homes_pv = [ 3, 0,]
+homes_pv_battery = [ 0, 0,]
 overwrite_existing = true
 house_p_avg = 1.0
 
@@ -20,8 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-# version = ['do_nothing-no_pv', 'all_pv', 'do_nothing-all_pv', 'with_pv', 'do_nothing-pv', ]
-version = ['with_pv_batt']
+version = ['higher_alpha01','higher_alpha03','higher_alpha05']
 
 [reformat]
 versions = "all"
