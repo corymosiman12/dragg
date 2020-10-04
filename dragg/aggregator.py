@@ -28,6 +28,7 @@ class Aggregator:
     def __init__(self):
         self.thermal_trend = 0
         self.max_daily_temp = 8
+        self.max_daily_ghi = 150
         self.min_daily_temp = 5
         self.prev_load = 30
         self.all_rewards = []
@@ -219,6 +220,7 @@ class Aggregator:
         # if self.config['simulation']['loop_days']:
         #     df[["GHI", "OAT"]] = self.
         self.oat = df['OAT'].to_numpy()
+        self.ghi = df['GHI'].to_numpy()
         return df.reset_index(drop=True)
 
     def _import_tou_data(self):
@@ -810,6 +812,7 @@ class Aggregator:
         day_of_year = self.timestep // (self.dt * 24)
         self.max_daily_temp = max(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
         self.min_daily_temp = min(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.max_daily_ghi = max(self.ghi[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
 
         self.timestep += 1
 

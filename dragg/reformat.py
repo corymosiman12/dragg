@@ -13,6 +13,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.io as pio
 import plotly
+from prettytable import PrettyTable
 
 from dragg.logger import Logger
 
@@ -59,7 +60,7 @@ class Reformat:
 
     def tf_main(self):
         """ Intended for plotting an image suite for use with the tensorflow reinforcement learning package. """
-        self.sample_home = "Gary-U95TS"
+        self.sample_home = "Crystal-RXXFA"
         self.plots = [self.rl2baseline,
                     self.rl2baseline_error,
                     self.plot_single_home]
@@ -378,6 +379,7 @@ class Reformat:
 
     def plot_pv(self, name, fig, data, fname, file):
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_pv_opt"], name=f"Ppv (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["u_pv_curt_opt"], name=f"U_pv_curt (kW) - {fname}", line_shape='hv'))
         return fig
 
     def plot_battery(self, name, fig, data, fname, file):
@@ -522,7 +524,10 @@ class Reformat:
 
             name = file["name"]
             ts = len(data['Summary']['p_grid_aggregate'])-1
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_setpoint"], name=f"RL Setpoint Load - {name}"))
+            rl_setpoint = data['Summary']['p_grid_setpoint']
+            if 'clipped' in file['name']:
+                rl_setpoint = np.clip(rl_setpoint, 45, 60)
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_setpoint, name=f"RL Setpoint Load - {name}"))
             loads = np.array(data["Summary"]["p_grid_aggregate"])
             loads = loads[:len(loads) // (24*file['parent']['agg_dt']) * 24 * file['parent']['agg_dt']]
             daily_max_loads = np.repeat(np.amax(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
@@ -595,6 +600,7 @@ class Reformat:
         return fig
 
     def plot_parametric_error(self, fig):
+        t = PrettyTable(["run name", "std all", "std exc. day 1", "calc reward"])
         for file in self.parametrics:
             with open(file['results']) as f:
                 data = json.load(f)
@@ -602,6 +608,8 @@ class Reformat:
             name = file['name']
             rl_load = data['Summary']['p_grid_aggregate']
             rl_setpoint = data['Summary']['p_grid_setpoint']
+            if 'clipped' in file['name']:
+                rl_setpoint = np.clip(rl_setpoint, 45, 60)
             rl_error = np.subtract(rl_load[:len(rl_setpoint)], rl_setpoint[:len(rl_load)]) / file['parent']['agg_dt']
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_error, name=f"Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(rl_error), np.arange(len(rl_error))+1), name=f"Average Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
@@ -612,8 +620,7 @@ class Reformat:
             hourly_rl_error[:len(rl_error)] = abs(rl_error)
             hourly_rl_error = hourly_rl_error.reshape(file['parent']['agg_dt'],-1).sum(axis=0)
             hourly_rl_error = np.repeat(hourly_rl_error, file['parent']['agg_dt'])
-            print("standard deviation of p_grid and error", file['name'], np.std(rl_load), np.std(hourly_rl_error))
-            print("standard deviation of p_grid and error excluding first day", file['name'], np.std(rl_load[24:]), np.std(hourly_rl_error[24:]))
+            t.add_row([file['name'],np.std(rl_load), np.std(rl_load[24:]), np.sum(np.power(np.subtract(rl_load, rl_setpoint[:len(rl_load)]),2))])
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error/file['parent']['agg_dt']), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 
@@ -628,6 +635,8 @@ class Reformat:
             periodic_acum_error = hourly_rl_error.reshape(num_periods, -1)
             periodic_acum_error = np.cumsum(periodic_acum_error, axis=1).flatten()
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=periodic_acum_error/file['parent']['agg_dt'], name=f"Accumulated Hourly Error - {name}", visible='legendonly'))
+
+        print(t)
         return fig
 
     def plot_rewards(self, fig):
