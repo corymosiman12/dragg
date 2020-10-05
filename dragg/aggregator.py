@@ -646,6 +646,7 @@ class Aggregator:
         self.write_home_configs()
         self.all_homes_obj = []
         self.max_load = 0
+        self.min_load = 0
         for home in all_homes:
             obj = MPCCalc(home)
             self.all_homes_obj += [obj]
@@ -780,6 +781,8 @@ class Aggregator:
         self.avg_load = np.average(self.tracked_loads)
         if self.agg_load > self.max_load or self.timestep % 24 == 0:
             self.max_load = self.agg_load
+        if self.agg_load < self.min_load or self.timestep % 24 == 0:
+            self.min_load = self.agg_load
         # sp = self.max_load
         sp = self.avg_load
         # print("calcing setpoint")
