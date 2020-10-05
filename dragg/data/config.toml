@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = [ "alpha03-clipped"]
+version = [ "alpha03-stable", "alpha03"]
 
 [reformat]
 versions = "all"
