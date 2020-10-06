@@ -1,7 +1,7 @@
 [community]
 total_number_homes = [ 10, 0,]
 homes_battery = [ 0, 0,]
-homes_pv = [ 3, 0,]
+homes_pv = [ 0, 0,]
 homes_pv_battery = [ 0, 0,]
 overwrite_existing = true
 house_p_avg = 1.0
@@ -20,7 +20,8 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = [ "alpha03-plus-peak", "alpha03"]
+# version = [ "do_nothing-pv2", "alpha03-neg-rp", "alpha03-plus-peak", "alpha03-stable","alpha03-clipped-v2","alpha03", "do_nothing-pv"]
+version = ['peak-penalty_no-pv', "do_nothing-pv", "do_nothing-pv2", "alpha03-plus-peak"]
 
 [reformat]
 versions = "all"
