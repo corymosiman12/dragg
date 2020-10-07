@@ -1,7 +1,7 @@
 [community]
 total_number_homes = [ 10, 0,]
 homes_battery = [ 0, 0,]
-homes_pv = [ 0, 0,]
+homes_pv = [ 3, 0,]
 homes_pv_battery = [ 0, 0,]
 overwrite_existing = true
 house_p_avg = 1.0
@@ -21,7 +21,7 @@ checkpoint_interval = "daily"
 
 [rl]
 # version = [ "do_nothing-pv2", "alpha03-neg-rp", "alpha03-plus-peak", "alpha03-stable","alpha03-clipped-v2","alpha03", "do_nothing-pv"]
-version = ['peak-penalty_no-pv', "do_nothing-pv", "do_nothing-pv2", "alpha03-plus-peak"]
+version = ["do_nothing-tou-pv", "do_nothing-pv2", "alpha03-plus-peak", "rp02-pv"]
 
 [reformat]
 versions = "all"
@@ -36,10 +36,17 @@ twin_q = false
 [rl.utility]
 rl_agg_action_horizon = [ 4,]
 rl_agg_forecast_horizon = 1
-base_price = 0.1
+base_price = 0.07
 action_space = [ -1.0, 1.0,]
 hourly_steps = [ 1,]
 minutes_per_step = 120
+tou_enabled = true
+
+[rl.utility.tou]
+shoulder_times = [9,21]
+shoulder_price = 0.09
+peak_times = [14,18]
+peak_price = 0.13
 
 [rl.simplified]
 response_rate = 0.3

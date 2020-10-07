@@ -258,14 +258,14 @@ class Aggregator:
         return df.reset_index(drop=True)
 
     def _build_tou_price(self):
-        try:
-            sd_times = self.config["shoulder_times"]
-            pk_times = self.config["peak_times"]
-            op_price = float(self.config["offpeak_price"])
-            sd_price = float(self.config["shoulder_price"])
-            pk_price = float(self.config["peak_price"])
+        if self.config['rl']['utility']['tou_enabled'] == True:
+            sd_times = self.config['rl']['utility']['tou']['shoulder_times']
+            pk_times = self.config['rl']['utility']['tou']['peak_times']
+            op_price = float(self.config['rl']['utility']['base_price'])
+            sd_price = float(self.config['rl']['utility']['tou']['shoulder_price'])
+            pk_price = float(self.config['rl']['utility']['tou']['peak_price'])
             self.all_data['tou'] = self.all_data['ts'].apply(lambda x: pk_price if (x.hour <= pk_times[1] and x.hour >= pk_times[0]) else (sd_price if x.hour <= sd_times[1] and x.hour >= sd_times[0] else op_price))
-        except:
+        else:
             self.all_data['tou'] = float(self.config['rl']['utility']['base_price'])
 
     def join_data(self):
