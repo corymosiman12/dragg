@@ -20,8 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-# version = [ "do_nothing-pv2", "alpha03-neg-rp", "alpha03-plus-peak", "alpha03-stable","alpha03-clipped-v2","alpha03", "do_nothing-pv"]
-version = ["do_nothing-tou-pv", "do_nothing-pv2", "alpha03-plus-peak", "rp02-pv"]
+version = [ "dc92-tracked",]
 
 [reformat]
 versions = "all"
@@ -34,19 +33,13 @@ exploration_rate = [ 0.01,]
 twin_q = false
 
 [rl.utility]
-rl_agg_action_horizon = [ 4,]
+rl_agg_action_horizon = [ 6,]
 rl_agg_forecast_horizon = 1
-base_price = 0.07
+base_price = 0.1
 action_space = [ -1.0, 1.0,]
 hourly_steps = [ 1,]
 minutes_per_step = 120
-tou_enabled = true
-
-[rl.utility.tou]
-shoulder_times = [9,21]
-shoulder_price = 0.09
-peak_times = [14,18]
-peak_price = 0.13
+tou_enabled = false
 
 [rl.simplified]
 response_rate = 0.3
@@ -85,6 +78,12 @@ prediction_horizon = [ 6, 4,]
 price_uncertainty = 0.3
 sub_subhourly_steps = [ 4,]
 solver = "GLPK_MI"
+
+[rl.utility.tou]
+shoulder_times = [ 9, 21,]
+shoulder_price = 0.09
+peak_times = [ 14, 18,]
+peak_price = 0.13
 
 [home.wh.waterdraws]
 n_big_draw_dist = [ 5, 8,]
