@@ -293,6 +293,7 @@ class MPCCalc:
             # self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
 
             if 'battery' in self.type:
+                self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]))
                 self.e_batt_init = cp.Constant(float(self.prev_optimal_vals["e_batt_opt"]))
                 self.p_batt_ch_init = cp.Constant(float(self.prev_optimal_vals["p_batt_ch"])
                                                 - float(self.prev_optimal_vals["p_batt_disch"]))
@@ -341,10 +342,10 @@ class MPCCalc:
 
         # set total price for electricity
         total_price_values = np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon]
+        # total_price_values = np.subtract(total_price_values, 0.01*np.arange(self.horizon))
         # learned_price = np.average(self.tracked_price) * np.ones(self.horizon - 1)
         # total_price_values[1:] = learned_price
         self.total_price = cp.Constant(total_price_values)
-        print("THIS",self.total_price)
 
     def add_battery_constraints(self):
         """
@@ -357,6 +358,9 @@ class MPCCalc:
             self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon]
                                         + (self.batt_ch_eff * self.p_batt_ch[0:self.horizon]
                                         + self.p_batt_disch[0:self.horizon] / self.batt_disch_eff) / self.dt,
+            # self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon]
+            #                             + (self.p_batt_ch[0:self.horizon]
+            #                             + self.p_batt_disch[0:self.horizon]) / self.dt,
             self.e_batt[0] == self.e_batt_init,
             self.p_batt_ch[0:self.horizon] <= self.batt_max_rate,
             self.p_batt_ch[0:self.horizon] >= 0,
@@ -364,7 +368,6 @@ class MPCCalc:
             self.p_batt_disch[0:self.horizon] <= 0,
             self.e_batt[1:self.h_plus] <= self.batt_cap_max,
             self.e_batt[1:self.h_plus] >= self.batt_cap_min,
-            # self.p_load + self.p_batt_ch + self.p_batt_disch >= 0
         ]
 
     def add_pv_constraints(self):
@@ -436,7 +439,7 @@ class MPCCalc:
         self.cost = cp.Variable(self.horizon)
         self.objective = cp.Variable(self.horizon)
         self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
-        self.weights = cp.Constant(np.power(0.9*np.ones(self.horizon), np.arange(self.horizon)))
+        self.weights = cp.Constant(np.power(0.92*np.ones(self.horizon), np.arange(self.horizon)))
         self.obj = cp.Minimize(cp.sum(cp.multiply(self.cost, self.weights)))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():
@@ -757,12 +760,11 @@ class MPCCalc:
         :return: None
         """
         rp = self.redis_client.conn.lrange('reward_price', 0, -1)
-
-        num_agg_steps_seen = int(np.ceil(self.horizon / self.sub_subhourly_steps))
-        self.reward_price[:min(len(rp), num_agg_steps_seen)] = rp[:min(len(rp), num_agg_steps_seen)]
-        self.reward_price = self.reward_price[:self.horizon]
+        # num_agg_steps_seen = int(np.ceil(self.horizon / self.sub_subhourly_steps))
+        # self.reward_price[:min(len(rp), num_agg_steps_seen)] = rp[:min(len(rp), num_agg_steps_seen)]
+        self.reward_price = rp[:self.horizon]
         self.tracked_price[:-1] = self.tracked_price[1:]
-        self.tracked_price = self.reward_price[0] + self.base_cents
+        self.tracked_price[0] = self.reward_price[0]
         self.log.info(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
 
     def solve_type_problem(self):
