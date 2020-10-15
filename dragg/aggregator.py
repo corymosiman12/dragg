@@ -30,6 +30,7 @@ class Aggregator:
         self.max_daily_temp = 8
         self.max_daily_ghi = 150
         self.min_daily_temp = 5
+        self.tracked_reward_price = 0
         self.prev_load = 30
         self.all_rewards = []
         self.log = Logger("aggregator")
@@ -571,7 +572,7 @@ class Aggregator:
             else:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-            names.get_first_name() + '-' + res
+            name = names.get_first_name() + '-' + res
             all_homes.append({
                 "name": name,
                 "type": "battery_only",
@@ -735,6 +736,7 @@ class Aggregator:
         :return: None
         """
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
+        self.redis_client.conn.hset("current_values", "tracked_rp", self.tracked_reward_price)
 
         if self.case == "rl_agg" or self.case == "simplified":
             self.all_sps[self.timestep-1] = self.agg_setpoint
@@ -973,7 +975,7 @@ class Aggregator:
         return temp
 
     def set_dummy_rl_parameters(self):
-        self.tracked_loads = 30*np.ones(12)
+        self.tracked_loads = 5*len(self.as_list)*np.ones(24)
         self.mpc = self.mpc_permutations[0]
         self.util = self.util_permutations[0]
         self.rl_params = self.rl_permutations[0]
