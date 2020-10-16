@@ -1,2 +1,0 @@
-v1.0 - GUROBI solver, norm(cost) objective, next timestep agent, 5 min solve times
-v1.1 - "" with 15 minute MPC solve times for subsystems
