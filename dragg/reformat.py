@@ -65,6 +65,8 @@ class Reformat:
                     self.rl2baseline_error,
                     self.plot_single_home]
 
+        self.plot_all_homes()
+
         self.images = self.plot_all()
 
     def plot_all(self, save_images=False):
@@ -228,7 +230,7 @@ class Reformat:
         temp = []
         names = []
         self.add_agg_params(additional_params)
-        counter = 1
+        x = 0
         for i in self.mpc_folders:
             path = i['path']
             rl_agg_folder = os.path.join(path, "rl_agg")
@@ -255,11 +257,12 @@ class Reformat:
                                 data = json.load(f)
                             if "Summary" not in data:
                                 self.create_summary(rl_agg_file)
-                            set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"], "params": j, "skip": j['rl_interval'] // i['dt']}
+                            set = {"results": rl_agg_file, "q_results": q_file, "name": name, "parent": i, "rl_agg_action_horizon": j["rl_horizon"], "params": j, "skip": j['rl_interval'] // i['dt'], "color":plotly.colors.qualitative.Dark24[x]}
                             if not name in names:
                                 temp.append(set)
                                 names.append(name)
                             self.ref_log.logger.info(f"Adding an RL aggregator agent file at {rl_agg_file}")
+                            x += 1
 
         if len(temp) == 0:
             self.ref_log.logger.warning("Parameterized RL aggregator runs are empty for this config file.")
@@ -375,6 +378,10 @@ class Reformat:
             actual_price = np.add(summary["TOU"][:len(summary['RP'])], summary["RP"])
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=actual_price, name=f"Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(actual_price), np.arange(len(actual_price))+1), name=f"Average Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
+        try:
+            self.cost_dict[name][fname] = np.sum(data['cost_opt'])
+        except:
+            pass
         return fig
 
     def plot_pv(self, name, fig, data, fname, file):
@@ -430,23 +437,23 @@ class Reformat:
         return fig
 
     def plot_all_homes(self, fig=None):
-
-        for file in (self.baselines + self.parametrics):
-            with open(file["results"]) as f:
-                data = json.load(f)
-
-            fname = file["name"]
-            for name, house in data.items():
-                if name != "Summary":
-                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["temp_in_opt"], name=f"Tin (C) - {name} - {fname}"))
-                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["temp_wh_opt"], name=f"Twh (C) - {name} - {fname}"))
-                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["p_grid_opt"], name=f"Pgrid (kW) - {name} - {fname}", line_shape='hv', visible='legendonly'))
-                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["p_load_opt"], name=f"Pload (kW) - {name} - {fname}", line_shape='hv', visible='legendonly'))
-                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["hvac_cool_on_opt"], name=f"HVAC Cool Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
-                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["hvac_heat_on_opt"], name=f"HVAC Heat Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
-                    fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=house["wh_heat_on_opt"], name=f"WH Heat Cmd - {name} - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
-
-        return fig
+        t = PrettyTable(["Home"]+[file['name'] for file in self.parametrics])
+        homes = ["Crystal-RXXFA","Myles-XQ5IA","Lillie-NMHUH","Robert-2D73X","Serena-98EPE","Gary-U95TS","Bruno-PVRNB","Dorothy-9XMNY","Jason-INS3S","Alvin-4BAYB",]
+        self.cost_dict = {}
+        for self.sample_home in homes:
+            self.cost_dict[self.sample_home] = {}
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+            fig.update_layout(
+                font=dict(
+                    # family="Courier New, monospace",
+                    size=22,
+                )
+            )
+            fig = self.plot_single_home(fig)
+            t.add_row([self.sample_home] + [self.cost_dict[self.sample_home][file['name']] for file in self.parametrics])
+            # fig.show()
+        print(t)
+        return
 
     def rl_simplified(self):
         flag = False
@@ -518,7 +525,11 @@ class Reformat:
         return fig
 
     def plot_parametric(self, fig):
+        all_daily_stats = PrettyTable(['run name', 'avg daily max', 'overall max', 'avg daily range'])
         for file in self.parametrics:
+            # all_avgs.add_column()
+            clr = file['color']
+
             with open(file["results"]) as f:
                 data = json.load(f)
 
@@ -527,20 +538,29 @@ class Reformat:
             rl_setpoint = data['Summary']['p_grid_setpoint']
             if 'clipped' in file['name']:
                 rl_setpoint = np.clip(rl_setpoint, 45, 60)
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_setpoint, name=f"RL Setpoint Load - {name}"))
             loads = np.array(data["Summary"]["p_grid_aggregate"])
             loads = loads[:len(loads) // (24*file['parent']['agg_dt']) * 24 * file['parent']['agg_dt']]
             daily_max_loads = np.repeat(np.amax(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+            daily_min_loads = np.repeat(np.amin(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+            daily_range_loads = np.subtract(daily_max_loads, daily_min_loads)
             daily_avg_loads = np.repeat(np.mean(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
             daily_std_loads = np.repeat(np.std(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - RL - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_max_loads, name=f"Daily Max Agg Load - RL - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_avg_loads, name=f"Daily Avg Agg Load - RL - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.subtract(daily_max_loads, daily_avg_loads), name=f"Daily Max-Avg Agg Load - RL - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_std_loads, name=f"Daily Std Agg Load - RL - {name}", line_shape='hv'))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.divide(data["Summary"]["p_grid_aggregate"],file['parent']['agg_dt'])), name=f"Cumulative Agg Load - RL - {name}", line_shape='hv', visible='legendonly'))
+
+
+
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_setpoint, name=f"RL Setpoint Load - {name}", opacity=0.5, line={'color':clr, 'width':4}))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - RL - {name}", line_shape='hv', line={'color':clr}))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_max_loads, name=f"Daily Max Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dot'}))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_min_loads, name=f"Daily Min Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dash'}))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_range_loads, name=f"Daily Agg Load Range - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr}))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_avg_loads, name=f"Daily Avg Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dash'}))
+            # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.subtract(daily_max_loads, daily_avg_loads), name=f"Daily Max-Avg Agg Load - RL - {name}", line_shape='hv', line={'color':clr, 'dash':'dot'}))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_std_loads, name=f"Daily Std Agg Load - RL - {name}", line_shape='hv',  opacity=0.5, line={'color':clr, 'dash':'dashdot'}))
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.divide(data["Summary"]["p_grid_aggregate"],file['parent']['agg_dt'])), name=f"Cumulative Agg Load - RL - {name}", line_shape='hv', visible='legendonly', line={'color':clr, 'dash':'dot'}))
             # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][:ts+1]),np.arange(ts)+1), name=f"Avg Load - RL - {name}", line_shape='hv', visible='legendonly'))
             # fig = self.plot_mu(fig)
+            all_daily_stats.add_row([file['name'], np.average(daily_max_loads), max(daily_max_loads), np.average(daily_range_loads)])
+        print(all_daily_stats)
         return fig
 
     def plot_baseline_error(self, fig):
@@ -600,7 +620,7 @@ class Reformat:
         return fig
 
     def plot_parametric_error(self, fig):
-        t = PrettyTable(["run name", "std all", "std exc. day 1", "calc reward"])
+        t = PrettyTable(["run name", "std all", "std exc. day 1", "(avg load setpoint - observed load)^2", "recorded reward"])
         for file in self.parametrics:
             with open(file['results']) as f:
                 data = json.load(f)
@@ -620,7 +640,7 @@ class Reformat:
             hourly_rl_error[:len(rl_error)] = abs(rl_error)
             hourly_rl_error = hourly_rl_error.reshape(file['parent']['agg_dt'],-1).sum(axis=0)
             hourly_rl_error = np.repeat(hourly_rl_error, file['parent']['agg_dt'])
-            t.add_row([file['name'],np.std(rl_load), np.std(rl_load[24:]), np.sum(np.power(np.subtract(rl_load, rl_setpoint[:len(rl_load)]),2))])
+            t.add_row([file['name'],np.std(rl_load), np.std(rl_load[24:]), np.sum(np.power(np.subtract(rl_load, rl_setpoint[:len(rl_load)]),2)), np.sum(data['Summary']['rl_rewards'])])
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=hourly_rl_error, name=f"Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(hourly_rl_error/file['parent']['agg_dt']), name=f"Cumulative Hourly Error - {name} (kWh)", line_shape='hv', visible='legendonly'))
 

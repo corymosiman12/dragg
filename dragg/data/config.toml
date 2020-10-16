@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = [ "dc92-tracked",]
+version = [ "test",]
 
 [reformat]
 versions = "all"
@@ -33,7 +33,7 @@ exploration_rate = [ 0.01,]
 twin_q = false
 
 [rl.utility]
-rl_agg_action_horizon = [ 6,]
+rl_agg_action_horizon = [ 6, 4,]
 rl_agg_forecast_horizon = 1
 base_price = 0.1
 action_space = [ -1.0, 1.0,]
@@ -74,7 +74,7 @@ area = 32
 efficiency = 0.2
 
 [home.hems]
-prediction_horizon = [ 6, 4,]
+prediction_horizon = [ 6,]
 price_uncertainty = 0.3
 sub_subhourly_steps = [ 4,]
 solver = "GLPK_MI"

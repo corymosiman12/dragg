@@ -21,8 +21,6 @@ from pathos.pools import ProcessPool
 from dragg.mpc_calc import MPCCalc, manage_home, manage_home_forecast
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
-# from dragg.my_agents import HorizonAgent, NextTSAgent
-# from dragg.dual_action_agent import DualActionAgent
 
 class Aggregator:
     def __init__(self):
@@ -745,21 +743,21 @@ class Aggregator:
                 self.redis_client.conn.lpop("reward_price")
                 self.redis_client.conn.rpush("reward_price", self.reward_price[i])
 
-    def rl_update_reward_price(self):
-        """
-        Updates the reward price signal vector sent to the demand response community.
-        :return:
-        """
-        self.reward_price[:-1] = self.reward_price[1:]
-        self.reward_price[-1] = self.action/100
+    # def rl_update_reward_price(self):
+    #     """
+    #     Updates the reward price signal vector sent to the demand response community.
+    #     :return:
+    #     """
+    #     self.reward_price[:-1] = self.reward_price[1:]
+    #     self.reward_price[-1] = self.action/100
 
-    def _threaded_forecast(self):
-        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-        results = pool.map(manage_home_forecast, self.as_list)
-
-        pad = len(max(results, key=len))
-        results = np.array([i + [0] * (pad - len(i)) for i in results])
-        return results
+    # def _threaded_forecast(self):
+    #     pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
+    #     results = pool.map(manage_home_forecast, self.as_list)
+    #
+    #     pad = len(max(results, key=len))
+    #     results = np.array([i + [0] * (pad - len(i)) for i in results])
+    #     return results
 
     def _gen_forecast(self):
         """
@@ -975,7 +973,7 @@ class Aggregator:
         return temp
 
     def set_dummy_rl_parameters(self):
-        self.tracked_loads = 5*self.config['community']['total_number_homes'][0]*np.ones(24)
+        self.tracked_loads = 3*self.config['community']['total_number_homes'][0]*np.ones(6)
         self.mpc = self.mpc_permutations[0]
         self.util = self.util_permutations[0]
         self.rl_params = self.rl_permutations[0]

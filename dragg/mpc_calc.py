@@ -6,7 +6,6 @@ import redis
 import scipy.stats
 import logging
 import pathos
-from copy import deepcopy
 from collections import defaultdict
 import json
 
@@ -187,8 +186,6 @@ class MPCCalc:
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
         self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
-        # self.t_wh_init = float(self.home["wh"]["temp_wh_max"])
-        # self.wh_size = cp.Constant(float(self.home["wh"]["tank_size"]))
         self.wh_size = float(self.home["wh"]["tank_size"])
         self.tap_temp = 12 # assumed cold tap water is about 55 deg F
 
@@ -241,7 +238,6 @@ class MPCCalc:
         self.oat = cp.Constant(self.oat_current)
         self.ghi = cp.Constant(self.ghi_current)
         self.cast_redis_curr_rps()
-        # self.set_vals_for_current_run()
 
     def setup_battery_problem(self):
         """
@@ -281,7 +277,6 @@ class MPCCalc:
         if self.timestep == 0:
             self.temp_in_init = cp.Constant(self.t_in_init)
             self.temp_wh_init = cp.Constant((self.t_wh_init*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
-            # self.temp_wh_init = cp.Constant(self.t_wh_init)
 
             if 'battery' in self.type:
                 self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]))
@@ -290,7 +285,6 @@ class MPCCalc:
         else:
             self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
             self.temp_wh_init = cp.Constant((float(self.prev_optimal_vals["temp_wh_opt"])*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
-            # self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
 
             if 'battery' in self.type:
                 self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]))
@@ -341,11 +335,8 @@ class MPCCalc:
             self.constraints += [self.hvac_heat_on == 0]
 
         # set total price for electricity
-        total_price_values = np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon]
-        # total_price_values = np.subtract(total_price_values, 0.01*np.arange(self.horizon))
-        # learned_price = np.average(self.tracked_price) * np.ones(self.horizon - 1)
-        # total_price_values[1:] = learned_price
-        self.total_price = cp.Constant(total_price_values)
+        self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
+        # self.total_price = cp.Constant(total_price_values)
 
     def add_battery_constraints(self):
         """
@@ -358,9 +349,6 @@ class MPCCalc:
             self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon]
                                         + (self.batt_ch_eff * self.p_batt_ch[0:self.horizon]
                                         + self.p_batt_disch[0:self.horizon] / self.batt_disch_eff) / self.dt,
-            # self.e_batt[1:self.h_plus] == self.e_batt[0:self.horizon]
-            #                             + (self.p_batt_ch[0:self.horizon]
-            #                             + self.p_batt_disch[0:self.horizon]) / self.dt,
             self.e_batt[0] == self.e_batt_init,
             self.p_batt_ch[0:self.horizon] <= self.batt_max_rate,
             self.p_batt_ch[0:self.horizon] >= 0,
@@ -542,97 +530,93 @@ class MPCCalc:
         self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
         self.log.info(f"Problem status {self.prob.status}")
 
-    def implement_presolve(self):
-        # constraints = [
-        #     # Indoor air temperature constraints
-        #     self.temp_in[0] == self.temp_in_init,
-        #     self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
-        #                                     + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
-        #                                     - self.hvac_cool_on * self.hvac_p_c
-        #                                     + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
-        #     self.temp_in[1:self.h_plus] == 0,
-        #
-        #     # Hot water heater contraints
-        #     self.temp_wh[0] == self.temp_wh_init,
-        #     self.temp_wh[1:] == self.temp_wh[:self.horizon]
-        #                         + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
-        #                         + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
-        #
-        #     self.p_load == self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on),
-        #
-        #     self.hvac_cool_on == np.array(self.presolve_hvac_cool_on, dtype=np.double),
-        #     self.hvac_heat_on == np.array(self.presolve_hvac_heat_on, dtype=np.double),
-        #     self.wh_heat_on == np.array(self.presolve_wh_heat_on, dtype=np.double)
-        # ]
-        constraints = [self.p_load >= 0, self.p_load <= 2]
-        obj = cp.Minimize(sum(self.p_load))
-        prob = cp.Problem(obj, constraints)
-        prob.solve(solver=self.solver, verbose=self.verbose_flag)
+    # def implement_presolve(self):
+    #     constraints = [
+    #         # Indoor air temperature constraints
+    #         self.temp_in[0] == self.temp_in_init,
+    #         self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
+    #                                         + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
+    #                                         - self.hvac_cool_on * self.hvac_p_c
+    #                                         + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
+    #         self.temp_in[1:self.h_plus] == 0,
+    #
+    #         # Hot water heater contraints
+    #         self.temp_wh[0] == self.temp_wh_init,
+    #         self.temp_wh[1:] == self.temp_wh[:self.horizon]
+    #                             + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
+    #                             + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
+    #
+    #         self.p_load == self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on),
+    #
+    #         self.hvac_cool_on == np.array(self.presolve_hvac_cool_on, dtype=np.double),
+    #         self.hvac_heat_on == np.array(self.presolve_hvac_heat_on, dtype=np.double),
+    #         self.wh_heat_on == np.array(self.presolve_wh_heat_on, dtype=np.double)
+    #     ]
 
-    def error_handler(self):
-        """
-        Utilizes the CVXPY problem as setup previously to brute force a control signal.
-        Turns on HVAC (cooling or heating) and water heater for all timesteps.
-        May exceed the desired deadband conditions.
-        Not intended to consider costs, only to resolve errors in normal solve process.
-        :return:
-        """
-        new_temp_in_min = cp.Variable()
-        new_temp_in_max = cp.Variable()
-        new_temp_wh_min = cp.Variable()
-        new_temp_wh_max = cp.Variable()
-        obj = cp.Maximize(cp.sum(self.hvac_heat_on) + cp.sum(self.hvac_cool_on))
-        cons = [self.temp_wh[0] == self.temp_wh_init,
-                self.temp_wh[1:] == self.temp_wh[:self.horizon]
-                                    + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
-                                    + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
-
-                self.temp_wh >= new_temp_wh_min,
-                self.temp_wh <= new_temp_wh_max,
-                new_temp_wh_max >= self.temp_wh_max,
-                new_temp_wh_min <= self.temp_wh_min,
-
-                self.wh_heat_on >= 0,
-                self.wh_heat_on <= 1,
-                self.wh_heat_on == 1,
-
-                self.temp_in[0] == self.temp_in_init,
-                self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
-                                                + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
-                                                - self.hvac_cool_on * self.hvac_p_c
-                                                + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
-                self.temp_in[1:self.h_plus] >= self.temp_in_min,
-                self.temp_in[1:self.h_plus] <= self.temp_in_max,
-
-                self.temp_in[1:self.h_plus] >= new_temp_in_min,
-                self.temp_in[1:self.h_plus] <= new_temp_in_max,
-                new_temp_in_min <= self.temp_in_min,
-                new_temp_in_max >= self.temp_in_max,
-
-                self.hvac_heat_on >= 0,
-                self.hvac_heat_on <= 1,
-                self.hvac_cool_on >= 0,
-                self.hvac_cool_on <= 1,
-
-                self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
-                self.p_grid == self.p_load,
-                self.cost == cp.multiply(self.total_price, self.p_grid)
-        ]
-
-        if 'battery' in self.type:
-            self.constraints += [self.p_batt_ch == 0,
-                                 self.p_batt_disch == 0]
-
-        if 'pv' in self.type:
-            self.constraints += [self.u_pv_curt == 0]
-
-        prob = cp.Problem(obj, cons)
-        prob.solve(solver=self.solver, verbose=self.verbose_flag)
-
-        self.temp_wh_min = cp.Constant(new_temp_wh_min.value)
-        self.temp_wh_max = cp.Constant(new_temp_wh_max.value)
-        self.temp_in_min = cp.Constant(new_temp_in_min.value)
-        self.temp_in_max = cp.Constant(new_temp_in_max.value)
+    # def error_handler(self):
+    #     """
+    #     Utilizes the CVXPY problem as setup previously to brute force a control signal.
+    #     Turns on HVAC (cooling or heating) and water heater for all timesteps.
+    #     May exceed the desired deadband conditions.
+    #     Not intended to consider costs, only to resolve errors in normal solve process.
+    #     :return:
+    #     """
+    #     new_temp_in_min = cp.Variable()
+    #     new_temp_in_max = cp.Variable()
+    #     new_temp_wh_min = cp.Variable()
+    #     new_temp_wh_max = cp.Variable()
+    #     obj = cp.Maximize(cp.sum(self.hvac_heat_on) + cp.sum(self.hvac_cool_on))
+    #     cons = [self.temp_wh[0] == self.temp_wh_init,
+    #             self.temp_wh[1:] == self.temp_wh[:self.horizon]
+    #                                 + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
+    #                                 + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
+    #
+    #             self.temp_wh >= new_temp_wh_min,
+    #             self.temp_wh <= new_temp_wh_max,
+    #             new_temp_wh_max >= self.temp_wh_max,
+    #             new_temp_wh_min <= self.temp_wh_min,
+    #
+    #             self.wh_heat_on >= 0,
+    #             self.wh_heat_on <= 1,
+    #             self.wh_heat_on == 1,
+    #
+    #             self.temp_in[0] == self.temp_in_init,
+    #             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
+    #                                             + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
+    #                                             - self.hvac_cool_on * self.hvac_p_c
+    #                                             + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
+    #             self.temp_in[1:self.h_plus] >= self.temp_in_min,
+    #             self.temp_in[1:self.h_plus] <= self.temp_in_max,
+    #
+    #             self.temp_in[1:self.h_plus] >= new_temp_in_min,
+    #             self.temp_in[1:self.h_plus] <= new_temp_in_max,
+    #             new_temp_in_min <= self.temp_in_min,
+    #             new_temp_in_max >= self.temp_in_max,
+    #
+    #             self.hvac_heat_on >= 0,
+    #             self.hvac_heat_on <= 1,
+    #             self.hvac_cool_on >= 0,
+    #             self.hvac_cool_on <= 1,
+    #
+    #             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
+    #             self.p_grid == self.p_load,
+    #             self.cost == cp.multiply(self.total_price, self.p_grid)
+    #     ]
+    #
+    #     if 'battery' in self.type:
+    #         self.constraints += [self.p_batt_ch == 0,
+    #                              self.p_batt_disch == 0]
+    #
+    #     if 'pv' in self.type:
+    #         self.constraints += [self.u_pv_curt == 0]
+    #
+    #     prob = cp.Problem(obj, cons)
+    #     prob.solve(solver=self.solver, verbose=self.verbose_flag)
+    #
+    #     self.temp_wh_min = cp.Constant(new_temp_wh_min.value)
+    #     self.temp_wh_max = cp.Constant(new_temp_wh_max.value)
+    #     self.temp_in_min = cp.Constant(new_temp_in_min.value)
+    #     self.temp_in_max = cp.Constant(new_temp_in_max.value)
 
     def cleanup_and_finish(self):
         """

@@ -27,7 +27,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -58,7 +59,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -89,7 +91,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -120,7 +123,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -151,7 +155,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -182,7 +187,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -213,7 +219,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -244,7 +251,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -275,7 +283,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     },
     {
@@ -306,7 +315,8 @@
         "hems": {
             "horizon": 4,
             "hourly_agg_steps": 4,
-            "sub_subhourly_steps": 1
+            "sub_subhourly_steps": 1,
+            "solver": "GUROBI"
         }
     }
 ]
