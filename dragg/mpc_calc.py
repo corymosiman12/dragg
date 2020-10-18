@@ -149,7 +149,7 @@ class MPCCalc:
         :return: None
         """
         # Set up the solver parameters
-        solvers = {"GUROBI": cp.GUROBI, "GLPK_MI": cp.GLPK_MI}
+        solvers = {"GUROBI": cp.GUROBI, "GLPK_MI": cp.GLPK_MI, "ECOS": cp.ECOS}
         try:
             self.solver = solvers[self.home['hems']['solver']]
         except:
@@ -284,7 +284,8 @@ class MPCCalc:
 
         else:
             self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
-            self.temp_wh_init = cp.Constant((float(self.prev_optimal_vals["temp_wh_opt"])*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
+            # self.temp_wh_init = cp.Constant((float(self.prev_optimal_vals["temp_wh_opt"])*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
+            self.temp_wh_init = cp.Constant(float(self.prev_optimal_vals["temp_wh_opt"]))
 
             if 'battery' in self.type:
                 self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]))
@@ -530,93 +531,27 @@ class MPCCalc:
         self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
         self.log.info(f"Problem status {self.prob.status}")
 
-    # def implement_presolve(self):
-    #     constraints = [
-    #         # Indoor air temperature constraints
-    #         self.temp_in[0] == self.temp_in_init,
-    #         self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
-    #                                         + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
-    #                                         - self.hvac_cool_on * self.hvac_p_c
-    #                                         + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
-    #         self.temp_in[1:self.h_plus] == 0,
-    #
-    #         # Hot water heater contraints
-    #         self.temp_wh[0] == self.temp_wh_init,
-    #         self.temp_wh[1:] == self.temp_wh[:self.horizon]
-    #                             + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
-    #                             + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
-    #
-    #         self.p_load == self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on),
-    #
-    #         self.hvac_cool_on == np.array(self.presolve_hvac_cool_on, dtype=np.double),
-    #         self.hvac_heat_on == np.array(self.presolve_hvac_heat_on, dtype=np.double),
-    #         self.wh_heat_on == np.array(self.presolve_wh_heat_on, dtype=np.double)
-    #     ]
+    def implement_presolve(self):
+        constraints = [
+            # Indoor air temperature constraints
+            self.temp_in[0] == self.temp_in_init,
+            self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
+                                            + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
+                                            - self.hvac_cool_on * self.hvac_p_c
+                                            + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
 
-    # def error_handler(self):
-    #     """
-    #     Utilizes the CVXPY problem as setup previously to brute force a control signal.
-    #     Turns on HVAC (cooling or heating) and water heater for all timesteps.
-    #     May exceed the desired deadband conditions.
-    #     Not intended to consider costs, only to resolve errors in normal solve process.
-    #     :return:
-    #     """
-    #     new_temp_in_min = cp.Variable()
-    #     new_temp_in_max = cp.Variable()
-    #     new_temp_wh_min = cp.Variable()
-    #     new_temp_wh_max = cp.Variable()
-    #     obj = cp.Maximize(cp.sum(self.hvac_heat_on) + cp.sum(self.hvac_cool_on))
-    #     cons = [self.temp_wh[0] == self.temp_wh_init,
-    #             self.temp_wh[1:] == self.temp_wh[:self.horizon]
-    #                                 + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
-    #                                 + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
-    #
-    #             self.temp_wh >= new_temp_wh_min,
-    #             self.temp_wh <= new_temp_wh_max,
-    #             new_temp_wh_max >= self.temp_wh_max,
-    #             new_temp_wh_min <= self.temp_wh_min,
-    #
-    #             self.wh_heat_on >= 0,
-    #             self.wh_heat_on <= 1,
-    #             self.wh_heat_on == 1,
-    #
-    #             self.temp_in[0] == self.temp_in_init,
-    #             self.temp_in[1:self.h_plus] == self.temp_in[0:self.horizon]
-    #                                             + (((self.oat[1:self.h_plus] - self.temp_in[0:self.horizon]) / self.home_r)
-    #                                             - self.hvac_cool_on * self.hvac_p_c
-    #                                             + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
-    #             self.temp_in[1:self.h_plus] >= self.temp_in_min,
-    #             self.temp_in[1:self.h_plus] <= self.temp_in_max,
-    #
-    #             self.temp_in[1:self.h_plus] >= new_temp_in_min,
-    #             self.temp_in[1:self.h_plus] <= new_temp_in_max,
-    #             new_temp_in_min <= self.temp_in_min,
-    #             new_temp_in_max >= self.temp_in_max,
-    #
-    #             self.hvac_heat_on >= 0,
-    #             self.hvac_heat_on <= 1,
-    #             self.hvac_cool_on >= 0,
-    #             self.hvac_cool_on <= 1,
-    #
-    #             self.p_load == self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on,
-    #             self.p_grid == self.p_load,
-    #             self.cost == cp.multiply(self.total_price, self.p_grid)
-    #     ]
-    #
-    #     if 'battery' in self.type:
-    #         self.constraints += [self.p_batt_ch == 0,
-    #                              self.p_batt_disch == 0]
-    #
-    #     if 'pv' in self.type:
-    #         self.constraints += [self.u_pv_curt == 0]
-    #
-    #     prob = cp.Problem(obj, cons)
-    #     prob.solve(solver=self.solver, verbose=self.verbose_flag)
-    #
-    #     self.temp_wh_min = cp.Constant(new_temp_wh_min.value)
-    #     self.temp_wh_max = cp.Constant(new_temp_wh_max.value)
-    #     self.temp_in_min = cp.Constant(new_temp_in_min.value)
-    #     self.temp_in_max = cp.Constant(new_temp_in_max.value)
+            # Hot water heater contraints
+            self.temp_wh[0] == self.temp_wh_init,
+            self.temp_wh[1:] == self.temp_wh[:self.horizon]
+                                + (((self.temp_in[1:self.h_plus] - self.temp_wh[:self.horizon]) / self.wh_r)
+                                + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
+
+            # self.p_load == self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on),
+
+            self.hvac_cool_on == np.array(self.presolve_hvac_cool_on, dtype=np.double),
+            self.hvac_heat_on == np.array(self.presolve_hvac_heat_on, dtype=np.double),
+            self.wh_heat_on == np.array(self.presolve_wh_heat_on, dtype=np.double)
+        ]
 
     def cleanup_and_finish(self):
         """
@@ -675,53 +610,70 @@ class MPCCalc:
                 i+=1
                 pass
 
-    def mpc_base(self):
-        """
-        Type specific routine for setting up a CVXPY optimization problem.
-        self.home == "base"
-        :return:
-        """
-        self.set_environmental_variables()
+    def add_type_constraints(self):
         self.add_base_constraints()
-        self.set_base_p_grid()
-        self.solve_mpc()
+        if 'pv' in self.type:
+            self.add_pv_constraints()
+        if 'batt' in self.type:
+            self.add_battery_constraints()
 
-    def mpc_battery(self):
-        """
-        Type specific routine for setting up a CVXPY optimization problem.
-        self.home == "battery_only"
-        :return:
-        """
-        self.set_environmental_variables()
-        self.add_base_constraints()
-        self.add_battery_constraints()
-        self.set_battery_only_p_grid()
-        self.solve_mpc()
+    def set_type_p_grid(self):
+        if self.type == "base":
+            self.set_base_p_grid()
+        elif self.type == "pv_only":
+            self.set_pv_only_p_grid()
+        elif self.type == "battery_only":
+            self.set_battery_only_p_grid()
+        else:
+            self.set_pv_battery_p_grid()
 
-    def mpc_pv(self):
-        """
-        Type specific routine for setting up a CVXPY optimization problem.
-        self.home == "pv_only"
-        :return:
-        """
-        self.set_environmental_variables()
-        self.add_base_constraints()
-        self.add_pv_constraints()
-        self.set_pv_only_p_grid()
-        self.solve_mpc()
-
-    def mpc_pv_battery(self):
-        """
-        Type specific routine for setting up a CVXPY optimization problem.
-        self.home == "pv_battery"
-        :return:
-        """
-        self.set_environmental_variables()
-        self.add_base_constraints()
-        self.add_battery_constraints()
-        self.add_pv_constraints()
-        self.set_pv_battery_p_grid()
-        self.solve_mpc()
+    # def mpc_base(self):
+    #     """
+    #     Type specific routine for setting up a CVXPY optimization problem.
+    #     self.home == "base"
+    #     :return:
+    #     """
+    #     self.set_environmental_variables()
+    #     self.add_base_constraints()
+    #     self.set_base_p_grid()
+    #     self.solve_mpc()
+    #
+    # def mpc_battery(self):
+    #     """
+    #     Type specific routine for setting up a CVXPY optimization problem.
+    #     self.home == "battery_only"
+    #     :return:
+    #     """
+    #     self.set_environmental_variables()
+    #     self.add_base_constraints()
+    #     self.add_battery_constraints()
+    #     self.set_battery_only_p_grid()
+    #     self.solve_mpc()
+    #
+    # def mpc_pv(self):
+    #     """
+    #     Type specific routine for setting up a CVXPY optimization problem.
+    #     self.home == "pv_only"
+    #     :return:
+    #     """
+    #     self.set_environmental_variables()
+    #     self.add_base_constraints()
+    #     self.add_pv_constraints()
+    #     self.set_pv_only_p_grid()
+    #     self.solve_mpc()
+    #
+    # def mpc_pv_battery(self):
+    #     """
+    #     Type specific routine for setting up a CVXPY optimization problem.
+    #     self.home == "pv_battery"
+    #     :return:
+    #     """
+    #     self.set_environmental_variables()
+    #     self.add_base_constraints()
+    #     self.add_battery_constraints()
+    #     self.add_pv_constraints()
+    #     self.set_pv_battery_p_grid()
+    #     self.solve_mpc()
 
     def redis_get_initial_values(self):
         """
@@ -756,14 +708,10 @@ class MPCCalc:
         Selects routine for MPC optimization problem setup and solve using home type.
         :return: None
         """
-        if self.type == "base":
-            self.mpc_base()
-        elif self.type == "battery_only":
-            self.mpc_battery()
-        elif self.type == "pv_only":
-            self.mpc_pv()
-        elif self.type == "pv_battery":
-            self.mpc_pv_battery()
+        self.set_environmental_variables()
+        self.add_type_constraints()
+        self.set_type_p_grid()
+        self.solve_mpc()
 
     def run_home(self):
         """
