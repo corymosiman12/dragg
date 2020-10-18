@@ -39,7 +39,7 @@ class Aggregator:
             os.makedirs(self.outputs_dir)
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
         self.ts_data_file = os.path.join(self.data_dir, os.environ.get('SOLAR_TEMPERATURE_DATA_FILE', 'nsrdb.csv'))
-        self.spp_data_file = os.path.join(self.data_dir, os.environ.get('SPP_DATA_FILE', 'tou_data.xlsx'))
+        # self.spp_data_file = os.path.join(self.data_dir, os.environ.get('SPP_DATA_FILE', 'tou_data.xlsx'))
         self.required_keys = {
             "community": {"total_number_homes": None},
             "home": {
@@ -118,7 +118,7 @@ class Aggregator:
         self.check_type = self.config['simulation']['check_type']  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
 
         self.ts_data = self._import_ts_data()  # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
-        self.tou_data = self._import_tou_data()  # SPP: $/kWh
+        # self.tou_data = self._import_tou_data()  # SPP: $/kWh
         self.all_data = self.join_data()
         self._set_dt()
         self._build_tou_price()
@@ -272,7 +272,7 @@ class Aggregator:
         Join the TOU, GHI, temp data into a single dataframe
         :return: pandas.DataFrame
         """
-        df = pd.merge(self.ts_data, self.tou_data, how='outer', on='ts')
+        df = pd.merge(self.ts_data, self.ts_data['ts'], how='outer', on='ts')
         df = df.fillna(method='ffill')
         return df.set_index('ts', drop=False)
 
@@ -846,6 +846,7 @@ class Aggregator:
         self.forecast_load = np.sum(self.forecast_house_load)
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
+        print("collected", self.agg_load)
         self.agg_setpoint = self._gen_setpoint(self.timestep)
 
     def run_baseline(self):
@@ -893,7 +894,7 @@ class Aggregator:
             "num_homes": self.config['community']['total_number_homes'],
             "p_max_aggregate": self.max_agg_load,
             "p_grid_aggregate": self.baseline_agg_load_list,
-            "SPP": self.all_data.loc[self.mask, "SPP"].values.tolist(),
+            # "SPP": self.all_data.loc[self.mask, "SPP"].values.tolist(),
             "OAT": self.all_data.loc[self.mask, "OAT"].values.tolist(),
             "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist(),
             "TOU": self.all_data.loc[self.mask, "tou"].values.tolist(),
