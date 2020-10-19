@@ -413,21 +413,21 @@ class Aggregator:
         home_wh_all_draw_timing_dist = []
         home_wh_all_draw_size_dist = []
         for i in range(self.config['community']['total_number_homes'][0]):
-            n_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_big_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_big_draw_dist'][1]+1)
-            typ_draw_times = np.random.randint(0, 24*self.dt, n_daily_draws)
+            n_big_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_big_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_big_draw_dist'][1]+1)
+            typ_big_draw_times = np.random.randint(0, 24*self.dt, n_big_daily_draws)
             perturbations = np.array([])
             for d in range(ndays):
-                perturbations = np.concatenate((perturbations, (np.random.randint(-1 * self.dt, self.dt, n_daily_draws) + (d * daily_timesteps))))
-            big_draw_times = (np.tile(typ_draw_times, ndays) + perturbations)
-            big_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['big_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['big_draw_size_dist'][1], ndays * n_daily_draws))
+                perturbations = np.concatenate((perturbations, (np.random.randint(-1 * self.dt, self.dt, n_big_daily_draws) + (d * daily_timesteps))))
+            big_draw_times = (np.tile(typ_big_draw_times, ndays) + perturbations)
+            big_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['big_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['big_draw_size_dist'][1], ndays * n_big_daily_draws))
 
-            n_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_small_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_small_draw_dist'][1]+1)
-            typ_draw_times = np.random.randint(0, 24*self.dt, n_daily_draws)
+            n_sm_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_small_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_small_draw_dist'][1]+1)
+            typ_sm_draw_times = np.random.randint(0, 24*self.dt, n_sm_daily_draws)
             perturbations = np.array([])
             for d in range(ndays):
-                perturbations = np.concatenate((perturbations, (np.random.randint(-3 * self.dt, 3 * self.dt, n_daily_draws) + (d * daily_timesteps))))
-            small_draw_times = (np.tile(typ_draw_times, ndays) + perturbations)
-            small_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['small_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['small_draw_size_dist'][1], ndays * n_daily_draws))
+                perturbations = np.concatenate((perturbations, (np.random.randint(-3 * self.dt, 3 * self.dt, n_sm_daily_draws) + (d * daily_timesteps))))
+            small_draw_times = (np.tile(typ_sm_draw_times, ndays) + perturbations)
+            small_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['small_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['small_draw_size_dist'][1], ndays * n_sm_daily_draws))
 
             all_draw_times = np.clip(np.concatenate((big_draw_times, small_draw_times)), self.mpc['horizon'], None)
             all_draw_sizes = np.concatenate((big_draw_sizes, small_draw_sizes))
@@ -435,6 +435,10 @@ class Aggregator:
             all_draw_times = all_draw_times[ind].tolist()
             all_draw_sizes = all_draw_sizes[ind].tolist()
 
+            # home_wh_typ_big_draw_times.append(typ_big_draw_times)
+            # home_wh_typ_big_draw_sizes.append(typ_big_draw_sizes)
+            # home_wh_typ_sm_draw_times.append(typ_sm_draw_times)
+            # home_wh_typ_sm_draw_sizes.append(typ_sm_draw_sizes)
             home_wh_all_draw_timing_dist.append(all_draw_times)
             home_wh_all_draw_size_dist.append(all_draw_sizes)
 
@@ -667,6 +671,7 @@ class Aggregator:
                 "hvac_heat_on_opt": [],
                 "wh_heat_on_opt": [],
                 "cost_opt": [],
+                "waterdraws": []
             }
             if 'pv' in home["type"]:
                 self.baseline_data[home["name"]]["p_pv_opt"] = []
@@ -832,7 +837,7 @@ class Aggregator:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
-                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraw"]
+                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"]
                     if 'pv' in home["type"]:
                         opt_keys += ['p_pv_opt','u_pv_curt_opt']
                     if 'battery' in home["type"]:
@@ -974,7 +979,7 @@ class Aggregator:
         return temp
 
     def set_dummy_rl_parameters(self):
-        self.tracked_loads = 3*self.config['community']['total_number_homes'][0]*np.ones(6)
+        self.tracked_loads = 3*self.config['community']['total_number_homes'][0]*np.ones(12)
         self.mpc = self.mpc_permutations[0]
         self.util = self.util_permutations[0]
         self.rl_params = self.rl_permutations[0]
