@@ -311,12 +311,12 @@ class MPCCalc:
         self.wh_heat_max = self.sub_subhourly_steps
         self.wh_heat_min = 0
         # Set constraints on HVAC by season
-        if max(self.oat_current_ev) <= 26: # "winter"
+        if max(self.oat_current_ev) <= 30: # "winter"
             self.hvac_heat_max = self.sub_subhourly_steps
             self.hvac_cool_max = 0
             # self.constraints += [self.hvac_cool_on == 0]
 
-        if min(self.oat_current_ev) >= 15: # "summer"
+        else: # "summer"
             self.hvac_heat_max = 0
             self.hvac_cool_max = self.sub_subhourly_steps
             # self.constraints += [self.hvac_heat_on == 0]
