@@ -391,8 +391,8 @@ class Aggregator:
             self.config['community']['total_number_homes'][0]
         )
         home_wh_temp_init_pos_dist = np.random.uniform(
-            0,
-            0.3,
+            0.25,
+            0.75,
             self.config['community']['total_number_homes'][0]
         )
         home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
@@ -671,7 +671,8 @@ class Aggregator:
                 "hvac_heat_on_opt": [],
                 "wh_heat_on_opt": [],
                 "cost_opt": [],
-                "waterdraws": []
+                "waterdraws": [],
+                "correct_solve": []
             }
             if 'pv' in home["type"]:
                 self.baseline_data[home["name"]]["p_pv_opt"] = []
@@ -837,7 +838,7 @@ class Aggregator:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
-                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"]
+                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws", "correct_solve"]
                     if 'pv' in home["type"]:
                         opt_keys += ['p_pv_opt','u_pv_curt_opt']
                     if 'battery' in home["type"]:

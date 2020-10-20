@@ -341,9 +341,9 @@ class Reformat:
         return data
 
     def plot_environmental_values(self, name, fig, summary, file, fname):
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["OAT"][0:file["parent"]["ts"]], name=f"OAT (C)"))
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["GHI"][0:file["parent"]["ts"]], name=f"GHI (W/m2)"))
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["TOU"][0:file["parent"]["ts"]], name=f"TOU Price ($/kWh)", line_shape='hv'), secondary_y=True)
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["OAT"][0:file["parent"]["ts"]], name=f"OAT (C)", visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["GHI"][0:file["parent"]["ts"]], name=f"GHI (W/m2)", visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=summary["TOU"][0:file["parent"]["ts"]], name=f"TOU Price ($/kWh)", line_shape='hv', visible='legendonly'), secondary_y=True)
         fig = self.plot_thermal_bounds(fig, file['parent']['x_lims'], name, fname)
         return fig
 
@@ -367,7 +367,6 @@ class Reformat:
     def plot_base_home(self, name, fig, data, summary, fname, file, plot_price=True):
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_in_opt"], name=f"Tin (C) - {fname}"))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_wh_opt"], name=f"Twh (C) - {fname}"))
-        # self.plot_thermal_bounds(fig, file['parent']['x_lims'], name, fname)
 
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_grid_opt"], name=f"Pgrid (kW) - {fname}", line_shape='hv', visible='legendonly'))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_load_opt"], name=f"Pload (kW) - {fname}", line_shape='hv', visible='legendonly'))
@@ -379,20 +378,22 @@ class Reformat:
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=actual_price, name=f"Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
             fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(actual_price), np.arange(len(actual_price))+1), name=f"Average Actual Price ($/kWh) - {fname}", visible='legendonly'), secondary_y=True)
         try:
+            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data['correct_solve'], name=f"Correct Solve - {fname}", line_shape='hv', visible='legendonly'), secondary_y=True)
             self.cost_dict[name][fname] = np.sum(data['cost_opt'])
+            self.cs_dict[name][fname] = np.sum(data['correct_solve'])
         except:
             pass
         return fig
 
     def plot_pv(self, name, fig, data, fname, file):
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_pv_opt"], name=f"Ppv (kW) - {fname}", line_shape='hv'))
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["u_pv_curt_opt"], name=f"U_pv_curt (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_pv_opt"], name=f"Ppv (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["u_pv_curt_opt"], name=f"U_pv_curt (kW) - {fname}", line_shape='hv', visible='legendonly'))
         return fig
 
     def plot_battery(self, name, fig, data, fname, file):
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["e_batt_opt"], name=f"SOC (kW) - {fname}", line_shape='hv'))
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_batt_ch"], name=f"Pch (kW) - {fname}", line_shape='hv'))
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_batt_disch"], name=f"Pdis (kW) - {fname}", line_shape='hv'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["e_batt_opt"], name=f"SOC (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_batt_ch"], name=f"Pch (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_batt_disch"], name=f"Pdis (kW) - {fname}", line_shape='hv', visible='legendonly'))
         return fig
 
     def plot_single_home(self, fig):
@@ -438,10 +439,13 @@ class Reformat:
 
     def plot_all_homes(self, fig=None):
         t = PrettyTable(["Home"]+[file['name'] for file in self.parametrics])
+        u = PrettyTable(["Home"]+[file['name'] for file in self.parametrics])
         homes = ["Crystal-RXXFA","Myles-XQ5IA","Lillie-NMHUH","Robert-2D73X","Serena-98EPE","Gary-U95TS","Bruno-PVRNB","Dorothy-9XMNY","Jason-INS3S","Alvin-4BAYB",]
         self.cost_dict = {}
+        self.cs_dict = {}
         for self.sample_home in homes:
             self.cost_dict[self.sample_home] = {}
+            self.cs_dict[self.sample_home] = {}
             fig = make_subplots(specs=[[{"secondary_y": True}]])
             fig.update_layout(
                 font=dict(
@@ -451,8 +455,11 @@ class Reformat:
             )
             fig = self.plot_single_home(fig)
             t.add_row([self.sample_home] + [self.cost_dict[self.sample_home][file['name']] for file in self.parametrics])
-            # fig.show()
+            u.add_row([self.sample_home] + [self.cs_dict[self.sample_home][file['name']] for file in self.parametrics])
+            fig.show()
         print(t)
+        # u.add_row(["average"] + [np.average([self.cs_dict[sh][file['name']] for sh in homes]) for file in self.parametrics]))
+        print(u)
         return
 
     def rl_simplified(self):

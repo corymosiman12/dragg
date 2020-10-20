@@ -6,6 +6,42 @@ homes_pv_battery = [ 0, 0,]
 overwrite_existing = true
 house_p_avg = 1.0
 
+[simulation]
+start_datetime = "2015-01-01 00"
+end_datetime = "2015-03-01 00"
+loop_days = true
+random_seed = 12
+n_nodes = 4
+load_zone = "LZ_HOUSTON"
+check_type = "all"
+run_rbo_mpc = false
+run_rl_agg = true
+run_rl_simplified = false
+checkpoint_interval = "daily"
+
+[rl]
+version = [ "sm_waterdraws","test"]
+
+[rl.parameters]
+learning_rate = [ 0.01,]
+discount_factor = [ 1.0,]
+batch_size = [ 4, 32,]
+exploration_rate = [ 0.01,]
+twin_q = false
+
+[rl.utility]
+rl_agg_action_horizon = [ 6, 4,]
+rl_agg_forecast_horizon = 1
+base_price = 0.1
+action_space = [ -1.0, 1.0,]
+hourly_steps = [ 1,]
+minutes_per_step = 120
+tou_enabled = false
+
+[rl.simplified]
+response_rate = 0.3
+offset = 0.2
+
 [home.hvac]
 r_dist = [ 6.8, 9.199999999999999,]
 c_dist = [ 4.25, 5.75,]
@@ -21,12 +57,6 @@ p_dist = [ 5, 8,]
 sp_dist = [ 45.5, 48.5,]
 deadband_dist = [ 9, 12,]
 size_dist = [ 200, 300,]
-
-[home.wh.waterdraws]
-n_big_draw_dist = [ 5, 8,]
-n_small_draw_dist = [ 30, 50,]
-big_draw_size_dist = [ 5, 10,]
-small_draw_size_dist = [ 0.2, 0.5,]
 
 [home.battery]
 max_rate = 5
@@ -44,46 +74,16 @@ efficiency = 0.2
 prediction_horizon = [ 6,]
 price_uncertainty = 0.3
 sub_subhourly_steps = [ 4,]
-solver = "GLPK_MI" # GLPK for linear non-integer, GUROBI (Licensed) for quadratic integer, ECOS for quadratic non-integer
+solver = "GLPK_MI"
 
-[simulation]
-start_datetime = "2015-01-01 00"
-end_datetime = "2015-03-01 00"
-loop_days = true
-random_seed = 12
-n_nodes = 4
-load_zone = "LZ_HOUSTON"
-check_type = "all"
-run_rbo_mpc = false
-run_rl_agg = true
-run_rl_simplified = false
-checkpoint_interval = "daily"
-
-[rl] # for naming
-version = [ "test",]
-
-[rl.parameters] # depricated for use with OpenAI Gym
-learning_rate = [ 0.01,]
-discount_factor = [ 1.0,]
-batch_size = [ 4, 32,]
-exploration_rate = [ 0.01,]
-twin_q = false
-
-[rl.utility]
-rl_agg_action_horizon = [ 6, 4,]
-rl_agg_forecast_horizon = 1
-base_price = 0.1
-action_space = [ -1.0, 1.0,]
-hourly_steps = [ 1,]
-minutes_per_step = 120
-tou_enabled = false
-
-[rl.utility.tou] # only necessary if tou_enabled == true
+[rl.utility.tou]
 shoulder_times = [ 9, 21,]
 shoulder_price = 0.09
 peak_times = [ 14, 18,]
 peak_price = 0.13
 
-[rl.simplified]
-response_rate = 0.3
-offset = 0.2
+[home.wh.waterdraws]
+n_big_draw_dist = [ 1, 2,]
+n_small_draw_dist = [ 3, 5,]
+big_draw_size_dist = [ 5, 10,]
+small_draw_size_dist = [ 0.2, 0.5,]
