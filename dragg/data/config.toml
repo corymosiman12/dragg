@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = [ "sm_waterdraws","test"]
+version = [ "wd-fix"]
 
 [rl.parameters]
 learning_rate = [ 0.01,]
@@ -85,5 +85,5 @@ peak_price = 0.13
 [home.wh.waterdraws]
 n_big_draw_dist = [ 1, 2,]
 n_small_draw_dist = [ 3, 5,]
-big_draw_size_dist = [ 5, 10,]
+big_draw_size_dist = [ 25, 40,]
 small_draw_size_dist = [ 0.2, 0.5,]

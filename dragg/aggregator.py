@@ -405,7 +405,7 @@ class Aggregator:
             self.config['home']['wh']['size_dist'][1],
             self.config['community']['total_number_homes'][0]
         )
-        home_wh_size_dist = (home_wh_size_dist + 10) // 20 * 20 # more even numbers
+        # home_wh_size_dist = (home_wh_size_dist + 10) // 20 * 20 # more even numbers
 
         ndays = self.num_timesteps // (24 * self.dt) + 1
         daily_timesteps = int(24 * self.dt)
@@ -435,10 +435,6 @@ class Aggregator:
             all_draw_times = all_draw_times[ind].tolist()
             all_draw_sizes = all_draw_sizes[ind].tolist()
 
-            # home_wh_typ_big_draw_times.append(typ_big_draw_times)
-            # home_wh_typ_big_draw_sizes.append(typ_big_draw_sizes)
-            # home_wh_typ_sm_draw_times.append(typ_sm_draw_times)
-            # home_wh_typ_sm_draw_sizes.append(typ_sm_draw_sizes)
             home_wh_all_draw_timing_dist.append(all_draw_times)
             home_wh_all_draw_size_dist.append(all_draw_sizes)
 

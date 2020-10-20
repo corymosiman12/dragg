@@ -184,7 +184,7 @@ class MPCCalc:
         self.wh_heat_on = cp.Variable(self.horizon, integer=True)
 
         # Water heater temperature constraints
-        self.temp_wh_min = float(self.home["wh"]["temp_wh_min"])
+        self.temp_wh_min = cp.Constant(float(self.home["wh"]["temp_wh_min"]))
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
         self.wh_size = float(self.home["wh"]["tank_size"])
@@ -305,6 +305,22 @@ class MPCCalc:
         water heater.
         :return: None
         """
+
+        self.hvac_heat_min = 0
+        self.hvac_cool_min = 0
+        self.wh_heat_max = self.sub_subhourly_steps
+        self.wh_heat_min = 0
+        # Set constraints on HVAC by season
+        if max(self.oat_current_ev) <= 26: # "winter"
+            self.hvac_heat_max = self.sub_subhourly_steps
+            self.hvac_cool_max = 0
+            # self.constraints += [self.hvac_cool_on == 0]
+
+        if min(self.oat_current_ev) >= 15: # "summer"
+            self.hvac_heat_max = 0
+            self.hvac_cool_max = self.sub_subhourly_steps
+            # self.constraints += [self.hvac_heat_on == 0]
+
         self.constraints = [
             # Indoor air temperature constraints
             self.temp_in_ev[0] == self.temp_in_init,
@@ -338,24 +354,16 @@ class MPCCalc:
 
             self.p_load ==  self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on),
 
-            self.hvac_cool_on <= self.sub_subhourly_steps,
-            self.hvac_cool_on >= 0,
-            self.hvac_heat_on <= self.sub_subhourly_steps,
-            self.hvac_heat_on >= 0,
-            self.wh_heat_on <= self.sub_subhourly_steps,
-            self.wh_heat_on >= 0
+            self.hvac_cool_on <= self.hvac_cool_max,
+            self.hvac_cool_on >= self.hvac_cool_min,
+            self.hvac_heat_on <= self.hvac_heat_max,
+            self.hvac_heat_on >= self.hvac_heat_min,
+            self.wh_heat_on <= self.wh_heat_max,
+            self.wh_heat_on >= self.wh_heat_min
         ]
-
-        # Set constraints on HVAC by season
-        if max(self.oat_current_ev) <= 26: # "winter"
-            self.constraints += [self.hvac_cool_on == 0]
-
-        if min(self.oat_current_ev) >= 15: # "summer"
-            self.constraints += [self.hvac_heat_on == 0]
 
         # set total price for electricity
         self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
-        # self.total_price = cp.Constant(total_price_values)
 
     def add_battery_constraints(self):
         """
@@ -537,7 +545,6 @@ class MPCCalc:
                 self.optimal_vals["correct_solve"] = 0
 
                 if self.counter < self.horizon:
-                    # opt_keys = {"p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_ev_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws"}
                     for k in opt_keys:
                         self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
 
@@ -545,21 +552,55 @@ class MPCCalc:
                     self.presolve_hvac_cool_on = float(self.optimal_vals["hvac_cool_on_opt"][0])
                     self.presolve_hvac_heat_on = float(self.optimal_vals["hvac_heat_on_opt"][0])
 
+                    new_temp_in = float(self.temp_in_init.value
+                                        + (((self.oat_current[1] - self.temp_in_init.value) / self.home_r.value)
+                                        - self.presolve_hvac_cool_on * self.hvac_p_c.value
+                                        + self.presolve_hvac_heat_on * self.hvac_p_h.value) / (self.home_c.value * self.dt))
+                    new_temp_wh = float(self.temp_wh_init.value
+                                        + (((new_temp_in - self.temp_wh_init.value) / self.wh_r.value)
+                                        + self.presolve_wh_heat_on * self.wh_p.value) / (self.wh_c.value))
+
+                    if new_temp_in > self.temp_in_max.value:
+                        self.presolve_hvac_heat_on = self.hvac_heat_min
+                    elif new_temp_in < self.temp_in_min.value:
+                        self.presolve_hvac_heat_on = self.hvac_heat_max
+
+                    if new_temp_wh > self.temp_wh_max.value:
+                        self.presolve_wh_heat_on = self.wh_heat_min
+                    elif new_temp_wh < self.temp_wh_max.value:
+                        self.presolve_wh_heat_on = self.wh_heat_max
 
                 else:
-                    self.presolve_wh_heat_on = 1.0
                     if self.temp_in_init.value > self.temp_in_max.value:
-                        self.presolve_hvac_heat_on = 0.0
+                        self.presolve_hvac_heat_on = self.hvac_heat_min
+                        self.presolve_hvac_cool_on = self.hvac_cool_max
+                    elif self.temp_in_init.value < self.temp_in_min.value:
+                        self.presolve_hvac_heat_on = self.hvac_heat_max
+                        self.presolve_hvac_cool_on = self.hvac_cool_min
                     else:
-                        self.presolve_hvac_heat_on = 1.0
-                    self.presolve_hvac_cool_on = 0.0
-                    self.optimal_vals["wh_heat_on_opt"] = self.presolve_wh_heat_on
-                    self.optimal_vals["hvac_heat_on_opt"] = self.presolve_hvac_heat_on
-                    self.optimal_vals["hvac_cool_on_opt"] = self.presolve_hvac_cool_on
+                        self.presolve_hvac_heat_on = self.hvac_heat_max
+                        self.presolve_hvac_cool_on = self.hvac_cool_min
 
-                new_temp_in = float(self.temp_in_init.value + (((self.oat_current[1] - self.temp_in_init.value) / self.home_r.value) - self.presolve_hvac_cool_on * self.hvac_p_c.value + self.presolve_hvac_heat_on * self.hvac_p_h.value) / (self.home_c.value))
+                    if self.temp_wh_init.value < self.temp_wh_min.value:
+                        self.presolve_wh_heat_on = self.wh_heat_max
+                    elif self.temp_wh_init.value > self.temp_wh_max.value:
+                        self.presolve_wh_heat_on = self.wh_heat_min
+                    else:
+                        self.presolve_wh_heat_on = self.wh_heat_min
+
+                new_temp_in = float(self.temp_in_init.value
+                                    + (((self.oat_current[1] - self.temp_in_init.value) / self.home_r.value)
+                                    - self.presolve_hvac_cool_on * self.hvac_p_c.value
+                                    + self.presolve_hvac_heat_on * self.hvac_p_h.value) / (self.home_c.value * self.dt))
+                new_temp_wh = float(self.temp_wh_init.value
+                                    + (((new_temp_in - self.temp_wh_init.value) / self.wh_r.value)
+                                    + self.presolve_wh_heat_on * self.wh_p.value) / (self.wh_c.value * self.dt))
+
+                self.optimal_vals["wh_heat_on_opt"] = self.presolve_wh_heat_on / self.sub_subhourly_steps
+                self.optimal_vals["hvac_heat_on_opt"] = self.presolve_hvac_heat_on / self.sub_subhourly_steps
+                self.optimal_vals["hvac_cool_on_opt"] = self.presolve_hvac_cool_on / self.sub_subhourly_steps
                 self.optimal_vals["temp_in_opt"] = new_temp_in
-                self.optimal_vals["temp_wh_opt"] = float(self.temp_wh_init.value + (((new_temp_in - self.temp_wh_init.value) / self.wh_r.value) + self.presolve_wh_heat_on * self.wh_p.value) / (self.wh_c.value))
+                self.optimal_vals["temp_wh_opt"] = new_temp_wh
                 self.optimal_vals["solve_counter"] = self.counter
                 self.optimal_vals["p_load_opt"] = self.presolve_wh_heat_on * self.wh_p.value + self.presolve_hvac_cool_on * self.hvac_p_c.value + self.presolve_hvac_heat_on * self.hvac_p_h.value
                 self.optimal_vals["forecast_p_grid_opt"] = self.optimal_vals["p_load_opt"]
