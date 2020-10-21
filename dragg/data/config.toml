@@ -1,7 +1,7 @@
 [community]
-total_number_homes = [ 10, 0,]
+total_number_homes = [ 50, 0,]
 homes_battery = [ 0, 0,]
-homes_pv = [ 3, 0,]
+homes_pv = [ 15, 0,]
 homes_pv_battery = [ 0, 0,]
 overwrite_existing = true
 house_p_avg = 1.0
@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = [ "wd-fix"]
+version = [ "waterdraws-baseline-v1"]
 
 [rl.parameters]
 learning_rate = [ 0.01,]
