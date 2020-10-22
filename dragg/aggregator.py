@@ -412,6 +412,8 @@ class Aggregator:
 
         home_wh_all_draw_timing_dist = []
         home_wh_all_draw_size_dist = []
+        home_wh_typ_big_draw_timing_dist = []
+        home_wh_typ_big_draw_size_dist = []
         for i in range(self.config['community']['total_number_homes'][0]):
             n_big_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_big_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_big_draw_dist'][1]+1)
             typ_big_draw_times = np.random.randint(0, 24*self.dt, n_big_daily_draws)
@@ -437,6 +439,8 @@ class Aggregator:
 
             home_wh_all_draw_timing_dist.append(all_draw_times)
             home_wh_all_draw_size_dist.append(all_draw_sizes)
+            home_wh_typ_big_draw_timing_dist.append(typ_big_draw_times.tolist())
+            home_wh_typ_big_draw_size_dist.append(float(np.average(big_draw_sizes)))
 
         all_homes = []
 
@@ -511,7 +515,9 @@ class Aggregator:
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
-                    "draw_sizes": home_wh_all_draw_size_dist[i]
+                    "draw_sizes": home_wh_all_draw_size_dist[i],
+                    "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "battery": battery,
@@ -553,7 +559,9 @@ class Aggregator:
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
-                    "draw_sizes": home_wh_all_draw_size_dist[i]
+                    "draw_sizes": home_wh_all_draw_size_dist[i],
+                    "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "pv": pv
@@ -594,7 +602,9 @@ class Aggregator:
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
-                    "draw_sizes": home_wh_all_draw_size_dist[i]
+                    "draw_sizes": home_wh_all_draw_size_dist[i],
+                    "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "battery": battery
@@ -635,7 +645,9 @@ class Aggregator:
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
                     "draw_times": home_wh_all_draw_timing_dist[i],
-                    "draw_sizes": home_wh_all_draw_size_dist[i]
+                    "draw_sizes": home_wh_all_draw_size_dist[i],
+                    "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems
             })

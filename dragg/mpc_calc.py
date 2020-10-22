@@ -188,6 +188,8 @@ class MPCCalc:
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
         self.wh_size = float(self.home["wh"]["tank_size"])
+        self.typ_draw_times = [int(i) for i in self.home["wh"]["typ_big_draw_times"]]
+        self.typ_draw_size = float(self.home["wh"]["typ_big_draw_size"])
         self.tap_temp = 12 # assumed cold tap water is about 55 deg F
 
         # Home temperature constraints
@@ -209,9 +211,18 @@ class MPCCalc:
             else:
                 total_draw = 0
             draw_size_list.append(total_draw)
+
+        draw_size_list[1:] = [0] * self.horizon
+        for h in range(1, self.h_plus):
+            t = self.timestep + (h % self.sub_subhourly_steps)
+            s = t - 1
+            q = t + 1
+            if any(x in [s, t, q] for x in self.typ_draw_times):
+                draw_size_list[h] += self.typ_draw_size / 3
+
         self.draw_size = draw_size_list
         df = np.divide(self.draw_size, self.wh_size)
-        df[1:] = np.average(df[1:])
+        # df[1:] = np.average(df[1:])
         self.draw_frac = cp.Constant(df)
         self.remainder_frac = cp.Constant(1-df)
 
@@ -607,7 +618,6 @@ class MPCCalc:
                 self.optimal_vals["waterdraws"] = self.draw_size[0]
                 self.optimal_vals["p_grid_opt"] = self.optimal_vals["p_load_opt"]
                 self.optimal_vals["cost_opt"] = self.optimal_vals["p_grid_opt"] * self.total_price.value[0]
-                # print("WROTE TO DICTIONARY")
                 i+=1
                 pass
 
@@ -627,54 +637,6 @@ class MPCCalc:
             self.set_battery_only_p_grid()
         else:
             self.set_pv_battery_p_grid()
-
-    # def mpc_base(self):
-    #     """
-    #     Type specific routine for setting up a CVXPY optimization problem.
-    #     self.home == "base"
-    #     :return:
-    #     """
-    #     self.set_environmental_variables()
-    #     self.add_base_constraints()
-    #     self.set_base_p_grid()
-    #     self.solve_mpc()
-    #
-    # def mpc_battery(self):
-    #     """
-    #     Type specific routine for setting up a CVXPY optimization problem.
-    #     self.home == "battery_only"
-    #     :return:
-    #     """
-    #     self.set_environmental_variables()
-    #     self.add_base_constraints()
-    #     self.add_battery_constraints()
-    #     self.set_battery_only_p_grid()
-    #     self.solve_mpc()
-    #
-    # def mpc_pv(self):
-    #     """
-    #     Type specific routine for setting up a CVXPY optimization problem.
-    #     self.home == "pv_only"
-    #     :return:
-    #     """
-    #     self.set_environmental_variables()
-    #     self.add_base_constraints()
-    #     self.add_pv_constraints()
-    #     self.set_pv_only_p_grid()
-    #     self.solve_mpc()
-    #
-    # def mpc_pv_battery(self):
-    #     """
-    #     Type specific routine for setting up a CVXPY optimization problem.
-    #     self.home == "pv_battery"
-    #     :return:
-    #     """
-    #     self.set_environmental_variables()
-    #     self.add_base_constraints()
-    #     self.add_battery_constraints()
-    #     self.add_pv_constraints()
-    #     self.set_pv_battery_p_grid()
-    #     self.solve_mpc()
 
     def redis_get_initial_values(self):
         """
