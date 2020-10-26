@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = [ "dn-avg_waterdraws-v2", "dn-known_waterdraws-v2", "dn-timed_waterdraws-v2"]
+version = [ "dn-new-wd-v2-2","dn-new-wd-v2"]
 
 [rl.parameters]
 learning_rate = [ 0.01,]
@@ -30,7 +30,7 @@ exploration_rate = [ 0.01,]
 twin_q = false
 
 [rl.utility]
-rl_agg_action_horizon = [ 6,4]
+rl_agg_action_horizon = [ 6, 4,]
 rl_agg_forecast_horizon = 1
 base_price = 0.1
 action_space = [ -1.0, 1.0,]
@@ -45,15 +45,15 @@ offset = 0.2
 [home.hvac]
 r_dist = [ 6.8, 9.199999999999999,]
 c_dist = [ 4.25, 5.75,]
-p_cool_dist = [ 2, 9,]
-p_heat_dist = [ 2.0, 13.5,]
+p_cool_dist = [ 3.5, 3.5,]
+p_heat_dist = [ 3.5, 3.5,]
 temp_sp_dist = [ 18, 22,]
 temp_deadband_dist = [ 2, 3,]
 
 [home.wh]
 r_dist = [ 18.7, 25.3,]
 c_dist = [ 4.25, 5.75,]
-p_dist = [ 5, 8,]
+p_dist = [ 8, 18,]
 sp_dist = [ 45.5, 48.5,]
 deadband_dist = [ 9, 12,]
 size_dist = [ 200, 300,]
