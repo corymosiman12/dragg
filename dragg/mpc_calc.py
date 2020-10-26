@@ -186,10 +186,11 @@ class MPCCalc:
         # Water heater temperature constraints
         self.temp_wh_min = cp.Constant(float(self.home["wh"]["temp_wh_min"]))
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
+        self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
         self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
         self.wh_size = float(self.home["wh"]["tank_size"])
-        self.typ_draw_times = [int(i) for i in self.home["wh"]["typ_big_draw_times"]]
-        self.typ_draw_size = float(self.home["wh"]["typ_big_draw_size"])
+        # self.typ_draw_times = [int(i) for i in self.home["wh"]["typ_big_draw_times"]]
+        # self.typ_draw_size = float(self.home["wh"]["typ_big_draw_size"])
         self.tap_temp = 12 # assumed cold tap water is about 55 deg F
 
         # Home temperature constraints
@@ -201,24 +202,30 @@ class MPCCalc:
 
     def water_draws(self):
         # Do water draws with no prior knowledge
-        draw_times = np.array(self.home["wh"]["draw_times"])
-        draw_size_list = []
-        for h in range(self.h_plus):
-            t = self.timestep + (h % self.sub_subhourly_steps)
-            if t in draw_times:
-                ind = np.where(draw_times == t)[0]
-                total_draw = sum(np.array(self.home["wh"]["draw_sizes"])[ind])
-            else:
-                total_draw = 0
-            draw_size_list.append(total_draw)
-
-        draw_size_list[1:] = [0] * self.horizon
-        for h in range(1, self.h_plus):
-            t = self.timestep + (h % self.sub_subhourly_steps)
-            s = t - 1
-            q = t + 1
-            if any(x in [s, t, q] for x in self.typ_draw_times):
-                draw_size_list[h] += self.typ_draw_size / 3
+        # draw_times = np.array(self.home["wh"]["draw_times"])
+        draw_sizes = np.append(np.zeros(self.h_plus), np.array(self.home["wh"]["draw_sizes"]))
+        # draw_size_list = []
+        # for h in range(self.h_plus):
+        #     t = self.timestep + (h % self.sub_subhourly_steps)
+        #     if t in draw_times:
+        #         ind = np.where(draw_times == t)[0]
+        #         total_draw = sum(np.array(self.home["wh"]["draw_sizes"])[ind])
+        #     else:
+        #         total_draw = 0
+        #     draw_size_list.append(total_draw)
+        #
+        # draw_size_list[1:] = [0] * self.horizon
+        # for h in range(1, self.h_plus):
+        #     t = self.timestep + (h % self.sub_subhourly_steps)
+        #     s = t - 1
+        #     q = t + 1
+        #     if any(x in [s, t, q] for x in self.typ_draw_times):
+        #         draw_size_list[h] += self.typ_draw_size / 3
+        # for h in range(self.h_plus):
+        raw_draw_size_list = draw_sizes[self.timestep:self.timestep + self.h_plus]
+        draw_size_list = [raw_draw_size_list[0]]
+        for i in range(1, self.h_plus):
+            draw_size_list.append(np.average(raw_draw_size_list[i-1:i+2]))
 
         self.draw_size = draw_size_list
         df = np.divide(self.draw_size, self.wh_size)
@@ -463,10 +470,11 @@ class MPCCalc:
         :return: None
         """
         self.cost = cp.Variable(self.horizon)
+        self.wh_weighting = 10
         self.objective = cp.Variable(self.horizon)
         self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
         self.weights = cp.Constant(np.power(0.92*np.ones(self.horizon), np.arange(self.horizon)))
-        self.obj = cp.Minimize(cp.sum(cp.multiply(self.cost, self.weights)))
+        self.obj = cp.Minimize(cp.sum(cp.multiply(self.cost, self.weights)) + self.wh_weighting * cp.sum(self.temp_wh_sp - self.temp_wh_ev))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():
             self.log.error("Problem is not DCP")
@@ -589,7 +597,7 @@ class MPCCalc:
                         self.presolve_hvac_heat_on = self.hvac_heat_max
                         self.presolve_hvac_cool_on = self.hvac_cool_min
                     else:
-                        self.presolve_hvac_heat_on = self.hvac_heat_max
+                        self.presolve_hvac_heat_on = self.hvac_heat_min
                         self.presolve_hvac_cool_on = self.hvac_cool_min
 
                     if self.temp_wh_init.value < self.temp_wh_min.value:

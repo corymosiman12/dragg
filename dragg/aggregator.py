@@ -410,37 +410,51 @@ class Aggregator:
         ndays = self.num_timesteps // (24 * self.dt) + 1
         daily_timesteps = int(24 * self.dt)
 
-        home_wh_all_draw_timing_dist = []
+        # home_wh_all_draw_timing_dist = []
         home_wh_all_draw_size_dist = []
-        home_wh_typ_big_draw_timing_dist = []
-        home_wh_typ_big_draw_size_dist = []
-        for i in range(self.config['community']['total_number_homes'][0]):
-            n_big_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_big_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_big_draw_dist'][1]+1)
-            typ_big_draw_times = np.random.randint(0, 24*self.dt, n_big_daily_draws)
-            perturbations = np.array([])
-            for d in range(ndays):
-                perturbations = np.concatenate((perturbations, (np.random.randint(-1 * self.dt, self.dt, n_big_daily_draws) + (d * daily_timesteps))))
-            big_draw_times = (np.tile(typ_big_draw_times, ndays) + perturbations)
-            big_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['big_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['big_draw_size_dist'][1], ndays * n_big_daily_draws))
-
-            n_sm_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_small_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_small_draw_dist'][1]+1)
-            typ_sm_draw_times = np.random.randint(0, 24*self.dt, n_sm_daily_draws)
-            perturbations = np.array([])
-            for d in range(ndays):
-                perturbations = np.concatenate((perturbations, (np.random.randint(-3 * self.dt, 3 * self.dt, n_sm_daily_draws) + (d * daily_timesteps))))
-            small_draw_times = (np.tile(typ_sm_draw_times, ndays) + perturbations)
-            small_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['small_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['small_draw_size_dist'][1], ndays * n_sm_daily_draws))
-
-            all_draw_times = np.clip(np.concatenate((big_draw_times, small_draw_times)), self.mpc['horizon'], None)
-            all_draw_sizes = np.concatenate((big_draw_sizes, small_draw_sizes))
-            ind = np.argsort(all_draw_times)
-            all_draw_times = all_draw_times[ind].tolist()
-            all_draw_sizes = all_draw_sizes[ind].tolist()
-
-            home_wh_all_draw_timing_dist.append(all_draw_times)
-            home_wh_all_draw_size_dist.append(all_draw_sizes)
-            home_wh_typ_big_draw_timing_dist.append(typ_big_draw_times.tolist())
-            home_wh_typ_big_draw_size_dist.append(float(np.average(big_draw_sizes)))
+        # home_wh_typ_big_draw_timing_dist = []
+        # home_wh_typ_big_draw_size_dist = []
+        # for i in range(self.config['community']['total_number_homes'][0]):
+        #     n_big_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_big_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_big_draw_dist'][1]+1)
+        #     typ_big_draw_times = np.random.randint(0, 24*self.dt, n_big_daily_draws)
+        #     perturbations = np.array([])
+        #     for d in range(ndays):
+        #         perturbations = np.concatenate((perturbations, (np.random.randint(-1 * self.dt, self.dt, n_big_daily_draws) + (d * daily_timesteps))))
+        #     big_draw_times = (np.tile(typ_big_draw_times, ndays) + perturbations)
+        #     big_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['big_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['big_draw_size_dist'][1], ndays * n_big_daily_draws))
+        #
+        #     n_sm_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_small_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_small_draw_dist'][1]+1)
+        #     typ_sm_draw_times = np.random.randint(0, 24*self.dt, n_sm_daily_draws)
+        #     perturbations = np.array([])
+        #     for d in range(ndays):
+        #         perturbations = np.concatenate((perturbations, (np.random.randint(-3 * self.dt, 3 * self.dt, n_sm_daily_draws) + (d * daily_timesteps))))
+        #     small_draw_times = (np.tile(typ_sm_draw_times, ndays) + perturbations)
+        #     small_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['small_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['small_draw_size_dist'][1], ndays * n_sm_daily_draws))
+        #
+        #     all_draw_times = np.clip(np.concatenate((big_draw_times, small_draw_times)), self.mpc['horizon'], None)
+        #     all_draw_sizes = np.concatenate((big_draw_sizes, small_draw_sizes))
+        #     ind = np.argsort(all_draw_times)
+        #     all_draw_times = all_draw_times[ind].tolist()
+        #     all_draw_sizes = all_draw_sizes[ind].tolist()
+        #
+        #     home_wh_all_draw_timing_dist.append(all_draw_times)
+        #     home_wh_all_draw_size_dist.append(all_draw_sizes)
+        #     home_wh_typ_big_draw_timing_dist.append(typ_big_draw_times.tolist())
+        #     home_wh_typ_big_draw_size_dist.append(float(np.average(big_draw_sizes)))
+        self.waterdraws_from_csv = True
+        self.waterdraws_file = os.path.join(self.data_dir, 'waterdraw_profiles.csv')
+        if self.waterdraws_from_csv:
+            waterdraw_df = pd.read_csv(self.waterdraws_file)
+            j = 1
+            for i in waterdraw_df.columns.values.tolist()[1:]:
+                if j in [2,5,6,7]: # these are bad data sets
+                    pass
+                else:
+                    this_house = np.array(waterdraw_df[i])
+                this_house = np.reshape(this_house, (-1, 24))
+                this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten().tolist()
+                home_wh_all_draw_size_dist.append(this_house)
+                j += 1
 
         all_homes = []
 
@@ -514,10 +528,10 @@ class Aggregator:
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
-                    "draw_times": home_wh_all_draw_timing_dist[i],
+                    # "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i],
-                    "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
-                    "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
+                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "battery": battery,
@@ -558,10 +572,10 @@ class Aggregator:
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
-                    "draw_times": home_wh_all_draw_timing_dist[i],
+                    # "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i],
-                    "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
-                    "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
+                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "pv": pv
@@ -601,10 +615,10 @@ class Aggregator:
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
-                    "draw_times": home_wh_all_draw_timing_dist[i],
+                    # "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i],
-                    "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
-                    "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
+                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "battery": battery
@@ -644,10 +658,10 @@ class Aggregator:
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
-                    "draw_times": home_wh_all_draw_timing_dist[i],
+                    # "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i],
-                    "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
-                    "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
+                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems
             })
