@@ -506,6 +506,13 @@ class Aggregator:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
+
+            # wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            wh_pwr_sigma = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
+            wh_pwr += wh_pwr_sigma * np.random.randn()
+            wh_pwr = np.clip(wh_pwr, self.config['home']['wh']['p_dist'][0], None)
+
             all_homes.append({
                 "name": name,
                 "type": "pv_battery",
@@ -522,7 +529,7 @@ class Aggregator:
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i],
+                    "p": wh_pwr,
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
@@ -550,6 +557,12 @@ class Aggregator:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
+
+            #wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            wh_pwr_sigma = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
+            wh_pwr += wh_pwr_sigma * np.random.randn()
+
             all_homes.append({
                 "name": name,
                 "type": "pv_only",
@@ -566,7 +579,7 @@ class Aggregator:
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i],
+                    "p": wh_pwr,
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
@@ -593,6 +606,12 @@ class Aggregator:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
+
+            # wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            wh_pwr_sigma = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
+            wh_pwr += wh_pwr_sigma * np.random.randn()
+
             all_homes.append({
                 "name": name,
                 "type": "battery_only",
@@ -609,7 +628,7 @@ class Aggregator:
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i],
+                    "p": wh_pwr,
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
@@ -636,6 +655,13 @@ class Aggregator:
                 hems = non_responsive_hems
             else:
                 hems = responsive_hems
+
+            #wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            wh_pwr_sigma = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
+            wh_pwr += wh_pwr_sigma * np.random.randn()
+            wh_pwr = np.clip(wh_pwr, self.config['home']['wh']['p_dist'][0], None)
+
             all_homes.append({
                 "name": name,
                 "type": "base",
@@ -652,7 +678,7 @@ class Aggregator:
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i],
+                    "p": wh_pwr,
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],

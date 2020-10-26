@@ -307,7 +307,7 @@ class MPCCalc:
 
         else:
             self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
-            self.temp_wh_init = cp.Constant((float(self.prev_optimal_vals["temp_wh_ev_opt"])*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
+            self.temp_wh_init = cp.Constant((float(self.prev_optimal_vals["temp_wh_opt"])*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
 
             if 'battery' in self.type:
                 self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]))
@@ -563,7 +563,7 @@ class MPCCalc:
                 self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
                 self.optimal_vals["correct_solve"] = 0
 
-                if self.counter < self.horizon:
+                if self.counter < self.horizon and self.timestep > 0:
                     for k in opt_keys:
                         self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
 
@@ -590,6 +590,7 @@ class MPCCalc:
                         self.presolve_wh_heat_on = self.wh_heat_max
 
                 else:
+                    self.counter = int(np.clip(self.counter, self.horizon, None))
                     if self.temp_in_init.value > self.temp_in_max.value:
                         self.presolve_hvac_heat_on = self.hvac_heat_min
                         self.presolve_hvac_cool_on = self.hvac_cool_max
