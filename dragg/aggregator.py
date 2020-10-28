@@ -149,6 +149,7 @@ class Aggregator:
                         sys.exit(1)
         if 'run_rl_agg' in data['simulation'] or 'run_rl_simplified' in data['simulation']:
             self._check_rl_config(data)
+        self.log.logger.info(f"Set the version write out to {data['rl']['version']}")
         return data
 
     def _check_rl_config(self, data):
@@ -444,13 +445,14 @@ class Aggregator:
         self.waterdraws_from_csv = True
         self.waterdraws_file = os.path.join(self.data_dir, 'waterdraw_profiles.csv')
         if self.waterdraws_from_csv:
-            waterdraw_df = pd.read_csv(self.waterdraws_file)
+            waterdraw_df = pd.read_csv(self.waterdraws_file, index_col=0)
+            waterdraw_df.index = pd.to_datetime(waterdraw_df.index, format='%Y-%m-%d %H:%M:%S')
+            waterdraw_df = waterdraw_df.resample('H').sum()
+            sigma = 0.2
+            waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
             j = 1
-            for i in waterdraw_df.columns.values.tolist()[1:]:
-                if j in [2,5,6,7]: # these are bad data sets
-                    pass
-                else:
-                    this_house = np.array(waterdraw_df[i])
+            for i in waterdraw_df.columns.values.tolist():
+                this_house = np.array(waterdraw_df[i])
                 this_house = np.reshape(this_house, (-1, 24))
                 this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten().tolist()
                 home_wh_all_draw_size_dist.append(this_house)
@@ -1001,6 +1003,7 @@ class Aggregator:
             json.dump(self.baseline_data, f, indent=4)
         with open(rewards_data_file, 'w+') as f:
             json.dump(self.all_rewards, f, indent=4)
+        self.log.logger.warn(f"Writing to {rewards_data_file}")
 
     def write_home_configs(self):
         """
