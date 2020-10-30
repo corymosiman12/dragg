@@ -444,19 +444,23 @@ class Aggregator:
         #     home_wh_typ_big_draw_size_dist.append(float(np.average(big_draw_sizes)))
         self.waterdraws_from_csv = True
         self.waterdraws_file = os.path.join(self.data_dir, 'waterdraw_profiles.csv')
+        self.wh_info_file = os.path.join(self.data_dir, 'site_info.csv')
         if self.waterdraws_from_csv:
             waterdraw_df = pd.read_csv(self.waterdraws_file, index_col=0)
+            wh_info_df = pd.read_csv(self.wh_info_file, index_col=0)
             waterdraw_df.index = pd.to_datetime(waterdraw_df.index, format='%Y-%m-%d %H:%M:%S')
             waterdraw_df = waterdraw_df.resample('H').sum()
             sigma = 0.2
             waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
-            j = 1
+            j=0
             for i in waterdraw_df.columns.values.tolist():
-                this_house = np.array(waterdraw_df[i])
-                this_house = np.reshape(this_house, (-1, 24))
-                this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten().tolist()
-                home_wh_all_draw_size_dist.append(this_house)
-                j += 1
+                if j < self.config['community']['total_number_homes'][0]:
+                    this_house = np.array(waterdraw_df[i])
+                    this_house = np.reshape(this_house, (-1, 24))
+                    this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten()
+                    this_house = np.clip(this_house, 0, home_wh_size_dist[j]) #.tolist()
+                    home_wh_all_draw_size_dist.append(this_house.tolist())
+                    j += 1
 
         all_homes = []
 
@@ -510,10 +514,10 @@ class Aggregator:
             name = names.get_first_name() + '-' + res
 
             # wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            wh_pwr_sigma = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
-            wh_pwr += wh_pwr_sigma * np.random.randn()
-            wh_pwr = np.clip(wh_pwr, self.config['home']['wh']['p_dist'][0], None)
+            # wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
+            # wh_pwr_sigma = 1 #(home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
+            # wh_pwr += wh_pwr_sigma * np.random.randn()
+            # wh_pwr = np.clip(wh_pwr, self.config['home']['wh']['p_dist'][0], None)
 
             all_homes.append({
                 "name": name,
@@ -531,7 +535,7 @@ class Aggregator:
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_pwr,
+                    "p": wh_p_dist[i],
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
@@ -581,7 +585,7 @@ class Aggregator:
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_pwr,
+                    "p": wh_p_dist[i],
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
@@ -630,7 +634,7 @@ class Aggregator:
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_pwr,
+                    "p": wh_p_dist[i],
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
@@ -680,7 +684,7 @@ class Aggregator:
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_pwr,
+                    "p": wh_p_dist[i],
                     "temp_wh_min": home_wh_temp_min_dist[i],
                     "temp_wh_max": home_wh_temp_max_dist[i],
                     "temp_wh_sp": home_wh_temp_sp_dist[i],

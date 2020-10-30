@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = [ "dn-new-wd-v2-2","dn-new-wd-v2"]
+version = [ "dn-wd-v4", "dn-wd-v4-avg"]
 
 [rl.parameters]
 learning_rate = [ 0.01,]
@@ -53,7 +53,7 @@ temp_deadband_dist = [ 2, 3,]
 [home.wh]
 r_dist = [ 18.7, 25.3,]
 c_dist = [ 4.25, 5.75,]
-p_dist = [ 8, 18,]
+p_dist = [ 2.5, 2.5,]
 sp_dist = [ 45.5, 48.5,]
 deadband_dist = [ 9, 12,]
 size_dist = [ 200, 300,]
