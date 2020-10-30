@@ -357,16 +357,18 @@ class Reformat:
             if dict['name'] == name:
                 data = dict
 
-        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_min'] * np.ones(len(x_lims)), name=f"Tin_min(C) - {fname}", fill=None, mode='lines', line_color='indigo'))
-        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_max'] * np.ones(len(x_lims)), name=f"Tin_max - {fname}", fill='tonexty' , mode='lines', line_color='indigo'))
+        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_min'] * np.ones(len(x_lims)), name=f"Tin_min(C)", fill=None, mode='lines', line_color='indigo'))
+        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_max'] * np.ones(len(x_lims)), name=f"Tin_max", fill='tonexty' , mode='lines', line_color='indigo'))
 
-        fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_min'] * np.ones(len(x_lims)), name=f"Twh_min(C) - {fname}", fill=None, mode='lines', line_color='red'))
-        fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_max'] * np.ones(len(x_lims)), name=f"Twh_max - {fname}", fill='tonexty' , mode='lines', line_color='red'))
+        fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_min'] * np.ones(len(x_lims)), name=f"Twh_min(C)", fill=None, mode='lines', line_color='red'))
+        fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_max'] * np.ones(len(x_lims)), name=f"Twh_max", fill='tonexty' , mode='lines', line_color='red'))
         return fig
 
     def plot_base_home(self, name, fig, data, summary, fname, file, plot_price=True):
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_in_opt"], name=f"Tin (C) - {fname}"))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_wh_opt"], name=f"Twh (C) - {fname}"))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["waterdraws"], name=f"Waterdraws (L) - {fname}"))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.average(data["waterdraws"])*np.ones(len(data["waterdraws"])), name=f"Avg Waterdraws (L) - {fname}"))
 
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_grid_opt"], name=f"Pgrid (kW) - {fname}", line_shape='hv', visible='legendonly'))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_load_opt"], name=f"Pload (kW) - {fname}", line_shape='hv', visible='legendonly'))
@@ -547,26 +549,26 @@ class Reformat:
                 rl_setpoint = np.clip(rl_setpoint, 45, 60)
             loads = np.array(data["Summary"]["p_grid_aggregate"])
             loads = loads[:len(loads) // (24*file['parent']['agg_dt']) * 24 * file['parent']['agg_dt']]
-            daily_max_loads = np.repeat(np.amax(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
-            daily_min_loads = np.repeat(np.amin(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
-            daily_range_loads = np.subtract(daily_max_loads, daily_min_loads)
-            daily_avg_loads = np.repeat(np.mean(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
-            daily_std_loads = np.repeat(np.std(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+            if len(loads) > 24:
+                daily_max_loads = np.repeat(np.amax(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+                daily_min_loads = np.repeat(np.amin(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+                daily_range_loads = np.subtract(daily_max_loads, daily_min_loads)
+                daily_avg_loads = np.repeat(np.mean(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+                # daily_std_loads = np.repeat(np.std(loads.reshape(-1, 24*file['parent']['agg_dt']), axis=1), 24*file['parent']['agg_dt'])
+                daily_std_loads = [np.std(loads[max(i-6, 0):i+6]) for i in range(len(loads))]
 
-
-
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_setpoint, name=f"RL Setpoint Load - {name}", opacity=0.5, line={'color':clr, 'width':4}))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - RL - {name}", line_shape='hv', line={'color':clr}))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_max_loads, name=f"Daily Max Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dot'}))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_min_loads, name=f"Daily Min Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dash'}))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_range_loads, name=f"Daily Agg Load Range - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr}))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_avg_loads, name=f"Daily Avg Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dash'}))
-            # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.subtract(daily_max_loads, daily_avg_loads), name=f"Daily Max-Avg Agg Load - RL - {name}", line_shape='hv', line={'color':clr, 'dash':'dot'}))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_std_loads, name=f"Daily Std Agg Load - RL - {name}", line_shape='hv',  opacity=0.5, line={'color':clr, 'dash':'dashdot'}))
-            fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.divide(data["Summary"]["p_grid_aggregate"],file['parent']['agg_dt'])), name=f"Cumulative Agg Load - RL - {name}", line_shape='hv', visible='legendonly', line={'color':clr, 'dash':'dot'}))
-            # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][:ts+1]),np.arange(ts)+1), name=f"Avg Load - RL - {name}", line_shape='hv', visible='legendonly'))
-            # fig = self.plot_mu(fig)
-            all_daily_stats.add_row([file['name'], np.average(daily_max_loads), max(daily_max_loads), np.average(daily_range_loads)])
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=rl_setpoint, name=f"RL Setpoint Load - {name}", opacity=0.5, line={'color':clr, 'width':4}))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["Summary"]["p_grid_aggregate"], name=f"Agg Load - RL - {name}", line_shape='hv', line={'color':clr}))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_max_loads, name=f"Daily Max Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dot'}))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_min_loads, name=f"Daily Min Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dash'}))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_range_loads, name=f"Daily Agg Load Range - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr}))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_avg_loads, name=f"Daily Avg Agg Load - RL - {name}", line_shape='hv', opacity=0.5, line={'color':clr, 'dash':'dash'}))
+                # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.subtract(daily_max_loads, daily_avg_loads), name=f"Daily Max-Avg Agg Load - RL - {name}", line_shape='hv', line={'color':clr, 'dash':'dot'}))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=daily_std_loads, name=f"Daily Std Agg Load - RL - {name}", line_shape='hv',  opacity=0.5, line={'color':clr, 'dash':'dashdot'}))
+                fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.cumsum(np.divide(data["Summary"]["p_grid_aggregate"],file['parent']['agg_dt'])), name=f"Cumulative Agg Load - RL - {name}", line_shape='hv', visible='legendonly', line={'color':clr, 'dash':'dot'}))
+                # fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=np.divide(np.cumsum(data["Summary"]["p_grid_aggregate"][:ts+1]),np.arange(ts)+1), name=f"Avg Load - RL - {name}", line_shape='hv', visible='legendonly'))
+                # fig = self.plot_mu(fig)
+                all_daily_stats.add_row([file['name'], np.average(daily_max_loads), max(daily_max_loads), np.average(daily_range_loads)])
         print(all_daily_stats)
         return fig
 

@@ -188,7 +188,7 @@ class MPCCalc:
         self.temp_wh_min = cp.Constant(float(self.home["wh"]["temp_wh_min"]))
         self.temp_wh_max = cp.Constant(float(self.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.home["wh"]["temp_wh_sp"]))
-        self.t_wh_init = float(self.home["wh"]["temp_wh_max"])
+        self.t_wh_init = float(self.home["wh"]["temp_wh_init"])
         self.wh_size = float(self.home["wh"]["tank_size"])
         # self.typ_draw_times = [int(i) for i in self.home["wh"]["typ_big_draw_times"]]
         # self.typ_draw_size = float(self.home["wh"]["typ_big_draw_size"])

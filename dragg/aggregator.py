@@ -1035,7 +1035,7 @@ class Aggregator:
         return temp
 
     def set_dummy_rl_parameters(self):
-        self.tracked_loads = 3*self.config['community']['total_number_homes'][0]*np.ones(12)
+        self.tracked_loads = self.config['community']['house_p_avg']*self.config['community']['total_number_homes'][0]*np.ones(12)
         self.mpc = self.mpc_permutations[0]
         self.util = self.util_permutations[0]
         self.rl_params = self.rl_permutations[0]
