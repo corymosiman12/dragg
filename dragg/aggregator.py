@@ -443,15 +443,15 @@ class Aggregator:
         #     home_wh_typ_big_draw_timing_dist.append(typ_big_draw_times.tolist())
         #     home_wh_typ_big_draw_size_dist.append(float(np.average(big_draw_sizes)))
         self.waterdraws_from_csv = True
-        self.waterdraws_file = os.path.join(self.data_dir, 'waterdraw_profiles.csv')
+        self.waterdraws_file = os.path.join(self.data_dir, '100_Random_Flow_Profiles.csv')
         self.wh_info_file = os.path.join(self.data_dir, 'site_info.csv')
         if self.waterdraws_from_csv:
             waterdraw_df = pd.read_csv(self.waterdraws_file, index_col=0)
             wh_info_df = pd.read_csv(self.wh_info_file, index_col=0)
             waterdraw_df.index = pd.to_datetime(waterdraw_df.index, format='%Y-%m-%d %H:%M:%S')
-            waterdraw_df = waterdraw_df.resample('H').sum()
             sigma = 0.2
             waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
+            waterdraw_df = waterdraw_df.resample('H').sum()
             j=0
             for i in waterdraw_df.columns.values.tolist():
                 if j < self.config['community']['total_number_homes'][0]:
