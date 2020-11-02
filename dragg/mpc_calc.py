@@ -164,7 +164,7 @@ class MPCCalc:
         # Initialize RP structure so that non-forecasted RPs have an expected value of 0.
         self.reward_price = np.zeros(self.horizon)
 
-        self.home_r = cp.Constant(float(self.home["hvac"]["r"]) * 1000)
+        self.home_r = cp.Constant(float(self.home["hvac"]["r"]))
         self.home_c = cp.Constant(float(self.home["hvac"]["c"]) * 1000)
         self.hvac_p_c = cp.Constant(float(self.home["hvac"]["p_c"]) / self.sub_subhourly_steps)
         self.hvac_p_h = cp.Constant((float(self.home["hvac"]["p_h"])) / self.sub_subhourly_steps)
