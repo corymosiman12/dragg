@@ -590,8 +590,10 @@ class MPCCalc:
 
                     if new_temp_in > self.temp_in_max.value:
                         self.presolve_hvac_heat_on = self.hvac_heat_min
+                        self.presolve_hvac_cool_on = self.hvac_cool_max
                     elif new_temp_in < self.temp_in_min.value:
                         self.presolve_hvac_heat_on = self.hvac_heat_max
+                        self.presolve_hvac_cool_on = self.hvac_cool_min
 
                     if new_temp_wh < self.temp_wh_min.value:
                         self.presolve_wh_heat_on = self.wh_heat_max

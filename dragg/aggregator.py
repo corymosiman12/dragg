@@ -406,42 +406,11 @@ class Aggregator:
             self.config['home']['wh']['size_dist'][1],
             self.config['community']['total_number_homes'][0]
         )
-        # home_wh_size_dist = (home_wh_size_dist + 10) // 20 * 20 # more even numbers
 
         ndays = self.num_timesteps // (24 * self.dt) + 1
         daily_timesteps = int(24 * self.dt)
 
-        # home_wh_all_draw_timing_dist = []
         home_wh_all_draw_size_dist = []
-        # home_wh_typ_big_draw_timing_dist = []
-        # home_wh_typ_big_draw_size_dist = []
-        # for i in range(self.config['community']['total_number_homes'][0]):
-        #     n_big_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_big_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_big_draw_dist'][1]+1)
-        #     typ_big_draw_times = np.random.randint(0, 24*self.dt, n_big_daily_draws)
-        #     perturbations = np.array([])
-        #     for d in range(ndays):
-        #         perturbations = np.concatenate((perturbations, (np.random.randint(-1 * self.dt, self.dt, n_big_daily_draws) + (d * daily_timesteps))))
-        #     big_draw_times = (np.tile(typ_big_draw_times, ndays) + perturbations)
-        #     big_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['big_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['big_draw_size_dist'][1], ndays * n_big_daily_draws))
-        #
-        #     n_sm_daily_draws = np.random.randint(self.config['home']['wh']['waterdraws']['n_small_draw_dist'][0], self.config['home']['wh']['waterdraws']['n_small_draw_dist'][1]+1)
-        #     typ_sm_draw_times = np.random.randint(0, 24*self.dt, n_sm_daily_draws)
-        #     perturbations = np.array([])
-        #     for d in range(ndays):
-        #         perturbations = np.concatenate((perturbations, (np.random.randint(-3 * self.dt, 3 * self.dt, n_sm_daily_draws) + (d * daily_timesteps))))
-        #     small_draw_times = (np.tile(typ_sm_draw_times, ndays) + perturbations)
-        #     small_draw_sizes = (np.random.uniform(self.config['home']['wh']['waterdraws']['small_draw_size_dist'][0], self.config['home']['wh']['waterdraws']['small_draw_size_dist'][1], ndays * n_sm_daily_draws))
-        #
-        #     all_draw_times = np.clip(np.concatenate((big_draw_times, small_draw_times)), self.mpc['horizon'], None)
-        #     all_draw_sizes = np.concatenate((big_draw_sizes, small_draw_sizes))
-        #     ind = np.argsort(all_draw_times)
-        #     all_draw_times = all_draw_times[ind].tolist()
-        #     all_draw_sizes = all_draw_sizes[ind].tolist()
-        #
-        #     home_wh_all_draw_timing_dist.append(all_draw_times)
-        #     home_wh_all_draw_size_dist.append(all_draw_sizes)
-        #     home_wh_typ_big_draw_timing_dist.append(typ_big_draw_times.tolist())
-        #     home_wh_typ_big_draw_size_dist.append(float(np.average(big_draw_sizes)))
         self.waterdraws_from_csv = True
         self.waterdraws_file = os.path.join(self.data_dir, '100_Random_Flow_Profiles.csv')
         self.wh_info_file = os.path.join(self.data_dir, 'site_info.csv')
@@ -513,12 +482,6 @@ class Aggregator:
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
 
-            # wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            # wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            # wh_pwr_sigma = 1 #(home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
-            # wh_pwr += wh_pwr_sigma * np.random.randn()
-            # wh_pwr = np.clip(wh_pwr, self.config['home']['wh']['p_dist'][0], None)
-
             all_homes.append({
                 "name": name,
                 "type": "pv_battery",
@@ -564,11 +527,6 @@ class Aggregator:
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
 
-            #wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            wh_pwr_sigma = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
-            wh_pwr += wh_pwr_sigma * np.random.randn()
-
             all_homes.append({
                 "name": name,
                 "type": "pv_only",
@@ -613,11 +571,6 @@ class Aggregator:
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
 
-            # wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            wh_pwr_sigma = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
-            wh_pwr += wh_pwr_sigma * np.random.randn()
-
             all_homes.append({
                 "name": name,
                 "type": "battery_only",
@@ -661,12 +614,6 @@ class Aggregator:
                 hems = non_responsive_hems
             else:
                 hems = responsive_hems
-
-            #wh_pwr = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            wh_pwr = (max(home_wh_all_draw_size_dist[i]) - 80) / (120 - 40) * (self.config['home']['wh']['p_dist'][1] - self.config['home']['wh']['p_dist'][0]) + self.config['home']['wh']['p_dist'][0]
-            wh_pwr_sigma = (home_wh_size_dist[i] - self.config['home']['wh']['size_dist'][0]) / (self.config['home']['wh']['size_dist'][1] - self.config['home']['wh']['size_dist'][0]) * (3 - 1) + 1
-            wh_pwr += wh_pwr_sigma * np.random.randn()
-            wh_pwr = np.clip(wh_pwr, self.config['home']['wh']['p_dist'][0], None)
 
             all_homes.append({
                 "name": name,
