@@ -192,7 +192,7 @@ class MPCCalc:
         self.wh_size = float(self.home["wh"]["tank_size"])
         # self.typ_draw_times = [int(i) for i in self.home["wh"]["typ_big_draw_times"]]
         # self.typ_draw_size = float(self.home["wh"]["typ_big_draw_size"])
-        self.tap_temp = 20 # assumed cold tap water is about 55 deg F
+        self.tap_temp = 15 # assumed cold tap water is about 55 deg F
 
         wh_capacitance = self.wh_size * 4.2 # kJ/deg C
         self.wh_c = cp.Constant(wh_capacitance)
