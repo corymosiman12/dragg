@@ -649,12 +649,12 @@ class Aggregator:
         self.all_homes = all_homes
         self.write_home_configs()
         self.all_homes_obj = []
-        self.max_load = 0
-        self.min_load = 0
+        self.max_poss_load = 0
+        self.min_poss_load = 0
         for home in all_homes:
             obj = MPCCalc(home)
             self.all_homes_obj += [obj]
-            self.max_load += obj.max_load
+            self.max_poss_load += obj.max_load
 
     def reset_baseline_data(self):
         self.baseline_agg_load_list = []
