@@ -2,8 +2,7 @@
 *.pyc
 .DS_Store
 .idea
-config.json
 archive
 *.log
 ~$*.xlsx
-outputs
+dragg/dump.rdb

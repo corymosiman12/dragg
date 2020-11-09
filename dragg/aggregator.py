@@ -8,94 +8,167 @@ from datetime import datetime, timedelta
 import time
 import numpy as np
 import json
+import toml
 import random
 import names
-from redis import StrictRedis
 import string
+import itertools as it
+import redis
+import pathos
+from pathos.pools import ProcessPool
 
 # Local
-from dragg.aggregator_logger import AggregatorLogger
-from dragg.mpc_calc import MPCCalc
-
+from dragg.mpc_calc import MPCCalc, manage_home, manage_home_forecast
+from dragg.redis_client import RedisClient
+from dragg.logger import Logger
 
 class Aggregator:
     def __init__(self):
-        self.agg_log = AggregatorLogger()
-        self.data_dir = 'data'
-        self.outputs_dir = 'outputs'
+        self.thermal_trend = 0
+        self.max_daily_temp = 8
+        self.max_daily_ghi = 150
+        self.min_daily_temp = 5
+        self.tracked_reward_price = 0
+        self.prev_load = 30
+        self.all_rewards = []
+        self.log = Logger("aggregator")
+        self.rlagent_log = Logger("rl_agent")
+        self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
+        self.outputs_dir = os.path.join('outputs')
         if not os.path.isdir(self.outputs_dir):
             os.makedirs(self.outputs_dir)
-        self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.json'))
+        self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
         self.ts_data_file = os.path.join(self.data_dir, os.environ.get('SOLAR_TEMPERATURE_DATA_FILE', 'nsrdb.csv'))
-        self.tou_data_file = os.path.join(self.data_dir, os.environ.get('TOU_DATA_FILE', 'tou_data.xlsx'))
+        # self.spp_data_file = os.path.join(self.data_dir, os.environ.get('SPP_DATA_FILE', 'tou_data.xlsx'))
         self.required_keys = {
-            "total_number_homes",
-            "homes_battery",
-            "homes_pv",
-            "homes_pv_battery",
-            "home_hvac_r_dist",
-            "home_hvac_c_dist",
-            "home_hvac_p_cool_dist",
-            "home_hvac_p_heat_dist",
-            "wh_r_dist",
-            "wh_c_dist",
-            "wh_p_dist",
-            "battery_max_rate",
-            "battery_capacity",
-            "battery_cap_bounds",
-            "battery_charge_eff",
-            "battery_discharge_eff",
-            "pv_area",
-            "pv_efficiency",
-            "start_datetime",
-            "end_datetime",
-            "prediction_horizons",
-            "random_seed",
-            "load_zone",
-            "step_size_coeff",
-            "max_load_threshold",
-            "check_type"
+            "community": {"total_number_homes": None},
+            "home": {
+                "hvac": {
+                    "r_dist": None,
+                    "c_dist": None,
+                    "p_cool_dist": None,
+                    "p_heat_dist": None,
+                    "temp_sp_dist": None,
+                    "temp_deadband_dist": None
+                },
+                "wh": {
+                    "r_dist": None,
+                    "c_dist": None,
+                    "p_dist": None,
+                    "sp_dist": None,
+                    "deadband_dist": None,
+                    "size_dist": None,
+                    "waterdraws": {
+                        "n_big_draw_dist",
+                        "n_small_draw_dist",
+                        "big_draw_size_dist",
+                        "small_draw_size_dist"
+                    }
+                },
+                "battery": {
+                    "max_rate": None,
+                    "capacity": None,
+                    "cap_bounds": None,
+                    "charge_eff": None,
+                    "discharge_eff": None,
+                    "cons_penalty": None
+                },
+                "pv": {
+                    "area": None,
+                    "efficiency": None
+                },
+                "hems": {
+                    "prediction_horizon": None,
+                    "discomfort": None,
+                    "disutility": None
+                }
+            },
+            "simulation": {
+                "start_datetime": None,
+                "end_datetime": None,
+                "random_seed": None,
+                "load_zone": None,
+                "check_type": None,
+                "run_rbo_mpc": None,
+                "run_rl_agg": None,
+                "run_rl_simplified": None
+            }
         }
         self.timestep = None  # Set by redis_set_initial_values
         self.iteration = None  # Set by redis_set_initial_values
         self.reward_price = None  # Set by redis_set_initial_values
         self.start_hour_index = None  # Set by calc_star_hour_index
-        # self.horizon = None  # Set by redis_set_initial_values
-        self.agg_load = None  # Set after every iteration
+        self.agg_load = 0 # Reset after each iteration
         self.baseline_data = {}
         self.baseline_agg_load_list = []  # Aggregate load at every timestep from the baseline run
         self.max_agg_load = None  # Set after baseline run, the maximum aggregate load over all the timesteps
         self.max_agg_load_list = []
-        # self.max_agg_load_threshold = None  # Set after baseline run, max_agg_load * threshold value set
-        # self.max_agg_load_threshold_list = []
-        self.converged = False
+
         self.num_threads = 1
         self.start_dt = None  # Set by _set_dt
         self.end_dt = None  # Set by _set_dt
         self.hours = None  # Set by _set_dt
-        self.all_homes = None  # Set by create_homes
+        self.dt = None  # Set by _set_dt
+        self.num_timesteps = None  # Set by _set_dt
+        self.all_homes = None  # Set by get_homes
         self.queue = Queue()
-        self.redis_client = StrictRedis(host=os.environ.get('REDIS_HOST'), decode_responses=True)
+        self.redis_client = RedisClient()
         self.config = self._import_config()
-        self.step_size_coeff = self.config["step_size_coeff"]
-        self.check_type = self.config["check_type"]  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
+        # self.step_size_coeff = self.config["step_size_coeff"] # removed for RL aggregator
+        self.check_type = self.config['simulation']['check_type']  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
+
         self.ts_data = self._import_ts_data()  # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
-        self.tou_data = self._import_tou_data()  # SPP: $/kWh
+        # self.tou_data = self._import_tou_data()  # SPP: $/kWh
         self.all_data = self.join_data()
         self._set_dt()
+        self._build_tou_price()
+        self.all_data.drop("ts", axis=1)
+
+        self.all_rps = np.zeros(self.num_timesteps)
+        self.all_sps = np.zeros(self.num_timesteps)
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
-            self.agg_log.logger.error(f"Configuration file does not exist: {self.config_file}")
+            self.log.logger.error(f"Configuration file does not exist: {self.config_file}")
             sys.exit(1)
         with open(self.config_file, 'r') as f:
-            data = json.load(f)
+            data = toml.load(f)
             d_keys = set(data.keys())
-            is_subset = self.required_keys.issubset(d_keys)
-            if not is_subset:
-                self.agg_log.logger.error(f"Not all required keys specified in config file. These must be specified: {self.required_keys}")
+            req_keys = set(self.required_keys.keys())
+            if not req_keys.issubset(d_keys):
+                missing_keys = req_keys - d_keys
+                self.log.logger.error(f"{missing_keys} must be configured in the config file.")
                 sys.exit(1)
-            return data
+            else:
+                for subsystem in self.required_keys.keys():
+                    req_keys = set(self.required_keys[subsystem].keys())
+                    given_keys = set(data[subsystem].keys())
+                    if not req_keys.issubset(given_keys):
+                        missing_keys = req_keys - given_keys
+                        self.logger.error(f"Parameters for {subsystem}: {missing_keys} must be specified in the config file.")
+                        sys.exit(1)
+        if 'run_rl_agg' in data['simulation'] or 'run_rl_simplified' in data['simulation']:
+            self._check_rl_config(data)
+        self.log.logger.info(f"Set the version write out to {data['rl']['version']}")
+        return data
+
+    def _check_rl_config(self, data):
+        if 'run_rl_agg' in data['simulation']:
+            req_keys = {"parameters": {"learning_rate", "discount_factor", "batch_size", "exploration_rate", "twin_q"},
+                        "utility": {"rl_agg_action_horizon", "rl_agg_forecast_horizon", "base_price", "action_space", "action_scale", "hourly_steps"},
+            }
+        elif 'run_rl_simplified' in data['simulation']:
+            req_keys = {"simplified": {"response_rate", "offset"}}
+        if not 'rl' in data:
+            self.log.logger.error(f"{missing_keys} must be configured in the config file.")
+            sys.exit(1)
+        else:
+            for subsystem in req_keys.keys():
+                rkeys = set(req_keys[subsystem])
+                gkeys = set(data['rl'][subsystem])
+                if not rkeys.issubset(gkeys):
+                    missing_keys = rkeys
+        return
 
     def _set_dt(self):
         """
@@ -104,15 +177,17 @@ class Aggregator:
         :return:
         """
         try:
-            self.start_dt = datetime.strptime(self.config["start_datetime"], '%Y-%m-%d %H')
-            self.end_dt = datetime.strptime(self.config["end_datetime"], '%Y-%m-%d %H')
+            self.start_dt = datetime.strptime(self.config['simulation']['start_datetime'], '%Y-%m-%d %H')
+            self.end_dt = datetime.strptime(self.config['simulation']['end_datetime'], '%Y-%m-%d %H')
         except ValueError as e:
-            self.agg_log.logger.error(f"Error parsing datetimes: {e}")
+            self.log.logger.error(f"Error parsing datetimes: {e}")
             sys.exit(1)
         self.hours = self.end_dt - self.start_dt
         self.hours = int(self.hours.total_seconds() / 3600)
+
+        self.num_timesteps = int(np.ceil(self.hours * self.dt))
         self.mask = (self.all_data.index >= self.start_dt) & (self.all_data.index < self.end_dt)
-        self.agg_log.logger.info(f"Start: {self.start_dt.isoformat()}; End: {self.end_dt.isoformat()}; Number of hours: {self.hours}")
+        self.log.logger.info(f"Start: {self.start_dt.isoformat()}; End: {self.end_dt.isoformat()}; Number of hours: {self.hours}")
 
     def _import_ts_data(self):
         """
@@ -122,17 +197,30 @@ class Aggregator:
         :return: pandas.DataFrame, columns: ts, GHI, OAT
         """
         if not os.path.exists(self.ts_data_file):
-            self.agg_log.logger.error(f"Timeseries data file does not exist: {self.ts_data_file}")
+            self.log.logger.error(f"Timeseries data file does not exist: {self.ts_data_file}")
             sys.exit(1)
 
         df = pd.read_csv(self.ts_data_file, skiprows=2)
-        df = df[df["Minute"] == 0]
+        # self.dt_interval = int(self.config['rl']['utility']['minutes_per_step'])
+        # self.dt = 60 // self.dt_interval
+        self.dt = int(self.config['rl']['utility']['hourly_steps'][0])
+        self.dt_interval = 60 // self.dt
+        reps = [np.ceil(self.dt/2) if val==0 else np.floor(self.dt/2) for val in df.Minute]
+        df = df.loc[np.repeat(df.index.values, reps)]
+        interval_minutes = self.dt_interval * np.arange(self.dt)
+        n_intervals = len(df.index) // self.dt
+        x = np.tile(interval_minutes, n_intervals)
+        df.Minute = x
         df = df.astype(str)
         df['ts'] = df[["Year", "Month", "Day", "Hour", "Minute"]].apply(lambda x: ' '.join(x), axis=1)
         df = df.rename(columns={"Temperature": "OAT"})
         df["ts"] = df["ts"].apply(lambda x: datetime.strptime(x, '%Y %m %d %H %M'))
         df = df.filter(["ts", "GHI", "OAT"])
         df[["GHI", "OAT"]] = df[["GHI", "OAT"]].astype(int)
+        # if self.config['simulation']['loop_days']:
+        #     df[["GHI", "OAT"]] = self.
+        self.oat = df['OAT'].to_numpy()
+        self.ghi = df['GHI'].to_numpy()
         return df.reset_index(drop=True)
 
     def _import_tou_data(self):
@@ -141,13 +229,12 @@ class Aggregator:
         url: http://www.ercot.com/mktinfo/prices.
         Only keeps SPP data, converts to $/kWh.
         Subtracts 1 hour from time to be inline with 23 hour day as required by pandas.
-
         :return: pandas.DataFrame, columns: ts, SPP
         """
-        if not os.path.exists(self.tou_data_file):
-            self.agg_log.logger.error(f"TOU data file does not exist: {self.tou_data_file}")
+        if not os.path.exists(self.spp_data_file):
+            self.log.logger.error(f"TOU data file does not exist: {self.spp_data_file}")
             sys.exit(1)
-        df_all = pd.read_excel(self.tou_data_file, sheet_name=None)
+        df_all = pd.read_excel(self.spp_data_file, sheet_name=None)
         k1 = list(df_all.keys())[0]
         df = df_all[k1]
         for k, v in df_all.items():
@@ -156,7 +243,7 @@ class Aggregator:
             else:
                 df = df.append(v, ignore_index=True)
 
-        df = df[df["Settlement Point"] == self.config["load_zone"]]
+        df = df[df["Settlement Point"] == self.config['simulation']['load_zone']]
         df["Hour Ending"] = df["Hour Ending"].str.replace(':00', '')
         df["Hour Ending"] = df["Hour Ending"].apply(pd.to_numeric)
         df["Hour Ending"] = df["Hour Ending"].apply(lambda x: x - 1)
@@ -170,33 +257,45 @@ class Aggregator:
         df[["SPP"]] = df.loc[:, "SPP"].apply(lambda x: x / 1000)
         return df.reset_index(drop=True)
 
+    def _build_tou_price(self):
+        if self.config['rl']['utility']['tou_enabled'] == True:
+            sd_times = self.config['rl']['utility']['tou']['shoulder_times']
+            pk_times = self.config['rl']['utility']['tou']['peak_times']
+            op_price = float(self.config['rl']['utility']['base_price'])
+            sd_price = float(self.config['rl']['utility']['tou']['shoulder_price'])
+            pk_price = float(self.config['rl']['utility']['tou']['peak_price'])
+            self.all_data['tou'] = self.all_data['ts'].apply(lambda x: pk_price if (x.hour <= pk_times[1] and x.hour >= pk_times[0]) else (sd_price if x.hour <= sd_times[1] and x.hour >= sd_times[0] else op_price))
+        else:
+            self.all_data['tou'] = float(self.config['rl']['utility']['base_price'])
+
     def join_data(self):
         """
         Join the TOU, GHI, temp data into a single dataframe
         :return: pandas.DataFrame
         """
-        df = pd.merge(self.ts_data, self.tou_data, on='ts')
-        return df.set_index('ts')
+        df = pd.merge(self.ts_data, self.ts_data['ts'], how='outer', on='ts')
+        df = df.fillna(method='ffill')
+        return df.set_index('ts', drop=False)
 
     def _check_home_configs(self):
-        base_homes = [e for e in self.all_homes if e["type"] == "base"]
-        pv_battery_homes = [e for e in self.all_homes if e["type"] == "pv_battery"]
-        pv_only_homes = [e for e in self.all_homes if e["type"] == "pv_only"]
-        battery_only_homes = [e for e in self.all_homes if e["type"] == "battery_only"]
-        if not len(base_homes) == self.config["total_number_homes"] - self.config["homes_battery"] - self.config["homes_pv"] - self.config["homes_pv_battery"]:
-            self.agg_log.logger.error("Incorrect number of base homes.")
+        base_homes = [e for e in self.all_homes if e['type'] == "base"]
+        pv_battery_homes = [e for e in self.all_homes if e['type'] == "pv_battery"]
+        pv_only_homes = [e for e in self.all_homes if e['type'] == "pv_only"]
+        battery_only_homes = [e for e in self.all_homes if e['type'] == "battery_only"]
+        if not len(base_homes) == self.config['community']['total_number_homes'][0] - self.config['community']['homes_battery'][0] - self.config['community']['homes_pv'][0] - self.config['community']['homes_pv_battery'][0]:
+            self.log.logger.error("Incorrect number of base homes.")
             sys.exit(1)
-        elif not len(pv_battery_homes) == self.config["homes_pv_battery"]:
-            self.agg_log.logger.error("Incorrect number of base pv_battery homes.")
+        elif not len(pv_battery_homes) == self.config['community']['homes_pv_battery'][0]:
+            self.log.logger.error("Incorrect number of base pv_battery homes.")
             sys.exit(1)
-        elif not len(pv_only_homes) == self.config["homes_pv"]:
-            self.agg_log.logger.error("Incorrect number of base pv_only homes.")
+        elif not len(pv_only_homes) == self.config['community']['homes_pv'][0]:
+            self.log.logger.error("Incorrect number of base pv_only homes.")
             sys.exit(1)
-        elif not len(battery_only_homes) == self.config["homes_battery"]:
-            self.agg_log.logger.error("Incorrect number of base pv_only homes.")
+        elif not len(battery_only_homes) == self.config['community']['homes_battery'][0]:
+            self.log.logger.error("Incorrect number of base pv_only homes.")
             sys.exit(1)
         else:
-            self.agg_log.logger.info("Homes looking ok!")
+            self.log.logger.info("Homes looking ok!")
 
     def reset_seed(self, new_seed):
         """
@@ -204,7 +303,16 @@ class Aggregator:
         :param new_seed: int
         :return:
         """
-        self.config["random_seed"] = new_seed
+        self.config['simulation']['random_seed'] = new_seed
+
+    def get_homes(self):
+        homes_file = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
+        if not self.config['community']['overwrite_existing'] and os.path.isfile(homes_file):
+            with open(homes_file) as f:
+                self.all_homes = json.load(f)
+        else:
+            self.create_homes()
+        self._check_home_configs()
 
     def create_homes(self):
         """
@@ -214,191 +322,364 @@ class Aggregator:
         """
         # Set seed before sampling.  Will ensure home name and parameters
         # are the same throughout different runs
-        np.random.seed(self.config["random_seed"])
-        random.seed(self.config["random_seed"])
+        np.random.seed(self.config['simulation']['random_seed'])
+        random.seed(self.config['simulation']['random_seed'])
 
         # Define home and HVAC parameters
         home_r_dist = np.random.uniform(
-            self.config["home_hvac_r_dist"][0],
-            self.config["home_hvac_r_dist"][1],
-            self.config["total_number_homes"]
+            self.config['home']['hvac']['r_dist'][0],
+            self.config['home']['hvac']['r_dist'][1],
+            self.config['community']['total_number_homes'][0]
         )
         home_c_dist = np.random.uniform(
-            self.config["home_hvac_c_dist"][0],
-            self.config["home_hvac_c_dist"][1],
-            self.config["total_number_homes"]
+            self.config['home']['hvac']['c_dist'][0],
+            self.config['home']['hvac']['c_dist'][1],
+            self.config['community']['total_number_homes'][0]
         )
         home_hvac_p_cool_dist = np.random.uniform(
-            self.config["home_hvac_p_cool_dist"][0],
-            self.config["home_hvac_p_cool_dist"][1],
-            self.config["total_number_homes"]
+            self.config['home']['hvac']['p_cool_dist'][0],
+            self.config['home']['hvac']['p_cool_dist'][1],
+            self.config['community']['total_number_homes'][0]
         )
         home_hvac_p_heat_dist = np.random.uniform(
-            self.config["home_hvac_p_heat_dist"][0],
-            self.config["home_hvac_p_heat_dist"][1],
-            self.config["total_number_homes"]
+            self.config['home']['hvac']['p_heat_dist'][0],
+            self.config['home']['hvac']['p_heat_dist'][1],
+            self.config['community']['total_number_homes'][0]
         )
+        home_hvac_temp_in_sp_dist = np.random.uniform(
+            self.config['home']['hvac']['temp_sp_dist'][0],
+            self.config['home']['hvac']['temp_sp_dist'][1],
+            self.config['community']['total_number_homes'][0]
+        )
+        home_hvac_temp_in_db_dist = np.random.uniform(
+            self.config['home']['hvac']['temp_deadband_dist'][0],
+            self.config['home']['hvac']['temp_deadband_dist'][1],
+            self.config['community']['total_number_homes'][0]
+        )
+        home_hvac_temp_in_init_pos_dist = np.random.uniform(
+            0.25,
+            0.75,
+            self.config['community']['total_number_homes'][0]
+        )
+        home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
+        home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
+        home_hvac_temp_init = np.add(home_hvac_temp_in_min_dist, np.multiply(home_hvac_temp_in_init_pos_dist, home_hvac_temp_in_db_dist))
 
         # Define water heater parameters
         wh_r_dist = np.random.uniform(
-            self.config["wh_r_dist"][0],
-            self.config["wh_r_dist"][1],
-            self.config["total_number_homes"]
+            self.config['home']['wh']['r_dist'][0],
+            self.config['home']['wh']['r_dist'][1],
+            self.config['community']['total_number_homes'][0]
         )
         wh_c_dist = np.random.uniform(
-            self.config["wh_c_dist"][0],
-            self.config["wh_c_dist"][1],
-            self.config["total_number_homes"]
+            self.config['home']['wh']['c_dist'][0],
+            self.config['home']['wh']['c_dist'][1],
+            self.config['community']['total_number_homes'][0]
         )
         wh_p_dist = np.random.uniform(
-            self.config["wh_p_dist"][0],
-            self.config["wh_p_dist"][1],
-            self.config["total_number_homes"]
+            self.config['home']['wh']['p_dist'][0],
+            self.config['home']['wh']['p_dist'][1],
+            self.config['community']['total_number_homes'][0]
+        )
+        home_wh_temp_sp_dist = np.random.uniform(
+            self.config['home']['wh']['sp_dist'][0],
+            self.config['home']['wh']['sp_dist'][1],
+            self.config['community']['total_number_homes'][0]
+        )
+        home_wh_temp_db_dist = np.random.uniform(
+            self.config['home']['wh']['deadband_dist'][0],
+            self.config['home']['wh']['deadband_dist'][1],
+            self.config['community']['total_number_homes'][0]
+        )
+        home_wh_temp_init_pos_dist = np.random.uniform(
+            0.25,
+            0.75,
+            self.config['community']['total_number_homes'][0]
+        )
+        home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
+        home_wh_temp_max_dist = home_wh_temp_sp_dist + 0.5 * home_wh_temp_db_dist
+        home_wh_temp_init = np.add(home_wh_temp_min_dist, np.multiply(home_wh_temp_init_pos_dist, home_wh_temp_db_dist))
+
+        # define water heater draw events
+        home_wh_size_dist = np.random.uniform(
+            self.config['home']['wh']['size_dist'][0],
+            self.config['home']['wh']['size_dist'][1],
+            self.config['community']['total_number_homes'][0]
         )
 
-        alpha_dist = np.random.uniform(
-            self.config["alpha_beta_dist"][0],
-            self.config["alpha_beta_dist"][1],
-            self.config["total_number_homes"]
-        )
-        beta_dist = np.random.uniform(
-            self.config["alpha_beta_dist"][0],
-            self.config["alpha_beta_dist"][1],
-            self.config["total_number_homes"]
-        )
+        ndays = self.num_timesteps // (24 * self.dt) + 1
+        daily_timesteps = int(24 * self.dt)
+
+        home_wh_all_draw_size_dist = []
+        self.waterdraws_from_csv = True
+        self.waterdraws_file = os.path.join(self.data_dir, '100_Random_Flow_Profiles.csv')
+        self.wh_info_file = os.path.join(self.data_dir, 'site_info.csv')
+        if self.waterdraws_from_csv:
+            waterdraw_df = pd.read_csv(self.waterdraws_file, index_col=0)
+            wh_info_df = pd.read_csv(self.wh_info_file, index_col=0)
+            waterdraw_df.index = pd.to_datetime(waterdraw_df.index, format='%Y-%m-%d %H:%M:%S')
+            sigma = 0.2
+            waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
+            waterdraw_df = waterdraw_df.resample('H').sum()
+            j=0
+            for i in waterdraw_df.columns.values.tolist():
+                if j < self.config['community']['total_number_homes'][0]:
+                    this_house = np.array(waterdraw_df[i])
+                    this_house = np.reshape(this_house, (-1, 24))
+                    this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten()
+                    this_house = np.clip(this_house, 0, home_wh_size_dist[j]) #.tolist()
+                    home_wh_all_draw_size_dist.append(this_house.tolist())
+                    j += 1
+
         all_homes = []
 
         # PV values are constant
         pv = {
-            "area": self.config["pv_area"],
-            "eff": self.config["pv_efficiency"]
+            "area": self.config['home']['pv']['area'],
+            "eff": self.config['home']['pv']['efficiency']
         }
 
         # battery values also constant
         battery = {
-            "max_rate": self.config["battery_max_rate"],
-            "capacity": self.config["battery_capacity"],
-            "capacity_lower": self.config["battery_cap_bounds"][0] * self.config["battery_capacity"],
-            "capacity_upper": self.config["battery_cap_bounds"][1] * self.config["battery_capacity"],
-            "ch_eff": self.config["battery_charge_eff"],
-            "disch_eff": self.config["battery_discharge_eff"]
+            "max_rate": self.config['home']['battery']['max_rate'],
+            "capacity": self.config['home']['battery']['capacity'],
+            "capacity_lower": self.config['home']['battery']['cap_bounds'][0] * self.config['home']['battery']['capacity'],
+            "capacity_upper": self.config['home']['battery']['cap_bounds'][1] * self.config['home']['battery']['capacity'],
+            "ch_eff": self.config['home']['battery']['charge_eff'],
+            "disch_eff": self.config['home']['battery']['discharge_eff'],
+            "batt_cons": self.config['home']['battery']['cons_penalty'],
+            "e_batt_init": np.random.uniform(self.config['home']['battery']['cap_bounds'][0] * self.config['home']['battery']['capacity'],
+                                            self.config['home']['battery']['cap_bounds'][1] * self.config['home']['battery']['capacity'])
         }
+
+        responsive_hems = {
+            "horizon": self.mpc['horizon'],
+            "hourly_agg_steps": self.dt,
+            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
+            "solver": self.config['home']['hems']['solver']
+        }
+
+        non_responsive_hems = {
+            "horizon": 0,
+            "hourly_agg_steps": self.dt,
+            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
+            "solver": self.config['home']['hems']['solver']
+        }
+
+        if not os.path.isdir(os.path.join('home_logs')):
+            os.makedirs('home_logs')
 
         i = 0
         # Define pv and battery homes
-        for _ in range(self.config["homes_pv_battery"]):
+        num_pv_battery_homes = self.config['community']['homes_pv_battery']
+        num_pv_battery_homes = [num_pv_battery_homes] if (num_pv_battery_homes is type(int)) else num_pv_battery_homes
+        num_pv_battery_homes += [0] if (len(num_pv_battery_homes) == 1) else []
+        for j in range(num_pv_battery_homes[0]):
+            if j < num_pv_battery_homes[1]:
+                hems = non_responsive_hems
+            else:
+                hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
+
             all_homes.append({
-                "name": names.get_first_name() + '-' + res,
+                "name": name,
                 "type": "pv_battery",
-                "alpha": alpha_dist[i],
-                "beta": beta_dist[i],
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
                     "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i]
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i]
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    # "draw_times": home_wh_all_draw_timing_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i],
+                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
+                "hems": hems,
                 "battery": battery,
                 "pv": pv
             })
             i += 1
 
         # Define pv only homes
-        for _ in range(self.config["homes_pv"]):
+        num_pv_homes = self.config['community']['homes_pv']
+        num_pv_homes = [num_pv_homes] if (num_pv_homes is type(int)) else num_pv_homes
+        num_pv_homes += [0] if (len(num_pv_homes) == 1) else []
+        for j in range(num_pv_homes[0]):
+            if j < num_pv_homes[1]:
+                hems = non_responsive_hems
+            else:
+                hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
+
             all_homes.append({
-                "name": names.get_first_name() + '-' + res,
+                "name": name,
                 "type": "pv_only",
-                "alpha": alpha_dist[i],
-                "beta": beta_dist[i],
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
                     "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i]
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i]
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    # "draw_times": home_wh_all_draw_timing_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i],
+                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
+                "hems": hems,
                 "pv": pv
             })
             i += 1
 
         # Define battery only homes
-        for _ in range(self.config["homes_battery"]):
+        num_battery_homes = self.config['community']['homes_battery']
+        num_battery_homes = [num_battery_homes] if (num_battery_homes is type(int)) else num_battery_homes
+        num_battery_homes += [0] if (len(num_battery_homes) == 1) else []
+        for j in range(num_battery_homes[0]):
+            if j < num_battery_homes[1]:
+                hems = non_responsive_hems
+            else:
+                hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
+
             all_homes.append({
-                "name": names.get_first_name() + '-' + res,
+                "name": name,
                 "type": "battery_only",
-                "alpha": alpha_dist[i],
-                "beta": beta_dist[i],
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
                     "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i]
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i]
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    # "draw_times": home_wh_all_draw_timing_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i],
+                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
+                "hems": hems,
                 "battery": battery
             })
             i += 1
 
-        base_homes = self.config["total_number_homes"] - self.config["homes_battery"] - self.config["homes_pv"] - self.config["homes_pv_battery"]
-        for _ in range(base_homes):
+        # Define base type homes
+        num_base_homes = np.subtract(np.array(self.config['community']['total_number_homes']), np.array(num_battery_homes))
+        num_base_homes = np.subtract(num_base_homes, np.array(num_pv_battery_homes))
+        num_base_homes = np.subtract(num_base_homes, np.array(num_pv_homes))
+        for j in range(int(num_base_homes[0])):
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
+            if j < num_base_homes[1]:
+                hems = non_responsive_hems
+            else:
+                hems = responsive_hems
+
             all_homes.append({
-                "name": names.get_first_name() + '-' + res,
+                "name": name,
                 "type": "base",
-                "alpha": alpha_dist[i],
-                "beta": beta_dist[i],
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
                     "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i]
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_init[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
                     "c": wh_c_dist[i],
-                    "p": wh_p_dist[i]
-                }
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    # "draw_times": home_wh_all_draw_timing_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i],
+                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
+                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
+                },
+                "hems": hems
             })
             i += 1
 
         self.all_homes = all_homes
-        self._check_home_configs()
+        self.write_home_configs()
+        self.all_homes_obj = []
+        self.max_poss_load = 0
+        self.min_poss_load = 0
+        for home in all_homes:
+            obj = MPCCalc(home)
+            self.all_homes_obj += [obj]
+            self.max_poss_load += obj.max_load
 
     def reset_baseline_data(self):
         self.baseline_agg_load_list = []
         for home in self.all_homes:
             self.baseline_data[home["name"]] = {
                 "type": home["type"],
-                "temp_in_opt": [],
-                "temp_wh_opt": [],
+                "temp_in_sp": home["hvac"]["temp_in_sp"],
+                "temp_wh_sp": home["wh"]["temp_wh_sp"],
+                "temp_in_opt": [home["hvac"]["temp_in_init"]],
+                "temp_wh_opt": [home["wh"]["temp_wh_init"]],
                 "p_grid_opt": [],
+                "forecast_p_grid_opt": [],
                 "p_load_opt": [],
                 "hvac_cool_on_opt": [],
                 "hvac_heat_on_opt": [],
                 "wh_heat_on_opt": [],
                 "cost_opt": [],
+                "waterdraws": [],
+                "correct_solve": []
             }
             if 'pv' in home["type"]:
                 self.baseline_data[home["name"]]["p_pv_opt"] = []
                 self.baseline_data[home["name"]]["u_pv_curt_opt"] = []
             if 'battery' in home["type"]:
-                self.baseline_data[home["name"]]["e_batt_opt"] = []
+                self.baseline_data[home["name"]]["e_batt_opt"] = [home["battery"]["e_batt_init"]]
                 self.baseline_data[home["name"]]["p_batt_ch"] = []
                 self.baseline_data[home["name"]]["p_batt_disch"] = []
 
@@ -406,13 +687,13 @@ class Aggregator:
         """
         Ensure enough data exists in all_data such that MPC calcs can be made throughout
         the requested start and end period.
-        :return:
+        :return: None
         """
         if not self.start_dt >= self.all_data.index[0]:
-            self.agg_log.logger.error("The start datetime must exist in the data provided.")
+            self.log.logger.error("The start datetime must exist in the data provided.")
             sys.exit(1)
-        if not self.end_dt + timedelta(hours=max(self.config["prediction_horizons"])) <= self.all_data.index[-1]:
-            self.agg_log.logger.error("The end datetime + the largest prediction horizon must exist in the data provided.")
+        if not self.end_dt + timedelta(hours=max(self.config['home']['hems']['prediction_horizon'])) <= self.all_data.index[-1]:
+            self.log.logger.error("The end datetime + the largest prediction horizon must exist in the data provided.")
             sys.exit(1)
 
     def calc_start_hour_index(self):
@@ -420,7 +701,7 @@ class Aggregator:
         Since all_data is posted as a list, where 0 corresponds to the first hour in
         the dataframe, the number of hours between the start_dt and the above mentioned
         hour needs to be calculated.
-        :return:
+        :return: None
         """
         start_hour_index = self.start_dt - self.all_data.index[0]
         self.start_hour_index = int(start_hour_index.total_seconds() / 3600)
@@ -428,72 +709,92 @@ class Aggregator:
     def redis_set_initial_values(self):
         """
         Set the initial timestep, iteration, reward price, and horizon to redis
-        :return:
+        :return: None
         """
         self.timestep = 0
-        self.iteration = 0
-        self.reward_price = 0
-        temp_sp = self.config["temp_sp"]
-        wh_sp = self.config["wh_sp"]
-        min_runtime = self.config["min_runtime_mins"]
-        self.e_batt_init = self.config["battery_capacity"] * self.config["battery_cap_bounds"][0]
-        self.redis_client.hset("initial_values", "temp_in_init", self.config["temp_in_init"])
-        self.redis_client.hset("initial_values", "temp_wh_init", self.config["temp_wh_init"])
-        self.redis_client.hset("initial_values", "e_batt_init", self.e_batt_init)
-        self.redis_client.hset("initial_values", "temp_in_min", temp_sp[0])
-        self.redis_client.hset("initial_values", "temp_in_max", temp_sp[1])
-        self.redis_client.hset("initial_values", "temp_wh_min", wh_sp[0])
-        self.redis_client.hset("initial_values", "temp_wh_max", wh_sp[1])
-        self.redis_client.hset("initial_values", "min_runtime_mins", min_runtime)
-        self.redis_client.set("start_hour_index", self.start_hour_index)
-        self.redis_client.hset("current_values", "timestep", self.timestep)
-        self.redis_client.hset("current_values", "iteration", self.iteration)
-        self.redis_client.hset("current_values", "reward_price", self.reward_price)
 
-    def redis_set_state_for_previous_timestep(self):
-        """
-        This is used for the AGG MPC implementation during back and forth iterations with the
-        individual home in order to ensure, regardless of the iteration, the home always solves
-        the problem using the previous states.  The previous optimal vals set by each home after
-        converging need to be reset to reflect previous optimal state.
-        :return:
-        """
-        for home, vals in self.baseline_data.items():
-            for k, v in vals.items():
-                if k == "temp_in_opt":
-                    self.redis_client.hset(home, k, v[-1])
-                elif k == "temp_wh_opt":
-                    self.redis_client.hset(home, k, v[-1])
-                if 'battery' in vals['type'] and k == "e_batt_opt":
-                    self.redis_client.hset(home, k, v[-1])
+        self.e_batt_init = self.config['home']['battery']['capacity'] * self.config['home']['battery']['cap_bounds'][0]
+        self.redis_client.conn.hset("initial_values", "e_batt_init", self.e_batt_init)
+        self.redis_client.conn.set("start_hour_index", self.start_hour_index)
+        self.redis_client.conn.hset("current_values", "timestep", self.timestep)
+
+        if self.case == "rl_agg" or self.case == "simplified":
+            self.reward_price = np.zeros(self.util['rl_agg_horizon'] * self.dt)
+            for val in self.reward_price.tolist():
+                self.redis_client.conn.rpush("reward_price", val)
 
     def redis_add_all_data(self):
         """
         Values for the timeseries data are written to Redis as a list, where the
         column names: [GHI, OAT, SPP] are the redis keys.  Each list is as long
         as the data in self.all_data, which is 8760.
-        :return:
+        :return: None
         """
         for c in self.all_data.columns.to_list():
             data = self.all_data[c]
             for val in data.values.tolist():
-                self.redis_client.rpush(c, val)
+                self.redis_client.conn.rpush(c, val)
 
     def redis_set_current_values(self):
-        self.redis_client.hset("current_values", "timestep", self.timestep)
-        self.redis_client.hset("current_values", "iteration", self.iteration)
-        self.redis_client.hset("current_values", "reward_price", self.reward_price)
+        """
+        Sets the current values of the utility agent (reward price).
+        :return: None
+        """
+        self.redis_client.conn.hset("current_values", "timestep", self.timestep)
+        self.redis_client.conn.hset("current_values", "tracked_rp", self.tracked_reward_price)
 
-    def update_reward_price(self):
-        rp = self.reward_price + self.step_size_coeff * self.marginal_demand
-        return rp
+        if self.case == "rl_agg" or self.case == "simplified":
+            self.all_sps[self.timestep-1] = self.agg_setpoint
+            self.all_rps[self.timestep-1] = self.reward_price[0]
+            for i in range(len(self.reward_price)):
+                self.redis_client.conn.lpop("reward_price")
+                self.redis_client.conn.rpush("reward_price", self.reward_price[i])
 
-    def set_baseline_initial_vals(self):
-        for home in self.all_homes:
-            self.baseline_data[home["name"]]["temp_in_opt"].append(self.config["temp_in_init"])
-            self.baseline_data[home["name"]]["temp_wh_opt"].append(self.config["temp_wh_init"])
-            if 'battery' in home["type"]:
-                self.baseline_data[home["name"]]["e_batt_opt"].append(self.config["battery_cap_bounds"][0] * self.config["battery_capacity"])
+    # def rl_update_reward_price(self):
+    #     """
+    #     Updates the reward price signal vector sent to the demand response community.
+    #     :return:
+    #     """
+    #     self.reward_price[:-1] = self.reward_price[1:]
+    #     self.reward_price[-1] = self.action/100
+
+    # def _threaded_forecast(self):
+    #     pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
+    #     results = pool.map(manage_home_forecast, self.as_list)
+    #
+    #     pad = len(max(results, key=len))
+    #     results = np.array([i + [0] * (pad - len(i)) for i in results])
+    #     return results
+
+    def _gen_forecast(self):
+        """
+        Forecasts the anticipated energy consumption at each timestep through
+        the MPCCalc class. Uses the predetermined reward price signal + a reward
+        price of 0 for any unforecasted reward price signals.
+        :return: list of type float
+        """
+        results = self._threaded_forecast()
+        return np.sum(results, axis=0)
+
+    def _gen_setpoint(self, time):
+        """
+        Generates the setpoint of the RL utility. Dynamically sized for the
+        number of houses in the community.
+        :return: float
+        @kyri
+        """
+        self.tracked_loads[:-1] = self.tracked_loads[1:]
+        self.tracked_loads[-1] = self.agg_load
+        self.avg_load = np.average(self.tracked_loads)
+        if self.agg_load > self.max_load or self.timestep % 24 == 0:
+            self.max_load = self.agg_load
+        if self.agg_load < self.min_load or self.timestep % 24 == 0:
+            self.min_load = self.agg_load
+        # sp = self.max_load
+        sp = self.avg_load
+        # print("calcing setpoint")
+        # sp = 30
+        return sp
 
     def check_baseline_vals(self):
         for home, vals in self.baseline_data.items():
@@ -504,111 +805,172 @@ class Aggregator:
             if home in homes_to_check:
                 for k, v2 in vals.items():
                     if k in ["temp_in_opt", "temp_wh_opt", "e_batt_opt"] and len(v2) != self.hours + 1:
-                        self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
+                        self.log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
                     elif len(v2) != self.hours:
-                        self.agg_log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
+                        self.log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
 
-    def run_iteration(self, horizon=1):
-        worker = MPCCalc(self.queue, horizon)
-        worker.run()
+    def run_iteration(self):
+        """
+        Calls the MPCCalc class to calculate the control sequence and power demand
+        from all homes in the community. Threaded, using pathos
+        :return: None
+        """
+        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
+        results = pool.map(manage_home, self.as_list)
 
-        # Block in Queue until all tasks are done
-        self.queue.join()
+        self.thermal_trend = self.oat[self.timestep + 4] - self.oat[self.timestep]
+        day_of_year = self.timestep // (self.dt * 24)
+        self.max_daily_temp = max(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.min_daily_temp = min(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.max_daily_ghi = max(self.ghi[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
 
-        self.agg_log.logger.info("Workers complete")
-        self.agg_log.logger.info(f"Number of threads: {threading.active_count()}")
-        self.agg_log.logger.info(f"Length of queue: {self.queue.qsize()}")
+        self.timestep += 1
 
     def collect_data(self):
+        """
+        Collects the data passed by the community redis connection.
+        :return: None
+        """
         agg_load = 0
+        agg_cost = 0
+        self.house_load = []
+        self.forecast_house_load = []
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
-                vals = self.redis_client.hgetall(home["name"])
+                vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
-                    self.baseline_data[home["name"]][k].append(float(v))
-                agg_load += float(vals["p_grid_opt"])
-        self.agg_load = agg_load
-        self.baseline_agg_load_list.append(agg_load)
+                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws", "correct_solve"]
+                    if 'pv' in home["type"]:
+                        opt_keys += ['p_pv_opt','u_pv_curt_opt']
+                    if 'battery' in home["type"]:
+                        opt_keys += ['p_batt_ch', 'p_batt_disch', 'e_batt_opt']
+                    if k in opt_keys:
+                        self.baseline_data[home["name"]][k].append(float(v))
+                self.house_load.append(float(vals["p_grid_opt"]))
+                self.forecast_house_load.append(float(vals["forecast_p_grid_opt"]))
+                agg_cost += float(vals["cost_opt"])
+        self.agg_load = np.sum(self.house_load)
+        self.forecast_load = np.sum(self.forecast_house_load)
+        self.agg_cost = agg_cost
+        self.baseline_agg_load_list.append(self.agg_load)
+        print("collected", self.agg_load)
+        self.agg_setpoint = self._gen_setpoint(self.timestep)
 
-    def check_agg_mpc_data(self):
-        self.agg_load = 0
-        self.agg_cost = 0
-        for home in self.all_homes:
-            if self.check_type == 'all' or home["type"] == self.check_type:
-                vals = self.redis_client.hgetall(home["name"])
-                self.agg_load += float(vals["p_grid_opt"])
-                self.agg_cost += float(vals["cost_opt"])
-        self.marginal_demand = max(self.agg_load - self.max_load_threshold, 0)
-        self.agg_log.logger.info(f"Aggregate Load: {self.agg_load:.20f}")
-        self.agg_log.logger.info(f"Max Threshold: {self.max_load_threshold:.20f}")
-        self.agg_log.logger.info(f"Marginal Demand: {self.marginal_demand:.20f}")
-        if self.marginal_demand == 0:
-            self.converged = True
-
-    def update_agg_mpc_data(self):
-        self.agg_mpc_data[self.timestep]["reward_price"].append(self.reward_price)
-        self.agg_mpc_data[self.timestep]["agg_cost"].append(self.agg_cost)
-        self.agg_mpc_data[self.timestep]["agg_load"].append(self.agg_load)
-
-    def run_baseline(self, horizon=1):
-        self.agg_log.logger.info(f"Performing baseline run for horizon: {horizon}")
+    def run_baseline(self):
+        """
+        Runs the baseline simulation comprised of community of HEMS controlled homes.
+        Utilizes MPC parameters specified in config file.
+        (For no MPC in HEMS specify the MPC prediction horizon as 0.)
+        :return: None
+        """
+        self.log.logger.info(f"Performing baseline run for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
-        for hour in range(self.hours):
-            for home in self.all_homes:
-                if self.check_type == "all" or home["type"] == self.check_type:
-                    self.queue.put(home)
+
+        self.as_list = []
+        for home in self.all_homes_obj:
+            if self.check_type == "all" or home.type == self.check_type:
+                self.as_list += [home]
+        for t in range(self.num_timesteps):
             self.redis_set_current_values()
-            self.run_iteration(horizon)
+            self.run_iteration()
             self.collect_data()
-            self.timestep += 1
-        # Write
+
+            if (t+1) % (self.checkpoint_interval) == 0: # weekly checkpoint
+                self.log.logger.info("Creating a checkpoint file.")
+                self.write_outputs()
+
+    def summarize_baseline(self):
+        """
+        Get the maximum of the aggregate demand for each simulation.
+        :return: None
+        """
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {horizon}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
-        self.check_baseline_vals()
+        self.log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
-    def summarize_baseline(self, horizon=1):
-        """
-        Get the maximum of the aggregate demand
-        :return:
-        """
         self.max_agg_load = max(self.baseline_agg_load_list)
-        # self.max_agg_load_threshold = self.max_agg_load * self.max_load_threshold
         self.max_agg_load_list.append(self.max_agg_load)
-        # self.max_agg_load_threshold_list.append(self.max_agg_load_threshold)
 
-        self.agg_log.logger.info(f"Max load list: {self.max_agg_load_list}")
+        # self.log.logger.info(f"Max load list: {self.max_agg_load_list}")
         self.baseline_data["Summary"] = {
+            "case": self.case,
             "start_datetime": self.start_dt.strftime('%Y-%m-%d %H'),
             "end_datetime": self.end_dt.strftime('%Y-%m-%d %H'),
             "solve_time": self.t_diff.total_seconds(),
-            "horizon": horizon,
-            "num_homes": self.config['total_number_homes'],
+            "horizon": self.mpc['horizon'],
+            "num_homes": self.config['community']['total_number_homes'],
             "p_max_aggregate": self.max_agg_load,
-            # "p_max_aggregate_threshold": self.max_agg_load_threshold,
             "p_grid_aggregate": self.baseline_agg_load_list,
-            "SPP": self.all_data.loc[self.mask, "SPP"].values.tolist(),
+            # "SPP": self.all_data.loc[self.mask, "SPP"].values.tolist(),
             "OAT": self.all_data.loc[self.mask, "OAT"].values.tolist(),
             "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist(),
+            "TOU": self.all_data.loc[self.mask, "tou"].values.tolist(),
+            "RP": self.all_rps.tolist(),
+            "p_grid_setpoint": self.all_sps.tolist(),
+            "rl_rewards": self.all_rewards
         }
 
-    def write_outputs(self, horizon, case="baseline"):
-        # Write values for baseline run to file
-        bf = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}-{case}_{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-results.json")
-        with open(bf, 'w+') as f:
+    def write_outputs(self, inc_rl_agents=True):
+        """
+        Writes values for simulation run to a json file for later reference. Is
+        called at the end of the simulation run period and optionally at a checkpoint period.
+        :return: None
+        """
+        self.summarize_baseline()
+
+        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}_{self.dt_interval}-{self.dt_interval // self.config['home']['hems']['sub_subhourly_steps'][0]}")
+        if not os.path.isdir(date_output):
+            os.makedirs(date_output)
+
+        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes'][0]}-horizon_{self.mpc['horizon']}-interval_{self.dt_interval // self.config['home']['hems']['sub_subhourly_steps'][0]}")
+        if not os.path.isdir(mpc_output):
+            os.makedirs(mpc_output)
+
+        agg_output = os.path.join(mpc_output, f"{self.case}")
+        if not os.path.isdir(agg_output):
+            os.makedirs(agg_output)
+
+        if self.case == "baseline":
+            run_name = f"{self.case}_version-{self.version}-results.json"
+            file = os.path.join(agg_output, run_name)
+
+        else: # self.case == "rl_agg" or self.case == "simplified"
+            run_name = f"agg_horizon_{self.util['rl_agg_horizon']}-interval_{self.dt_interval}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.rl_params['batch_size']}_version-{self.version}"
+            run_dir = os.path.join(agg_output, run_name)
+            if not os.path.isdir(run_dir):
+                os.makedirs(run_dir)
+            if inc_rl_agents:
+                q_data = {}
+                for agent in self.rl_agents:
+                    q_data[agent.name] = agent.rl_data
+                q_file = os.path.join(agg_output, run_name, "q-results.json")
+                with open(q_file, 'w+') as f:
+                    json.dump(q_data, f, indent=4)
+            rewards_data_file = os.path.join(agg_output, run_name, "rewards.json")
+
+            file = os.path.join(agg_output, run_name, "results.json")
+
+        with open(file, 'w+') as f:
             json.dump(self.baseline_data, f, indent=4)
-        if case == "agg_mpc":
-            f2 = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}-{case}_{self.check_type}-homes_{self.config['total_number_homes']}-horizon_{horizon}-iter-results.json")
-            with open(f2, 'w+') as f:
-                json.dump(self.agg_mpc_data, f, indent=4)
+        with open(rewards_data_file, 'w+') as f:
+            json.dump(self.all_rewards, f, indent=4)
+        self.log.logger.warn(f"Writing to {rewards_data_file}")
 
     def write_home_configs(self):
-        # Write all home configurations to file
-        ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['total_number_homes']}-config.json")
+        """
+        Writes all home configurations to file at the initialization of the
+        simulation for later reference.
+        :return: None
+        """
+        ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes'][0]}-config.json")
         with open(ah, 'w+') as f:
             json.dump(self.all_homes, f, indent=4)
 
     def set_agg_mpc_initial_vals(self):
+        """
+        Creates a dictionary to store values at each timestep for non-RL runs.
+        :return: Dictionary
+        """
         temp = []
         for h in range(self.hours):
             temp.append({
@@ -619,82 +981,221 @@ class Aggregator:
             })
         return temp
 
-    def run_agg_mpc(self, horizon):
-        self.agg_log.logger.info(f"Performing AGG MPC run for horizon: {horizon}")
+    def set_dummy_rl_parameters(self):
+        self.tracked_loads = self.config['community']['house_p_avg']*self.config['community']['total_number_homes'][0]*np.ones(12)
+        self.mpc = self.mpc_permutations[0]
+        self.util = self.util_permutations[0]
+        self.rl_params = self.rl_permutations[0]
+        self.version = self.versions[0]
+
+    def setup_rl_agg_run(self):
+        self.flush_redis()
+
+        self.as_list = []
+        for home in self.all_homes_obj:
+            if self.check_type == "all" or home["type"] == self.check_type:
+                self.as_list += [home]
+
+        self.log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.mpc['horizon']}")
         self.start_time = datetime.now()
-        self.agg_mpc_data = self.set_agg_mpc_initial_vals()
-        for hour in range(self.hours):
-            self.converged = False
-            while True:
-                for home in self.all_homes:
-                    if self.check_type == "all" or home["type"] == self.check_type:
-                        self.queue.put(home)
-                self.redis_set_current_values()
-                self.run_iteration(horizon)
-                self.check_agg_mpc_data()
-                self.update_agg_mpc_data()
-                if self.converged:
-                    self.agg_log.logger.info(f"Converged for ts: {self.timestep} after iter: {self.iteration}")
-                    break
-                self.reward_price = self.update_reward_price()
-                self.iteration += 1
-                self.agg_log.logger.info(f"Not converged for ts: {self.timestep}; iter: {self.iteration}; rp: {self.reward_price:.20f}")
-                # time.sleep(5)
-                if hour > 0:
-                    self.redis_set_state_for_previous_timestep()
+
+        self.actionspace = self.config['rl']['utility']['action_space']
+        self.baseline_agg_load_list = [0]
+        self.all_rewards = []
+
+        self.forecast_load = [3*len(self.all_homes_obj)]
+        self.prev_forecast_load = self.forecast_load
+        self.forecast_setpoint = self._gen_setpoint(self.timestep)
+        self.agg_load = self.forecast_load[0] # approximate load for initial timestep
+        self.agg_setpoint = self._gen_setpoint(self.timestep)
+
+        self.redis_set_current_values()
+
+    def run_rl_agg(self):
+        """
+        Runs simulation with the RL aggregator agent(s) to determine the reward
+        price signal.
+        :return: None
+        """
+        self.setup_rl_agg_run()
+
+        self.num_agents = 2
+        self.rl_agents = [HorizonAgent(self.rl_params, self.rlagent_log)]
+        for i in range(self.num_agents-1):
+            self.rl_agents += [NextTSAgent(self.rl_params, self.rlagent_log, i)] # nexttsagent has a smaller actionspace and a correspondingly smaller exploration rate
+
+        for t in range(self.num_timesteps):
+            self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
+            self.prev_forecast_load = self.forecast_load
+            self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
+
+            self.run_iteration()
             self.collect_data()
-            self.iteration = 0
-            self.reward_price = 0
-            self.timestep += 1
-        # Write
+
+            # self.reward_price[:-1] = self.reward_price[1:]
+            # self.reward_price[-1] = 0
+            # self.reward_price[1] = self.rl_agents[0].train(self) / self.config['rl']['utility']['action_scale']
+            # self.redis_set_current_values()
+            self.forecast_load = self._gen_forecast()
+            self.reward_price[0] = self.rl_agents[-1].train(self)
+            # self.reward_price = np.clip(self.reward_price, self.actionspace[0], self.actionspace[1])
+            # # version 6.0 = predict change in both RPs at once
+            # self.reward_price[:2] = self.rl_agent.train(self) / self.config['rl']['utility']['action_scale']
+            # self.reward_price = np.clip(self.reward_price, self.actionspace[0], self.actionspace[1])
+
+            self.redis_set_current_values() # broadcast rl price to community
+
+            if t > 0 and t % (self.checkpoint_interval) == 0: # weekly checkpoint
+                self.log.logger.info("Creating a checkpoint file.")
+                self.write_outputs()
+
         self.end_time = datetime.now()
         self.t_diff = self.end_time - self.start_time
-        self.agg_log.logger.info(f"Horizon: {horizon}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
-        self.check_baseline_vals()
+        self.log.logger.info(f"Horizon: {self.mpc['horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
 
-    def run(self):
-        self.agg_log.logger.info("Made it to Aggregator Run")
-        self.create_homes()
-        self.write_home_configs()
+    def test_response(self):
+        """
+        Tests the RL agent using a linear model of the community's response
+        to changes in the reward price.
+        :return: None
+        @kyri
+        """
+        c = self.config['rl']['simplified']['response_rate']
+        k = self.config['rl']['simplified']['offset']
+        if self.timestep == 0:
+            self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
+        self.agg_load = self.agg_load - c * self.reward_price[0] * (self.agg_setpoint - self.agg_load)
+        self.agg_cost = self.agg_load * self.reward_price[0]
+        self.log.logger.info(f"Iteration {self.timestep} finished. Aggregate load {self.agg_load}")
+        self.timestep += 1
 
-        # Flush redis to ensure no data exists
-        self.redis_client.flushall()
-        self.agg_log.logger.info("Flushing Redis")
+    def run_rl_agg_simplified(self):
+        """
+        Runs a simplified community response to the reward price signal. Used to
+        validate the RL agent model.
+        :return: None
+        """
+        # self.mpc['discomfort'] = self.config['home']['hems']['discomfort'][0]
+        self.log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with simplified community model.")
+        self.start_time = datetime.now()
+
+        self.actionspace = self.config['rl']['utility']['action_space']
+        self.baseline_agg_load_list = [0]
+
+        self.forecast_setpoint = self._gen_setpoint(self.timestep)
+        self.forecast_load = [self.forecast_setpoint]
+        self.prev_forecast_load = self.forecast_load
+
+        self.agg_load = self.forecast_load[0] # approximate load for initial timestep
+        self.agg_setpoint = self._gen_setpoint(self.timestep)
+
+        horizon_agent = HorizonAgent(self.rl_params, self.rlagent_log)
+        # next_timestep_agent = NextTSAgent(self.rl_params, self.rlagent_log)
+        self.rl_agents = [horizon_agent]
+
+        for t in range(self.num_timesteps):
+            self.agg_setpoint = self._gen_setpoint(self.timestep // self.dt)
+            self.prev_forecast_load = self.forecast_load
+            self.forecast_load = [self.agg_load] # forecast current load at next timestep
+            self.forecast_setpoint = self._gen_setpoint(self.timestep + 1)
+
+            self.redis_set_current_values() # broadcast rl price to community
+            self.test_response()
+            self.baseline_agg_load_list.append(self.agg_load)
+
+            self.reward_price[:-1] = self.reward_price[1:]
+            self.reward_price[-1] = horizon_agent.train(self) / self.config['rl']['utility']['action_scale']
+
+        self.end_time = datetime.now()
+        self.t_diff = self.end_time - self.start_time
+        self.log.logger.info(f"Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+
+    def flush_redis(self):
+        """
+        Cleans all information stored in the Redis server. (Including environmental
+        data.)
+        :return: None
+        """
+        self.redis_client.conn.flushall()
+        self.log.logger.info("Flushing Redis")
         time.sleep(1)
         self.check_all_data_indices()
         self.calc_start_hour_index()
         self.redis_add_all_data()
+        self.redis_set_initial_values()
 
-        if self.config["run_baseline"]:
-            # Run baseline - no MPC, no aggregator
-            horizon = 1
-            self.redis_set_initial_values()
-            self.reset_baseline_data()
-            self.set_baseline_initial_vals()
-            self.run_baseline(horizon)
-            self.summarize_baseline(horizon)
-            self.write_outputs(horizon)
+    def set_value_permutations(self):
+        mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems']['prediction_horizon']]}
+        keys, values = zip(*mpc_parameters.items())
+        self.mpc_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
 
-        if self.config["run_rbo_mpc"]:
+        util_parameters = {"rl_agg_horizon": [int(i) for i in self.config['rl']['utility']['rl_agg_action_horizon']]}
+        keys, values = zip(*util_parameters.items())
+        self.util_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+
+        rl_parameters = {"alpha": [float(i) for i in self.config['rl']['parameters']['learning_rate']],
+                            "beta": [float(i) for i in self.config['rl']['parameters']['discount_factor']],
+                            "epsilon": [float(i) for i in self.config['rl']['parameters']['exploration_rate']],
+                            "batch_size": [int(i) for i in self.config['rl']['parameters']['batch_size']],
+                            "twin_q": [self.config['rl']['parameters']['twin_q']]
+                            }
+        keys, values = zip(*rl_parameters.items())
+        self.rl_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
+
+        self.versions = self.config['rl']['version']
+
+    def run(self):
+        """
+        Runs simulation(s) specified in the config file with all combinations of
+        parameters specified in the config file.
+        :return: None
+        """
+        self.log.logger.info("Made it to Aggregator Run")
+
+        self.checkpoint_interval = 500 # default to checkpoints every 1000 timesteps
+        if self.config['simulation']['checkpoint_interval'] == 'hourly':
+            self.checkpoint_interval = self.dt
+        elif self.config['simulation']['checkpoint_interval'] == 'daily':
+            self.checkpoint_interval = self.dt * 24
+        elif self.config['simulation']['checkpoint_interval'] == "weekly":
+            self.checkpoint_interval = self.dt * 24 * 7
+
+        self.set_value_permutations()
+
+        if self.config['simulation']['run_rbo_mpc']:
             # Run baseline MPC with N hour horizon, no aggregator
-            for h in self.config["prediction_horizons"]:
-                self.redis_set_initial_values()
-                self.reset_baseline_data()
-                self.set_baseline_initial_vals()
-                self.run_baseline(h)
-                self.summarize_baseline(h)
-                self.write_outputs(h)
+            # Run baseline with 1 hour horizon for non-MPC HEMS
+            self.case = "baseline" # no aggregator
+            for self.mpc in self.mpc_permutations:
+                for self.version in self.versions:
+                    self.flush_redis()
+                    self.get_homes()
+                    self.reset_baseline_data()
+                    self.run_baseline()
+                    self.write_outputs()
 
-        if self.config["run_agg_mpc"]:
-            horizon = self.config["agg_mpc_horizon"]
-            for threshold in self.config["max_load_threshold"]:
-                self.max_load_threshold = threshold
-                self.redis_set_initial_values()
-                self.reset_baseline_data()
-                self.set_baseline_initial_vals()
-                self.run_agg_mpc(horizon)
-                self.summarize_baseline(horizon)
-                self.write_outputs(horizon, case="agg_mpc")
+        if self.config['simulation']['run_rl_agg']:
+            self.case = "rl_agg"
 
-        #     self.redis_set_initial_values()
-        #     self.run_mpc(h)
+            for self.mpc in self.mpc_permutations:
+                for self.util in self.util_permutations:
+                    for self.rl_params in self.rl_permutations:
+                        for self.version in self.versions:
+                            self.flush_redis()
+                            self.get_homes()
+                            self.reset_baseline_data()
+                            self.run_rl_agg()
+                            self.write_outputs()
+
+        if self.config['simulation']['run_rl_simplified']:
+            self.case = "simplified"
+            self.all_homes = []
+
+            for self.mpc in self.mpc_permutations:
+                for self.util in self.util_permutations:
+                    for self.rl_params in self.rl_permutations:
+                        for self.version in self.versions:
+                            self.flush_redis()
+                            self.reset_baseline_data()
+                            self.run_rl_agg_simplified()
+                            self.write_outputs()
