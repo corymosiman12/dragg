@@ -731,6 +731,7 @@ class Aggregator:
         :return: None
         """
         for c in self.all_data.columns.to_list():
+            self.redis_client.conn.delete(c)
             data = self.all_data[c]
             for val in data.values.tolist():
                 self.redis_client.conn.rpush(c, val)
@@ -781,7 +782,6 @@ class Aggregator:
         Generates the setpoint of the RL utility. Dynamically sized for the
         number of houses in the community.
         :return: float
-        @kyri
         """
         self.tracked_loads[:-1] = self.tracked_loads[1:]
         self.tracked_loads[-1] = self.agg_load
@@ -934,7 +934,7 @@ class Aggregator:
             run_name = f"{self.case}_version-{self.version}-results.json"
             file = os.path.join(agg_output, run_name)
 
-        else: # self.case == "rl_agg" or self.case == "simplified"
+        else:
             run_name = f"agg_horizon_{self.util['rl_agg_horizon']}-interval_{self.dt_interval}-alpha_{self.rl_params['alpha']}-epsilon_{self.rl_params['epsilon']}-beta_{self.rl_params['beta']}_batch-{self.rl_params['batch_size']}_version-{self.version}"
             run_dir = os.path.join(agg_output, run_name)
             if not os.path.isdir(run_dir):
@@ -1058,7 +1058,6 @@ class Aggregator:
         Tests the RL agent using a linear model of the community's response
         to changes in the reward price.
         :return: None
-        @kyri
         """
         c = self.config['rl']['simplified']['response_rate']
         k = self.config['rl']['simplified']['offset']
@@ -1075,7 +1074,6 @@ class Aggregator:
         validate the RL agent model.
         :return: None
         """
-        # self.mpc['discomfort'] = self.config['home']['hems']['discomfort'][0]
         self.log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with simplified community model.")
         self.start_time = datetime.now()
 
