@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import os
 import numpy as np
 import cvxpy as cp
@@ -277,11 +280,10 @@ class MPCCalc:
         # Define constants
         self.batt_max_rate = cp.Constant(float(self.home["battery"]["max_rate"]))
         self.batt_cap_total = cp.Constant(float(self.home["battery"]["capacity"]))
-        self.batt_cap_min = cp.Constant(float(self.home["battery"]["capacity_lower"]))
-        self.batt_cap_max = cp.Constant(float(self.home["battery"]["capacity_upper"]))
+        self.batt_cap_min = cp.Constant(float(self.home["battery"]["capacity_lower"]) * self.batt_cap_total.value)
+        self.batt_cap_max = cp.Constant(float(self.home["battery"]["capacity_upper"]) * self.batt_cap_total.value)
         self.batt_ch_eff = cp.Constant(float(self.home["battery"]["ch_eff"]))
         self.batt_disch_eff = cp.Constant(float(self.home["battery"]["disch_eff"]))
-        self.batt_cons = cp.Constant(float(self.home["battery"]["batt_cons"]))
 
         # Define battery optimization variables
         self.p_batt_ch = cp.Variable(self.horizon)
@@ -309,7 +311,7 @@ class MPCCalc:
             self.temp_wh_init = cp.Constant((self.t_wh_init*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
 
             if 'battery' in self.type:
-                self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]))
+                self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]) * self.batt_cap_total.value)
                 self.p_batt_ch_init = cp.Constant(0)
 
             self.counter = 0

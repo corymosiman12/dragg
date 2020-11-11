@@ -1,3 +1,6 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import os
 import sys
 import threading
@@ -421,36 +424,14 @@ class Aggregator:
             sigma = 0.2
             waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
             waterdraw_df = waterdraw_df.resample('H').sum()
-            j=0
-            for i in waterdraw_df.columns.values.tolist():
-                if j < self.config['community']['total_number_homes'][0]:
-                    this_house = np.array(waterdraw_df[i])
-                    this_house = np.reshape(this_house, (-1, 24))
-                    this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten()
-                    this_house = np.clip(this_house, 0, home_wh_size_dist[j]) #.tolist()
-                    home_wh_all_draw_size_dist.append(this_house.tolist())
-                    j += 1
+            for j in range(self.config['community']['total_number_homes'][0]):
+                this_house = waterdraw_df.sample(axis='columns').values
+                this_house = np.reshape(this_house, (-1, 24))
+                this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten()
+                this_house = np.clip(this_house, 0, home_wh_size_dist[j]) #.tolist()
+                home_wh_all_draw_size_dist.append(this_house.tolist())
 
         all_homes = []
-
-        # PV values are constant
-        pv = {
-            "area": self.config['home']['pv']['area'],
-            "eff": self.config['home']['pv']['efficiency']
-        }
-
-        # battery values also constant
-        battery = {
-            "max_rate": self.config['home']['battery']['max_rate'],
-            "capacity": self.config['home']['battery']['capacity'],
-            "capacity_lower": self.config['home']['battery']['cap_bounds'][0] * self.config['home']['battery']['capacity'],
-            "capacity_upper": self.config['home']['battery']['cap_bounds'][1] * self.config['home']['battery']['capacity'],
-            "ch_eff": self.config['home']['battery']['charge_eff'],
-            "disch_eff": self.config['home']['battery']['discharge_eff'],
-            "batt_cons": self.config['home']['battery']['cons_penalty'],
-            "e_batt_init": np.random.uniform(self.config['home']['battery']['cap_bounds'][0] * self.config['home']['battery']['capacity'],
-                                            self.config['home']['battery']['cap_bounds'][1] * self.config['home']['battery']['capacity'])
-        }
 
         responsive_hems = {
             "horizon": self.mpc['horizon'],
@@ -482,6 +463,23 @@ class Aggregator:
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
 
+            battery = {
+                "max_rate": np.random.uniform(self.config['home']['battery']['max_rate'][0], self.config['home']['battery']['max_rate'][1]),
+                "capacity": np.random.uniform(self.config['home']['battery']['capacity'][0], self.config['home']['battery']['capacity'][1]),
+                "capacity_lower": np.random.uniform(self.config['home']['battery']['lower_bound'][0], self.config['home']['battery']['lower_bound'][1]),
+                "capacity_upper": np.random.uniform(self.config['home']['battery']['upper_bound'][0], self.config['home']['battery']['upper_bound'][1]),
+                "ch_eff": np.random.uniform(self.config['home']['battery']['charge_eff'][0], self.config['home']['battery']['charge_eff'][1]),
+                "disch_eff": np.random.uniform(self.config['home']['battery']['discharge_eff'][0], self.config['home']['battery']['discharge_eff'][1]),
+                "e_batt_init": np.random.uniform(self.config['home']['battery']['lower_bound'][1], self.config['home']['battery']['upper_bound'][0])
+            }
+
+            pv = {
+                "area": np.random.uniform(self.config['home']['pv']['area'][0],
+                                        self.config['home']['pv']['area'][1]),
+                "eff": np.random.uniform(self.config['home']['pv']['efficiency'][0],
+                                        self.config['home']['pv']['efficiency'][1])
+            }
+
             all_homes.append({
                 "name": name,
                 "type": "pv_battery",
@@ -504,10 +502,7 @@ class Aggregator:
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
-                    # "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i],
-                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
-                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "battery": battery,
@@ -526,6 +521,13 @@ class Aggregator:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
+
+            pv = {
+                "area": np.random.uniform(self.config['home']['pv']['area'][0],
+                                        self.config['home']['pv']['area'][1]),
+                "eff": np.random.uniform(self.config['home']['pv']['efficiency'][0],
+                                        self.config['home']['pv']['efficiency'][1])
+            }
 
             all_homes.append({
                 "name": name,
@@ -549,10 +551,7 @@ class Aggregator:
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
-                    # "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i],
-                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
-                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "pv": pv
@@ -570,6 +569,16 @@ class Aggregator:
                 hems = responsive_hems
             res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
             name = names.get_first_name() + '-' + res
+
+            battery = {
+                "max_rate": np.random.uniform(self.config['home']['battery']['max_rate'][0], self.config['home']['battery']['max_rate'][1]),
+                "capacity": np.random.uniform(self.config['home']['battery']['capacity'][0], self.config['home']['battery']['capacity'][1]),
+                "capacity_lower": np.random.uniform(self.config['home']['battery']['lower_bound'][0], self.config['home']['battery']['lower_bound'][1]),
+                "capacity_upper": np.random.uniform(self.config['home']['battery']['upper_bound'][0], self.config['home']['battery']['upper_bound'][1]),
+                "ch_eff": np.random.uniform(self.config['home']['battery']['charge_eff'][0], self.config['home']['battery']['charge_eff'][1]),
+                "disch_eff": np.random.uniform(self.config['home']['battery']['discharge_eff'][0], self.config['home']['battery']['discharge_eff'][1]),
+                "e_batt_init": np.random.uniform(self.config['home']['battery']['lower_bound'][1], self.config['home']['battery']['upper_bound'][0])
+            }
 
             all_homes.append({
                 "name": name,
@@ -593,10 +602,7 @@ class Aggregator:
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
-                    # "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i],
-                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
-                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems,
                 "battery": battery
@@ -637,10 +643,7 @@ class Aggregator:
                     "temp_wh_sp": home_wh_temp_sp_dist[i],
                     "temp_wh_init": home_wh_temp_init[i],
                     "tank_size": home_wh_size_dist[i],
-                    # "draw_times": home_wh_all_draw_timing_dist[i],
                     "draw_sizes": home_wh_all_draw_size_dist[i],
-                    # "typ_big_draw_times": home_wh_typ_big_draw_timing_dist[i],
-                    # "typ_big_draw_size": home_wh_typ_big_draw_size_dist[i],
                 },
                 "hems": hems
             })
@@ -713,8 +716,8 @@ class Aggregator:
         """
         self.timestep = 0
 
-        self.e_batt_init = self.config['home']['battery']['capacity'] * self.config['home']['battery']['cap_bounds'][0]
-        self.redis_client.conn.hset("initial_values", "e_batt_init", self.e_batt_init)
+        # self.e_batt_init = self.config['home']['battery']['capacity'] * self.config['home']['battery']['cap_bounds'][0]
+        # self.redis_client.conn.hset("initial_values", "e_batt_init", self.e_batt_init)
         self.redis_client.conn.set("start_hour_index", self.start_hour_index)
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
 
@@ -727,14 +730,12 @@ class Aggregator:
         """
         Values for the timeseries data are written to Redis as a list, where the
         column names: [GHI, OAT, SPP] are the redis keys.  Each list is as long
-        as the data in self.all_data, which is 8760.
+        as the data in self.all_data, which is 8760 for default config file.
         :return: None
         """
         for c in self.all_data.columns.to_list():
             self.redis_client.conn.delete(c)
-            data = self.all_data[c]
-            for val in data.values.tolist():
-                self.redis_client.conn.rpush(c, val)
+            self.redis_client.conn.rpush(c, *self.all_data[c].values.tolist())
 
     def redis_set_current_values(self):
         """
@@ -750,22 +751,6 @@ class Aggregator:
             for i in range(len(self.reward_price)):
                 self.redis_client.conn.lpop("reward_price")
                 self.redis_client.conn.rpush("reward_price", self.reward_price[i])
-
-    # def rl_update_reward_price(self):
-    #     """
-    #     Updates the reward price signal vector sent to the demand response community.
-    #     :return:
-    #     """
-    #     self.reward_price[:-1] = self.reward_price[1:]
-    #     self.reward_price[-1] = self.action/100
-
-    # def _threaded_forecast(self):
-    #     pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-    #     results = pool.map(manage_home_forecast, self.as_list)
-    #
-    #     pad = len(max(results, key=len))
-    #     results = np.array([i + [0] * (pad - len(i)) for i in results])
-    #     return results
 
     def _gen_forecast(self):
         """
@@ -790,10 +775,7 @@ class Aggregator:
             self.max_load = self.agg_load
         if self.agg_load < self.min_load or self.timestep % 24 == 0:
             self.min_load = self.agg_load
-        # sp = self.max_load
         sp = self.avg_load
-        # print("calcing setpoint")
-        # sp = 30
         return sp
 
     def check_baseline_vals(self):
@@ -954,7 +936,6 @@ class Aggregator:
             json.dump(self.baseline_data, f, indent=4)
         with open(rewards_data_file, 'w+') as f:
             json.dump(self.all_rewards, f, indent=4)
-        self.log.logger.warn(f"Writing to {rewards_data_file}")
 
     def write_home_configs(self):
         """
