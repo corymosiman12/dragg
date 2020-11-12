@@ -1,8 +1,8 @@
 [community]
-total_number_homes = [ 2, 0,]
-homes_battery = [ 0, 0,]
-homes_pv = [ 0, 0,]
-homes_pv_battery = [ 2, 0,]
+total_number_homes = 5
+homes_battery = 0
+homes_pv = 0
+homes_pv_battery = 2
 overwrite_existing = true
 house_p_avg = 1.2
 
@@ -20,7 +20,7 @@ run_rl_simplified = false
 checkpoint_interval = "daily"
 
 [rl]
-version = [ "tou-batt", "dn-batt", "batt"]
+version = [ "dn-cleaned", "dn-test", ]
 
 [rl.parameters]
 learning_rate = [ 0.01,]
