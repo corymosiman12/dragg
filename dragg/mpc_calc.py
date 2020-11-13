@@ -234,8 +234,8 @@ class MPCCalc:
         self.base_price = np.array(self.tou_current, dtype=float)
 
         # Set values as cvxpy values
-        self.oat_forecast = cp.Constant(self.oat_current_ev)
-        self.ghi_forecast = cp.Constant(self.ghi_current_ev)
+        self.oat_forecast = cp.Constant(self.oat_current)
+        self.ghi_forecast = cp.Constant(self.ghi_current)
         self.cast_redis_curr_rps()
 
     def setup_battery_problem(self):
