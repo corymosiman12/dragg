@@ -44,3 +44,4 @@ Werkzeug
 xlrd
 zipp
 pathos
+prettytable
