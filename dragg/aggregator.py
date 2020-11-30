@@ -580,6 +580,7 @@ class Aggregator:
             self.max_poss_load += home_obj.max_load
 
     def reset_collected_data(self):
+        self.timestep = 0
         self.baseline_agg_load_list = []
         for home in self.all_homes:
             self.collected_data[home["name"]] = {
