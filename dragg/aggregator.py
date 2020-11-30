@@ -155,6 +155,13 @@ class Aggregator:
         self.oat = df['OAT'].to_numpy()
         self.ghi = df['GHI'].to_numpy()
         df = df.set_index('ts')
+
+        day_of_year = 0
+        self.thermal_trend = self.oat[4 * self.dt] - self.oat[0]
+        self.max_daily_temp = max(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.min_daily_temp = min(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.max_daily_ghi = max(self.ghi[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+
         return df
 
     def _import_spp_data(self):
@@ -880,10 +887,10 @@ class Aggregator:
         self.baseline_agg_load_list = [0]
         self.all_rewards = []
 
-        self.forecast_load = [3*len(self.all_homes_obj)]
+        self.forecast_load = 3*len(self.all_homes_obj)
         self.prev_forecast_load = self.forecast_load
         self.forecast_setpoint = self.gen_setpoint()
-        self.agg_load = self.forecast_load[0] # approximate load for initial timestep
+        self.agg_load = self.forecast_load # approximate load for initial timestep
         self.agg_setpoint = self.gen_setpoint()
 
         self.redis_set_current_values()
