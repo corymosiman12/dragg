@@ -1,46 +1,33 @@
 [community]
-total_number_homes = [ 10, 0,]
-homes_battery = [ 0, 0,]
-homes_pv = [ 3, 0,]
-homes_pv_battery = [ 0, 0,]
+total_number_homes = 10
+homes_battery = 0
+homes_pv = 4
+homes_pv_battery = 0
 overwrite_existing = true
-house_p_avg = 1.0
+house_p_avg = 1.2
 
 [simulation]
 start_datetime = "2015-01-01 00"
-end_datetime = "2015-03-01 00"
-loop_days = true
+end_datetime = "2015-01-04 00"
 random_seed = 12
 n_nodes = 4
 load_zone = "LZ_HOUSTON"
 check_type = "all"
-run_rbo_mpc = false
-run_rl_agg = true
-run_rl_simplified = false
+run_rbo_mpc = true
 checkpoint_interval = "daily"
+named_version = "test"
 
-[rl]
-version = [ "dn-wd-v4", "dn-wd-v4-avg"]
+[agg]
+base_price = 0.07
+subhourly_steps = 1
+tou_enabled = true
+spp_enabled = false
 
-[rl.parameters]
-learning_rate = [ 0.01,]
-discount_factor = [ 1.0,]
-batch_size = [ 4, 32,]
-exploration_rate = [ 0.01,]
-twin_q = false
-
-[rl.utility]
-rl_agg_action_horizon = [ 6, 4,]
-rl_agg_forecast_horizon = 1
-base_price = 0.1
-action_space = [ -1.0, 1.0,]
-hourly_steps = [ 1,]
-minutes_per_step = 120
-tou_enabled = false
-
-[rl.simplified]
-response_rate = 0.3
-offset = 0.2
+[agg.rl]
+action_horizon = 1
+forecast_horizon = 1
+prev_timesteps = 12
+max_rp = 0.02
 
 [home.hvac]
 r_dist = [ 6.8, 9.199999999999999,]
@@ -52,38 +39,32 @@ temp_deadband_dist = [ 2, 3,]
 
 [home.wh]
 r_dist = [ 18.7, 25.3,]
-c_dist = [ 4.25, 5.75,]
 p_dist = [ 2.5, 2.5,]
 sp_dist = [ 45.5, 48.5,]
 deadband_dist = [ 9, 12,]
 size_dist = [ 200, 300,]
+waterdraw_file = '100_Random_Flow_Profiles.csv'
 
 [home.battery]
-max_rate = 5
-capacity = 13.5
-cap_bounds = [ 0.15, 0.85,]
-charge_eff = 0.95
-discharge_eff = 0.99
-cons_penalty = 0.005
+max_rate = [3,5]
+capacity = [9.0,13.5]
+lower_bound = [ 0.01, 0.15]
+upper_bound = [ 0.85, 0.99]
+charge_eff = [0.85, 0.95]
+discharge_eff = [0.97, 0.99]
 
 [home.pv]
-area = 32
-efficiency = 0.2
+area = [20, 32]
+efficiency = [0.15, 0.2]
 
 [home.hems]
-prediction_horizon = [ 6,]
-price_uncertainty = 0.3
-sub_subhourly_steps = [ 4,]
+prediction_horizon = 6
+sub_subhourly_steps = 6
+discount_factor = 0.92
 solver = "GLPK_MI"
 
-[rl.utility.tou]
+[agg.tou]
 shoulder_times = [ 9, 21,]
 shoulder_price = 0.09
 peak_times = [ 14, 18,]
 peak_price = 0.13
-
-[home.wh.waterdraws]
-n_big_draw_dist = [ 2, 5,]
-n_small_draw_dist = [ 0, 0,]
-big_draw_size_dist = [ 25, 40,]
-small_draw_size_dist = [ 7.5, 15.0,]
