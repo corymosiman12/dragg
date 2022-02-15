@@ -50,11 +50,11 @@ class Reformat:
         figs = []
         for plot in self.plots:
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.update_layout(
-                font=dict(
-                    size=65,
-                )
-            )
+#            fig.update_layout(
+#                font=dict(
+#                    size=65,
+#                )
+#            )
             fig.update_xaxes(
                 title_standoff=80
             )
@@ -219,8 +219,8 @@ class Reformat:
             if dict['name'] == name:
                 data = dict
 
-        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_min'] * np.ones(len(x_lims)), name=f"Tin_min", fill=None, showlegend=False, mode='lines', line_color='lightsteelblue'))
-        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_max'] * np.ones(len(x_lims)), name=f"Tin_bounds", fill='tonexty' , mode='lines', line_color='lightsteelblue'))
+#        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_min'] * np.ones(len(x_lims)), name=f"Tin_min", fill=None, showlegend=False, mode='lines', line_color='lightsteelblue'))
+#        fig.add_trace(go.Scatter(x=x_lims, y=data['hvac']['temp_in_max'] * np.ones(len(x_lims)), name=f"Tin_bounds", fill='tonexty' , mode='lines', line_color='lightsteelblue'))
 
         fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_min'] * np.ones(len(x_lims)), name=f"Twh_min", fill=None, showlegend=False, mode='lines', line_color='pink'))
         fig.add_trace(go.Scatter(x=x_lims, y=data['wh']['temp_wh_max'] * np.ones(len(x_lims)), name=f"Twh_bounds", fill='tonexty' , mode='lines', line_color='pink'))
@@ -229,17 +229,20 @@ class Reformat:
     def plot_base_home(self, name, fig, data, summary, fname, file, plot_price=True):
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_in_opt"], name=f"Tin - {fname}", legendgroup='tin', line={'color':'blue', 'width':8, 'dash':file['dash']}))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_wh_opt"], showlegend=True, legendgroup='twh', name=f"Twh - {fname}", line={'color':'firebrick', 'width':8, 'dash':file['dash']}))
-
-        fig.update_layout(legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.03,
-            font=dict(
-                size=65),
-            ),
-            yaxis_title="Temperature (deg C)"
-        )
+        
+        print(data['t_in_min'])
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data['t_in_min'], name=f"Tin_min", fill=None, showlegend=False, mode='lines', line_color='lightsteelblue',line_shape='hv'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data['t_in_max'], name=f"Tin_bounds", fill='tonexty' , mode='lines', line_color='lightsteelblue',line_shape='hv'))
+#        fig.update_layout(legend=dict(
+#            yanchor="top",
+#            y=0.99,
+#            xanchor="left",
+#            x=0.03,
+##            font=dict(
+##                size=65),
+##            ),
+#            yaxis_title="Temperature (deg C)"
+#        )
 
         return fig
 
@@ -299,11 +302,11 @@ class Reformat:
         homes = ["Crystal-RXXFA","Myles-XQ5IA","Lillie-NMHUH","Robert-2D73X","Serena-98EPE","Gary-U95TS","Bruno-PVRNB","Dorothy-9XMNY","Jason-INS3S","Alvin-4BAYB",]
         for self.sample_home in homes:
             fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.update_layout(
-                font=dict(
-                    size = 12
-                )
-            )
+#            fig.update_layout(
+#                font=dict(
+#                    size = 12
+#                )
+#            )
             fig = self.plot_single_home(fig)
 
         return
@@ -357,10 +360,10 @@ class Reformat:
                 ))
 
             fig.update_layout(
-                font=dict(
-                    # family="Courier New, monospace",
-                    size=65,
-                ),
+#                font=dict(
+#                    # family="Courier New, monospace",
+#                    size=65,
+#                ),
                 title="Avg Daily Load Profile",
                 xaxis_title="Time of Day",
                 yaxis_title="Agg. Demand (kW)"
@@ -409,9 +412,9 @@ class Reformat:
                 ))
 
             fig.update_layout(
-                font=dict(
-                    size=65,
-                ),
+#                font=dict(
+#                    size=65,
+#                ),
                 title="12 Hour Avg and Daily Max",
                 yaxis_title="Agg. Demand (kW)"
             )

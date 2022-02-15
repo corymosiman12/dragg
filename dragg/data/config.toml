@@ -8,7 +8,7 @@ house_p_avg = 1.2
 
 [simulation]
 start_datetime = "2015-01-01 00"
-end_datetime = "2015-01-04 00"
+end_datetime = "2015-01-02 00"
 random_seed = 12
 n_nodes = 4
 load_zone = "LZ_HOUSTON"
@@ -36,6 +36,7 @@ p_cool_dist = [ 3.5, 3.5,]
 p_heat_dist = [ 3.5, 3.5,]
 temp_sp_dist = [ 18, 22,]
 temp_deadband_dist = [ 2, 3,]
+temp_setback_delta = [ 1,2]
 
 [home.wh]
 r_dist = [ 18.7, 25.3,]
@@ -58,6 +59,7 @@ area = [20, 32]
 efficiency = [0.15, 0.2]
 
 [home.hems]
+weekday_occ_schedule = [[19,8],[17,18]]
 prediction_horizon = 6
 sub_subhourly_steps = 6
 discount_factor = 0.92
