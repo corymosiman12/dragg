@@ -320,6 +320,11 @@ class Aggregator:
         home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
         home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
         home_hvac_temp_init = np.add(home_hvac_temp_in_min_dist, np.multiply(home_hvac_temp_in_init_pos_dist, home_hvac_temp_in_db_dist))
+        home_hvac_temp_sb_delta = np.random.uniform(
+            self.config['home']['hvac']['temp_setback_delta'][0],
+            self.config['home']['hvac']['temp_setback_delta'][1],
+            self.config['community']['total_number_homes']
+        )
 
         # Define water heater parameters
         wh_r_dist = np.random.uniform(
@@ -383,7 +388,8 @@ class Aggregator:
             "hourly_agg_steps": self.dt,
             "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
             "solver": self.config['home']['hems']['solver'],
-            "discount_factor": self.config['home']['hems']['discount_factor']
+            "discount_factor": self.config['home']['hems']['discount_factor'],
+            "weekday_occ_schedule": self.config['home']['hems']['weekday_occ_schedule']
         }
 
         if not os.path.isdir(os.path.join('home_logs')):
@@ -431,7 +437,8 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_init[i]
+                    "temp_in_init": home_hvac_temp_init[i],
+                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -474,7 +481,8 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_init[i]
+                    "temp_in_init": home_hvac_temp_init[i],
+                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -526,7 +534,8 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_init[i]
+                    "temp_in_init": home_hvac_temp_init[i],
+                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -561,7 +570,8 @@ class Aggregator:
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_init[i]
+                    "temp_in_init": home_hvac_temp_init[i],
+                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -604,7 +614,9 @@ class Aggregator:
                 "wh_heat_on_opt": [],
                 "cost_opt": [],
                 "waterdraws": [],
-                "correct_solve": []
+                "correct_solve": [],
+                "t_in_min":[],
+                "t_in_max":[]
             }
             if 'pv' in home["type"]:
                 self.collected_data[home["name"]]["p_pv_opt"] = []
@@ -738,7 +750,7 @@ class Aggregator:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
-                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws", "correct_solve"]
+                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws", "correct_solve", "t_in_max", "t_in_min"]
                     if 'pv' in home["type"]:
                         opt_keys += ['p_pv_opt','u_pv_curt_opt']
                     if 'battery' in home["type"]:
@@ -753,6 +765,7 @@ class Aggregator:
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
         self.agg_setpoint = self.gen_setpoint()
+        self.log.logger.info(f"At time t={self.timestep} aggregate load is {round(self.agg_load,2)} kW.")
 
     def run_baseline(self):
         """
@@ -951,7 +964,7 @@ class Aggregator:
             self.checkpoint_interval = self.dt
         elif self.config['simulation']['checkpoint_interval'] == 'daily':
             self.checkpoint_interval = self.dt * 24
-        elif self.config['simulation']['checkpoint_interval'] == "weekly":
+        elif self.config['simulation']['checkpoint_interval'] == 'weekly':
             self.checkpoint_interval = self.dt * 24 * 7
 
         self.version = self.config['simulation']['named_version']
