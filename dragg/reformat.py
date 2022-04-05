@@ -14,6 +14,7 @@ from plotly.subplots import make_subplots
 import plotly.io as pio
 import plotly
 from prettytable import PrettyTable
+from copy import copy, deepcopy
 
 from dragg.logger import Logger
 
@@ -40,9 +41,8 @@ class Reformat:
 
     def main(self):
         # put a list of plotting functions here
-        self.sample_home = "Crystal-RXXFA"
-        self.plots = [self.rl2baseline,
-                    self.plot_single_home]
+        self.sample_homes = ["Crystal-RXXFA", "Myles-XQ5IA"]
+        self.plots = [self.rl2baseline] + [self.plot_single_home]
 
         self.images = self.plot_all()
 
@@ -62,8 +62,14 @@ class Reformat:
                 title_standoff=60
             )
             fig = plot(fig)
-            fig.show()
-            figs += [fig]
+            if isinstance(fig, list):
+                for f in fig:
+                    f.show()
+                    figs += [f]
+            else:
+                fig.show()
+                figs += [fig]
+
         return figs
 
     def save_images(self):
@@ -258,45 +264,51 @@ class Reformat:
         return fig
 
     def plot_single_home(self, fig):
-        if self.sample_home is None:
-            if type is None:
-                type = "base"
-                self.log.logger.warning("Specify a home type or name. Proceeding with home of type: \"base\".")
+        figs = [copy(fig) for _ in self.sample_homes]
+        #for self.sample_home in self.sample_homes:
+        for i in range(len(self.sample_homes)):
+            self.sample_home = self.sample_homes[i]
+            fig = figs[i]
+            if self.sample_home is None:
+                if type is None:
+                    type = "base"
+                    self.log.logger.warning("Specify a home type or name. Proceeding with home of type: \"base\".")
 
-            type_list = self._type_list(type)
-            self.sample_home = random.sample(type_list,1)[0]
-            self.log.logger.info(f"Proceeding with home: {name}")
+                type_list = self._type_list(type)
+                self.sample_home = random.sample(type_list,1)[0]
+                self.log.logger.info(f"Proceeding with home: {name}")
 
-        flag = False
-        for file in self.files:
-            with open(file["results"]) as f:
-                comm_data = json.load(f)
+            flag = False
+            for file in self.files:
+                with open(file["results"]) as f:
+                    comm_data = json.load(f)
 
-            try:
-                data = comm_data[self.sample_home]
-            except:
-                self.log.logger.error(f"No home with name: {self.sample_home}")
-                return
+                try:
+                    data = comm_data[self.sample_home]
+                except:
+                    self.log.logger.error(f"No home with name: {self.sample_home}")
+                    return
 
-            type = data["type"]
-            summary = comm_data["Summary"]
+                type = data["type"]
+                summary = comm_data["Summary"]
 
-            if not flag:
-                fig = self.plot_environmental_values(self.sample_home, fig, summary, file, file["name"])
-                flag = True
+                if not flag:
+                    fig = self.plot_environmental_values(self.sample_home, fig, summary, file, file["name"])
+                    flag = True
 
-            fig.update_xaxes(title_text="Time of Day (hour)")
-            fig.update_layout(title_text=f"{self.sample_home} - {type} type")
+                fig.update_xaxes(title_text="Time of Day (hour)")
+                fig.update_layout(title_text=f"{self.sample_home} - {type} type")
 
-            fig = self.plot_base_home(self.sample_home, fig, data, summary, file["name"], file)
+                fig = self.plot_base_home(self.sample_home, fig, data, summary, file["name"], file)
 
-            if 'pv' in type:
-                fig = self.plot_pv(self.sample_home, fig, data, file["name"], file)
+                if 'pv' in type:
+                    fig = self.plot_pv(self.sample_home, fig, data, file["name"], file)
 
-            if 'batt' in type:
-                fig = self.plot_battery(self.sample_home, fig, data, file["name"], file)
+                if 'batt' in type:
+                    fig = self.plot_battery(self.sample_home, fig, data, file["name"], file)
 
-        return fig
+                #figs += [fig]
+        return figs
 
     def plot_all_homes(self, fig=None):
         homes = ["Crystal-RXXFA","Myles-XQ5IA","Lillie-NMHUH","Robert-2D73X","Serena-98EPE","Gary-U95TS","Bruno-PVRNB","Dorothy-9XMNY","Jason-INS3S","Alvin-4BAYB",]
