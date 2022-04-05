@@ -203,8 +203,8 @@ class MPCCalc:
         unocc_t_in_min = float(self.home["hvac"]["temp_in_min"]) - 2#self.home["hvac"]["temp_setback_delta"]
         occ_t_in_max = float(self.home["hvac"]["temp_in_max"])
         unocc_t_in_max = float(self.home["hvac"]["temp_in_max"]) + 2#self.home["hvac"]["temp_setback_delta"]
-        self.t_in_min = [occ_t_in_min if i else unocc_t_in_min for i in self.occ_on]
-        self.t_in_max = [occ_t_in_max if i else unocc_t_in_max for i in self.occ_on]
+        self.t_in_min = [occ_t_in_min if i else unocc_t_in_min for i in self.occ_on] * 2
+        self.t_in_max = [occ_t_in_max if i else unocc_t_in_max for i in self.occ_on] * 2
         self.t_in_init = float(self.home["hvac"]["temp_in_init"])
 
         self.max_load = (max(self.hvac_p_c.value, self.hvac_p_h.value) + self.wh_p.value) * self.sub_subhourly_steps
@@ -327,8 +327,10 @@ class MPCCalc:
             self.hvac_heat_max = 0
             self.hvac_cool_max = self.sub_subhourly_steps
         
-        self.t_in_max_current = cp.Constant(self.t_in_max[(self.timestep * self.sub_subhourly_steps * self.dt):(self.timestep * self.sub_subhourly_steps * self.dt)+self.horizon])
-        self.t_in_min_current = cp.Constant(self.t_in_min[(self.timestep * self.sub_subhourly_steps * self.dt):(self.timestep * self.sub_subhourly_steps * self.dt)+self.horizon])
+        start = (self.timestep * self.sub_subhourly_steps * self.dt) % (24 * self.sub_subhourly_steps * self.dt)
+        stop = start + self.horizon#(self.timestep * self.sub_subhourly_steps * self.dt ) % 24 + self.horizon
+        self.t_in_max_current = cp.Constant(self.t_in_max[start:stop])
+        self.t_in_min_current = cp.Constant(self.t_in_min[start:stop])
         
         self.constraints = [
             # Indoor air temperature constraints
