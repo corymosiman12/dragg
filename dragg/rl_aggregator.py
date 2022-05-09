@@ -1,0 +1,994 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
+import os
+import sys
+import threading
+from queue import Queue
+
+import pandas as pd
+from datetime import datetime, timedelta
+import time
+import numpy as np
+import json
+import toml
+import random
+import names
+import string
+import itertools as it
+import redis
+import pathos
+from pathos.pools import ProcessPool
+
+import asyncio
+import aioredis
+import async_timeout
+
+# Local
+from dragg.rl_player import RLPlayer, manage_home
+from dragg.redis_client import RedisClient
+from dragg.logger import Logger
+
+class RLAggregator:
+    def __init__(self):
+        self.log = Logger("aggregator")
+        self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
+        self.outputs_dir = os.path.join('outputs')
+        if not os.path.isdir(self.outputs_dir):
+            os.makedirs(self.outputs_dir)
+        self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
+        self.ts_data_file = os.path.join(self.data_dir, os.environ.get('SOLAR_TEMPERATURE_DATA_FILE', 'nsrdb.csv'))
+        self.spp_data_file = os.path.join(self.data_dir, os.environ.get('SPP_DATA_FILE', 'spp_data.xlsx'))
+        self.required_keys = {
+            "community":    {"total_number_homes"},
+            "home": {
+                "hvac":     {"r_dist", "c_dist", "p_cool_dist", "p_heat_dist", "temp_sp_dist", "temp_deadband_dist"},
+                "wh":       {"r_dist", "c_dist", "p_dist", "sp_dist", "deadband_dist", "size_dist", "waterdraw_file"},
+                "battery":  {"max_rate", "capacity", "cap_bounds", "charge_eff", "discharge_eff", "cons_penalty"},
+                "pv":       {"area", "efficiency"},
+                "hems":     {"prediction_horizon", "discomfort", "disutility"}
+            },
+            "simulation":   {"start_datetime", "end_datetime", "random_seed", "load_zone", "check_type", "run_rbo_mpc"},
+            # "agg":          {"action_horizon", "forecast_horizon", "base_price", "max_rp", "subhourly_steps"}
+            "agg":          {"base_price", "subhourly_steps"}
+        }
+        self.timestep = None  # Set by redis_set_initial_values
+        self.iteration = None  # Set by redis_set_initial_values
+        self.reward_price = None  # Set by redis_set_initial_values
+        self.start_hour_index = None  # Set by calc_star_hour_index
+        self.agg_load = 0 # Reset after each iteration
+        self.collected_data = {}
+        self.baseline_agg_load_list = []  # Aggregate load at every timestep from the baseline run
+        self.max_agg_load = None  # Set after baseline run, the maximum aggregate load over all the timesteps
+        self.max_agg_load_list = []
+
+        self.start_dt = None  # Set by _set_dt
+        self.end_dt = None  # Set by _set_dt
+        self.hours = None  # Set by _set_dt
+        self.dt = None  # Set by _set_dt
+        self.num_timesteps = None  # Set by _set_dt
+        self.all_homes = None  # Set by get_homes
+        self.redis_client = RedisClient()
+        self.config = self._import_config()
+        self.check_type = self.config['simulation']['check_type']  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
+
+        self.thermal_trend = None
+        self.max_daily_temp = None
+        self.max_daily_ghi = None
+        self.min_daily_temp = None
+        self.prev_load = None
+        self.ts_data = self._import_ts_data() # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
+        self._set_dt()
+
+        self.spp_data = self._import_spp_data() # SPP: $/kWh
+        self.tou_data = self._build_tou_price() # TOU: $/kWh
+        self.all_data = self.join_data()
+
+        self.all_rps = np.zeros(self.num_timesteps)
+        self.all_sps = np.zeros(self.num_timesteps)
+
+        self.case = "baseline"
+
+    def _import_config(self):
+        if not os.path.exists(self.config_file):
+            self.log.logger.error(f"Configuration file does not exist: {self.config_file}")
+            sys.exit(1)
+        with open(self.config_file, 'r') as f:
+            data = toml.load(f)
+            d_keys = set(data.keys())
+            req_keys = set(self.required_keys.keys())
+            if not req_keys.issubset(d_keys):
+                missing_keys = req_keys - d_keys
+                self.log.logger.error(f"{missing_keys} must be configured in the config file.")
+                sys.exit(1)
+            else:
+                for subsystem in self.required_keys.keys():
+                    req_keys = set(self.required_keys[subsystem])
+                    given_keys = set(data[subsystem])
+                    if not req_keys.issubset(given_keys):
+                        missing_keys = req_keys - given_keys
+                        self.log.logger.error(f"Parameters for {subsystem}: {missing_keys} must be specified in the config file.")
+                        sys.exit(1)
+        self.log.logger.info(f"Set the version write out to {data['simulation']['named_version']}")
+        return data
+
+    def _set_dt(self):
+        """
+        Convert the start and end datetimes specified in the config file into python datetime
+        objects.  Calculate the number of hours for which the simulation will run.
+        :return:
+        """
+        try:
+            self.start_dt = datetime.strptime(self.config['simulation']['start_datetime'], '%Y-%m-%d %H')
+            self.end_dt = datetime.strptime(self.config['simulation']['end_datetime'], '%Y-%m-%d %H')
+        except ValueError as e:
+            self.log.logger.error(f"Error parsing datetimes: {e}")
+            sys.exit(1)
+        self.hours = self.end_dt - self.start_dt
+        self.hours = int(self.hours.total_seconds() / 3600)
+
+        self.num_timesteps = int(np.ceil(self.hours * self.dt))
+        self.log.logger.info(f"Start: {self.start_dt.isoformat()}; End: {self.end_dt.isoformat()}; Number of hours: {self.hours}")
+
+    def _import_ts_data(self):
+        """
+        Import timeseries data from file downloaded from NREL NSRDB.  The function removes the top two
+        lines.  Columns which must be present: ["Year", "Month", "Day", "Hour", "Minute", "Temperature", "GHI"]
+        Renames 'Temperature' to 'OAT'
+        :return: pandas.DataFrame, columns: ts, GHI, OAT
+        """
+        if not os.path.exists(self.ts_data_file):
+            self.log.logger.error(f"Timeseries data file does not exist: {self.ts_data_file}")
+            sys.exit(1)
+
+        df = pd.read_csv(self.ts_data_file, skiprows=2)
+        self.dt = int(self.config['agg']['subhourly_steps'])
+        self.dt_interval = 60 // self.dt
+        reps = [np.ceil(self.dt/2) if val==0 else np.floor(self.dt/2) for val in df.Minute]
+        df = df.loc[np.repeat(df.index.values, reps)]
+        interval_minutes = self.dt_interval * np.arange(self.dt)
+        n_intervals = len(df.index) // self.dt
+        x = np.tile(interval_minutes, n_intervals)
+        df.Minute = x
+        df = df.astype(str)
+        df['ts'] = df[["Year", "Month", "Day", "Hour", "Minute"]].apply(lambda x: ' '.join(x), axis=1)
+        df = df.rename(columns={"Temperature": "OAT"})
+        df["ts"] = df["ts"].apply(lambda x: datetime.strptime(x, '%Y %m %d %H %M'))
+        df = df.filter(["ts", "GHI", "OAT"])
+        df[["GHI", "OAT"]] = df[["GHI", "OAT"]].astype(int)
+        self.oat = df['OAT'].to_numpy()
+        self.ghi = df['GHI'].to_numpy()
+        df = df.set_index('ts')
+
+        day_of_year = 0
+        self.thermal_trend = self.oat[4 * self.dt] - self.oat[0]
+        self.max_daily_temp = max(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.min_daily_temp = min(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.max_daily_ghi = max(self.ghi[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+
+        return df
+
+    def _import_spp_data(self):
+        """
+        Settlement Point Price (SPP) data as extracted from ERCOT historical DAM Load Zone and Hub Prices.
+        url: http://www.ercot.com/mktinfo/prices.
+        Only keeps SPP data, converts to $/kWh.
+        Subtracts 1 hour from time to be inline with 23 hour day as required by pandas.
+        :return: pandas.DataFrame, columns: ts, SPP
+        """
+        if not self.config['agg']['spp_enabled']:
+            return
+
+        if not os.path.exists(self.spp_data_file):
+            self.log.logger.error(f"SPP data file does not exist: {self.spp_data_file}")
+            sys.exit(1)
+
+        df_all = pd.read_excel(self.spp_data_file, sheet_name=None)
+        k1 = list(df_all.keys())[0]
+        df = df_all[k1]
+        for k, v in df_all.items():
+            if k == k1:
+                pass
+            else:
+                df = df.append(v, ignore_index=True)
+
+        df = df[df["Settlement Point"] == self.config['simulation']['load_zone']]
+        df["Hour Ending"] = df["Hour Ending"].str.replace(':00', '')
+        df["Hour Ending"] = df["Hour Ending"].apply(pd.to_numeric)
+        df["Hour Ending"] = df["Hour Ending"].apply(lambda x: x - 1)
+        df["Hour Ending"] = df["Hour Ending"].astype(str)
+        df['ts'] = df[["Delivery Date", "Hour Ending"]].apply(lambda x: ' '.join(x), axis=1)
+        df = df.drop(columns=['Delivery Date', 'Hour Ending', 'Repeated Hour Flag', 'Settlement Point'])
+        df = df.rename(columns={"Settlement Point Price": "SPP"})
+        col_order = ["ts", "SPP"]
+        df = df[col_order]
+        df["ts"] = datetime.strptime(df['ts'], '%m/%d/%Y %H')
+        df["SPP"] = df['SPP'] / 1000
+        df = df.set_index('ts')
+        return df
+
+    def _build_tou_price(self):
+        df = pd.DataFrame(index=pd.date_range(start=self.start_dt, periods=self.hours, freq='H'))
+        df['tou'] = float(self.config['agg']['base_price'])
+        if self.config['agg']['tou_enabled'] == True:
+            sd_times = [int(i) for i in self.config['agg']['tou']['shoulder_times']]
+            pk_times = [int(i) for i in self.config['agg']['tou']['peak_times']]
+            sd_price = float(self.config['agg']['tou']['shoulder_price'])
+            pk_price = float(self.config['agg']['tou']['peak_price'])
+            df['tou'] = np.where(df.index.hour.isin(range(pk_times[0],pk_times[1])), pk_price, float(self.config['agg']['base_price']))
+            df['tou'] = np.where(df.index.hour.isin(range(sd_times[0],sd_times[1])), sd_price, float(self.config['agg']['base_price']))
+        return df
+
+    def join_data(self):
+        """
+        Join the TOU, GHI, temp data into a single dataframe
+        :return: pandas.DataFrame
+        """
+        if self.config['agg']['spp_enabled']:
+            df = pd.merge(self.ts_data, self.spp_data, how='outer', left_index=True, right_index=True)
+        else:
+            df = pd.merge(self.ts_data, self.tou_data, how='outer', left_index=True, right_index=True)
+        df = df.fillna(method='ffill')
+        self.mask = (df.index >= self.start_dt) & (df.index < self.end_dt)
+        return df
+
+    def _check_home_configs(self):
+        base_homes = [e for e in self.all_homes if e['type'] == "base"]
+        pv_battery_homes = [e for e in self.all_homes if e['type'] == "pv_battery"]
+        pv_only_homes = [e for e in self.all_homes if e['type'] == "pv_only"]
+        battery_only_homes = [e for e in self.all_homes if e['type'] == "battery_only"]
+        if not len(base_homes) == (self.config['community']['total_number_homes']
+                                - self.config['community']['homes_battery']
+                                - self.config['community']['homes_pv']
+                                - self.config['community']['homes_pv_battery']):
+            self.log.logger.error("Incorrect number of base homes.")
+            sys.exit(1)
+        elif not len(pv_battery_homes) == self.config['community']['homes_pv_battery']:
+            self.log.logger.error("Incorrect number of base pv_battery homes.")
+            sys.exit(1)
+        elif not len(pv_only_homes) == self.config['community']['homes_pv']:
+            self.log.logger.error("Incorrect number of base pv_only homes.")
+            sys.exit(1)
+        elif not len(battery_only_homes) == self.config['community']['homes_battery']:
+            self.log.logger.error("Incorrect number of base pv_only homes.")
+            sys.exit(1)
+        else:
+            self.log.logger.info("Homes looking ok!")
+
+    def reset_seed(self, new_seed):
+        """
+        Reset value for seed.
+        :param new_seed: int
+        :return:
+        """
+        self.config['simulation']['random_seed'] = new_seed
+
+    def get_homes(self):
+        homes_file = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
+        if not self.config['community']['overwrite_existing'] and os.path.isfile(homes_file):
+            with open(homes_file) as f:
+                self.all_homes = json.load(f)
+        else:
+            self.create_homes()
+        self._check_home_configs()
+        self.write_home_configs()
+
+    def create_homes(self):
+        """
+        Given parameter distributions and number of homes of each type, create a list
+        of dictionaries of homes with the parameters set for each home.
+        :return:
+        """
+        # Set seed before sampling.  Will ensure home name and parameters
+        # are the same throughout different runs
+        np.random.seed(self.config['simulation']['random_seed'])
+        random.seed(self.config['simulation']['random_seed'])
+
+        # Define home and HVAC parameters
+        home_r_dist = np.random.uniform(
+            self.config['home']['hvac']['r_dist'][0],
+            self.config['home']['hvac']['r_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_c_dist = np.random.uniform(
+            self.config['home']['hvac']['c_dist'][0],
+            self.config['home']['hvac']['c_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_hvac_p_cool_dist = np.random.uniform(
+            self.config['home']['hvac']['p_cool_dist'][0],
+            self.config['home']['hvac']['p_cool_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_hvac_p_heat_dist = np.random.uniform(
+            self.config['home']['hvac']['p_heat_dist'][0],
+            self.config['home']['hvac']['p_heat_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_hvac_temp_in_sp_dist = np.random.uniform(
+            self.config['home']['hvac']['temp_sp_dist'][0],
+            self.config['home']['hvac']['temp_sp_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_hvac_temp_in_db_dist = np.random.uniform(
+            self.config['home']['hvac']['temp_deadband_dist'][0],
+            self.config['home']['hvac']['temp_deadband_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_hvac_temp_in_init_pos_dist = np.random.uniform(
+            0.25,
+            0.75,
+            self.config['community']['total_number_homes']
+        )
+        home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
+        home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
+        home_hvac_temp_init = np.add(home_hvac_temp_in_min_dist, np.multiply(home_hvac_temp_in_init_pos_dist, home_hvac_temp_in_db_dist))
+        home_hvac_temp_sb_delta = np.random.uniform(
+            self.config['home']['hvac']['temp_setback_delta'][0],
+            self.config['home']['hvac']['temp_setback_delta'][1],
+            self.config['community']['total_number_homes']
+        )
+
+        # Define water heater parameters
+        wh_r_dist = np.random.uniform(
+            self.config['home']['wh']['r_dist'][0],
+            self.config['home']['wh']['r_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        wh_p_dist = np.random.uniform(
+            self.config['home']['wh']['p_dist'][0],
+            self.config['home']['wh']['p_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_wh_temp_sp_dist = np.random.uniform(
+            self.config['home']['wh']['sp_dist'][0],
+            self.config['home']['wh']['sp_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_wh_temp_db_dist = np.random.uniform(
+            self.config['home']['wh']['deadband_dist'][0],
+            self.config['home']['wh']['deadband_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+        home_wh_temp_init_pos_dist = np.random.uniform(
+            0.25,
+            0.75,
+            self.config['community']['total_number_homes']
+        )
+        home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
+        home_wh_temp_max_dist = home_wh_temp_sp_dist + 0.5 * home_wh_temp_db_dist
+        home_wh_temp_init = np.add(home_wh_temp_min_dist, np.multiply(home_wh_temp_init_pos_dist, home_wh_temp_db_dist))
+
+        # define water heater draw events
+        home_wh_size_dist = np.random.uniform(
+            self.config['home']['wh']['size_dist'][0],
+            self.config['home']['wh']['size_dist'][1],
+            self.config['community']['total_number_homes']
+        )
+
+        ndays = self.num_timesteps // (24 * self.dt) + 1
+        daily_timesteps = int(24 * self.dt)
+
+        home_wh_all_draw_size_dist = []
+        self.waterdraws_file = os.path.join(self.data_dir, self.config['home']['wh']['waterdraw_file'])
+
+        waterdraw_df = pd.read_csv(self.waterdraws_file, index_col=0)
+        waterdraw_df.index = pd.to_datetime(waterdraw_df.index, format='%Y-%m-%d %H:%M:%S')
+        sigma = 0.2
+        waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
+        waterdraw_df = waterdraw_df.resample('H').sum()
+        for j in range(self.config['community']['total_number_homes']):
+            this_house = waterdraw_df.sample(axis='columns').values
+            this_house = np.reshape(this_house, (-1, 24))
+            this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten()
+            this_house = np.clip(this_house, 0, home_wh_size_dist[j]) #.tolist()
+            home_wh_all_draw_size_dist.append(this_house.tolist())
+
+        all_homes = []
+
+        responsive_hems = {
+            "horizon": self.config['home']['hems']['prediction_horizon'],
+            "hourly_agg_steps": self.dt,
+            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
+            "solver": self.config['home']['hems']['solver'],
+            "discount_factor": self.config['home']['hems']['discount_factor'],
+            "weekday_occ_schedule": self.config['home']['hems']['weekday_occ_schedule']
+        }
+
+        if not os.path.isdir(os.path.join('home_logs')):
+            os.makedirs('home_logs')
+
+        i = 0
+        # Define pv and battery homes
+        num_pv_battery_homes = self.config['community']['homes_pv_battery']
+        for j in range(num_pv_battery_homes):
+            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
+
+            battery = {
+                "max_rate": np.random.uniform(self.config['home']['battery']['max_rate'][0],
+                                                self.config['home']['battery']['max_rate'][1]),
+                "capacity": np.random.uniform(self.config['home']['battery']['capacity'][0],
+                                                self.config['home']['battery']['capacity'][1]),
+                "capacity_lower": np.random.uniform(self.config['home']['battery']['lower_bound'][0],
+                                                self.config['home']['battery']['lower_bound'][1]),
+                "capacity_upper": np.random.uniform(self.config['home']['battery']['upper_bound'][0],
+                                                self.config['home']['battery']['upper_bound'][1]),
+                "ch_eff": np.random.uniform(self.config['home']['battery']['charge_eff'][0],
+                                                self.config['home']['battery']['charge_eff'][1]),
+                "disch_eff": np.random.uniform(self.config['home']['battery']['discharge_eff'][0],
+                                                self.config['home']['battery']['discharge_eff'][1]),
+                "e_batt_init": np.random.uniform(self.config['home']['battery']['lower_bound'][1],
+                                                self.config['home']['battery']['upper_bound'][0])
+            }
+
+            pv = {
+                "area": np.random.uniform(self.config['home']['pv']['area'][0],
+                                        self.config['home']['pv']['area'][1]),
+                "eff": np.random.uniform(self.config['home']['pv']['efficiency'][0],
+                                        self.config['home']['pv']['efficiency'][1])
+            }
+
+             
+            i += 1
+
+        # Define pv only homes
+        num_pv_homes = self.config['community']['homes_pv']
+        for j in range(num_pv_homes):
+            hems = responsive_hems
+            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
+
+            pv = {
+                "area": np.random.uniform(self.config['home']['pv']['area'][0],
+                                        self.config['home']['pv']['area'][1]),
+                "eff": np.random.uniform(self.config['home']['pv']['efficiency'][0],
+                                        self.config['home']['pv']['efficiency'][1])
+            }
+
+            all_homes.append({
+                "name": name,
+                "type": "pv_only",
+                "hvac": {
+                    "r": home_r_dist[i],
+                    "c": home_c_dist[i],
+                    "p_c": home_hvac_p_cool_dist[i],
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_init[i]
+                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
+                },
+                "wh": {
+                    "r": wh_r_dist[i],
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i]
+                },
+                "hems": responsive_hems,
+                "pv": pv
+            })
+            i += 1
+
+        # Define battery only homes
+        num_battery_homes = self.config['community']['homes_battery']
+        for j in range(num_battery_homes):
+            hems = responsive_hems
+            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
+
+            battery = {
+                "max_rate": np.random.uniform(self.config['home']['battery']['max_rate'][0],
+                                            self.config['home']['battery']['max_rate'][1]),
+                "capacity": np.random.uniform(self.config['home']['battery']['capacity'][0],
+                                            self.config['home']['battery']['capacity'][1]),
+                "capacity_lower": np.random.uniform(self.config['home']['battery']['lower_bound'][0],
+                                            self.config['home']['battery']['lower_bound'][1]),
+                "capacity_upper": np.random.uniform(self.config['home']['battery']['upper_bound'][0],
+                                            self.config['home']['battery']['upper_bound'][1]),
+                "ch_eff": np.random.uniform(self.config['home']['battery']['charge_eff'][0],
+                                            self.config['home']['battery']['charge_eff'][1]),
+                "disch_eff": np.random.uniform(self.config['home']['battery']['discharge_eff'][0],
+                                            self.config['home']['battery']['discharge_eff'][1]),
+                "e_batt_init": np.random.uniform(self.config['home']['battery']['lower_bound'][1],
+                                            self.config['home']['battery']['upper_bound'][0])
+            }
+
+            all_homes.append({
+                "name": name,
+                "type": "battery_only",
+                "hvac": {
+                    "r": home_r_dist[i],
+                    "c": home_c_dist[i],
+                    "p_c": home_hvac_p_cool_dist[i],
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_init[i]
+                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
+                },
+                "wh": {
+                    "r": wh_r_dist[i],
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i]
+                },
+                "hems": responsive_hems,
+                "battery": battery
+            })
+            i += 1
+
+        # Define base type homes
+        num_base_homes = self.config['community']['total_number_homes'] - num_battery_homes - num_pv_homes - num_pv_battery_homes
+        for j in range(int(num_base_homes)):
+            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            name = names.get_first_name() + '-' + res
+            hems = responsive_hems
+
+            all_homes.append({
+                "name": name,
+                "type": "base",
+                "hvac": {
+                    "r": home_r_dist[i],
+                    "c": home_c_dist[i],
+                    "p_c": home_hvac_p_cool_dist[i],
+                    "p_h": home_hvac_p_heat_dist[i],
+                    "temp_in_min": home_hvac_temp_in_min_dist[i],
+                    "temp_in_max": home_hvac_temp_in_max_dist[i],
+                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
+                    "temp_in_init": home_hvac_temp_init[i]
+                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
+                },
+                "wh": {
+                    "r": wh_r_dist[i],
+                    "p": wh_p_dist[i],
+                    "temp_wh_min": home_wh_temp_min_dist[i],
+                    "temp_wh_max": home_wh_temp_max_dist[i],
+                    "temp_wh_sp": home_wh_temp_sp_dist[i],
+                    "temp_wh_init": home_wh_temp_init[i],
+                    "tank_size": home_wh_size_dist[i],
+                    "draw_sizes": home_wh_all_draw_size_dist[i]
+                },
+                "hems": responsive_hems
+            })
+            i += 1
+
+        self.all_homes = all_homes
+        # self.all_names = list(self.all_homes.keys())
+        self.all_homes_obj = []
+        self.max_poss_load = 0
+        self.min_poss_load = 0
+        self.max_poss_load = 1
+        # for home in all_homes:
+        #     home_obj = RLPlayer(home)
+        #     self.all_homes_obj += [home_obj]
+        #     self.max_poss_load += home_obj.home.max_load
+
+    def post_next_home(self):
+        next_home = self.all_homes.pop()
+        for k, v in next_home.items():
+            print(k,type(v))
+            if not k in ["wh","hvac","battery","pv", "hems"]:
+                self.redis_client.conn.hset("home_values", k, v)
+            else:
+                for k2, v2 in v.items():
+
+                    if not k2 in ["draw_sizes", "weekday_occ_schedule"]:
+                        print(k2,type(v2))
+                        self.redis_client.conn.hset(f"{k}_values", k2, v2)
+
+    def reset_collected_data(self):
+        self.timestep = 0
+        self.baseline_agg_load_list = []
+        for home in self.all_homes:
+            self.collected_data[home["name"]] = {
+                "type": home["type"],
+                "temp_in_sp": home["hvac"]["temp_in_sp"],
+                "temp_wh_sp": home["wh"]["temp_wh_sp"],
+                "temp_in_opt": [home["hvac"]["temp_in_init"]],
+                "temp_wh_opt": [home["wh"]["temp_wh_init"]],
+                "p_grid_opt": [],
+                "forecast_p_grid_opt": [],
+                "p_load_opt": [],
+                "hvac_cool_on_opt": [],
+                "hvac_heat_on_opt": [],
+                "wh_heat_on_opt": [],
+                "cost_opt": [],
+                "waterdraws": [],
+                "correct_solve": [],
+                "t_in_min":[],
+                "t_in_max":[]
+            }
+            if 'pv' in home["type"]:
+                self.collected_data[home["name"]]["p_pv_opt"] = []
+                self.collected_data[home["name"]]["u_pv_curt_opt"] = []
+            if 'battery' in home["type"]:
+                self.collected_data[home["name"]]["e_batt_opt"] = [home["battery"]["e_batt_init"]]
+                self.collected_data[home["name"]]["p_batt_ch"] = []
+                self.collected_data[home["name"]]["p_batt_disch"] = []
+
+    def check_all_data_indices(self):
+        """
+        Ensure enough data exists in all_data such that MPC calcs can be made throughout
+        the requested start and end period.
+        :return: None
+        """
+        if not self.start_dt >= self.all_data.index[0]:
+            self.log.logger.error("The start datetime must exist in the data provided.")
+            sys.exit(1)
+        if not self.end_dt + timedelta(hours=self.config['home']['hems']['prediction_horizon']) <= self.all_data.index[-1]:
+            self.log.logger.error("The end datetime + the largest prediction horizon must exist in the data provided.")
+            sys.exit(1)
+
+    def calc_start_hour_index(self):
+        """
+        Since all_data is posted as a list, where 0 corresponds to the first hour in
+        the dataframe, the number of hours between the start_dt and the above mentioned
+        hour needs to be calculated.
+        :return: None
+        """
+        start_hour_index = self.start_dt - self.all_data.index[0]
+        self.start_hour_index = int(start_hour_index.total_seconds() / 3600)
+
+    def redis_set_initial_values(self):
+        """
+        Set the initial timestep, iteration, reward price, and horizon to redis
+        :return: None
+        """
+        self.timestep = 0
+
+        self.redis_client.conn.set("start_hour_index", self.start_hour_index)
+        self.redis_client.conn.hset("current_values", "timestep", self.timestep)
+
+        self.reward_price = np.zeros(self.config['agg']['rl']['action_horizon'] * self.dt)
+        self.redis_client.conn.rpush("reward_price", *self.reward_price.tolist())
+
+    def redis_add_all_data(self):
+        """
+        Values for the timeseries data are written to Redis as a list, where the
+        column names: [GHI, OAT, SPP] are the redis keys.  Each list is as long
+        as the data in self.all_data, which is 8760 for default config file.
+        :return: None
+        """
+        for c in self.all_data.columns.to_list():
+            self.redis_client.conn.delete(c)
+            self.redis_client.conn.rpush(c, *self.all_data[c].values.tolist())
+
+    def redis_set_current_values(self):
+        """
+        Sets the current values of the utility agent (reward price).
+        :return: None
+        """
+        self.redis_client.conn.hset("current_values", "timestep", self.timestep)
+
+        if 'rl' in self.case:
+            self.all_sps[self.timestep] = self.agg_setpoint
+            self.all_rps[self.timestep] = self.reward_price[0]
+            self.redis_client.conn.delete("reward_price")
+            self.redis_client.conn.rpush("reward_price", *self.reward_price)
+
+    def gen_setpoint(self):
+        """
+        Generates the setpoint of the RL utility. Dynamically sized for the
+        number of houses in the community.
+        :return: float
+        """
+        if self.timestep < 2:
+            self.tracked_loads = [0.5 * self.max_poss_load] * self.config['agg']['rl']['prev_timesteps']
+            self.max_load = -float("inf")
+            self.min_load = float("inf")
+        else:
+            self.tracked_loads[:-1] = self.tracked_loads[1:]
+            self.tracked_loads[-1] = self.agg_load
+        self.avg_load = np.average(self.tracked_loads)
+        if self.agg_load > self.max_load or self.timestep % 24 == 0:
+            self.max_load = self.agg_load
+        if self.agg_load < self.min_load or self.timestep % 24 == 0:
+            self.min_load = self.agg_load
+        sp = self.avg_load
+        return sp
+
+    def check_baseline_vals(self):
+        for home, vals in self.collected_data.items():
+            if self.check_type == 'all':
+                homes_to_check = self.all_homes
+            else:
+                homes_to_check = [x for x in self.all_homes if x["type"] == self.check_type]
+            if home in homes_to_check:
+                for k, v2 in vals.items():
+                    if k in ["temp_in_opt", "temp_wh_opt", "e_batt_opt"] and len(v2) != self.hours + 1:
+                        self.log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
+                    elif len(v2) != self.hours:
+                        self.log.logger.error(f"Incorrect number of hours. {home}: {k} {len(v2)}")
+
+    def run_iteration(self):
+        """
+        Calls the MPCCalc class to calculate the control sequence and power demand
+        from all homes in the community. Threaded, using pathos
+        :return: None
+        """
+        self.thermal_trend = self.oat[self.timestep + 4] - self.oat[self.timestep]
+        day_of_year = self.timestep // (self.dt * 24)
+        self.max_daily_temp = max(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.min_daily_temp = min(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        self.max_daily_ghi = max(self.ghi[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+
+        pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
+        results = pool.map(manage_home, self.as_list)
+
+        self.timestep += 1
+
+    def collect_data(self):
+        """
+        Collects the data passed by the community redis connection.
+        :return: None
+        """
+        agg_load = 0
+        agg_cost = 0
+        self.house_load = []
+        self.forecast_house_load = []
+        for home in self.all_homes:
+            if self.check_type == 'all' or home["type"] == self.check_type:
+                vals = self.redis_client.conn.hgetall(home["name"])
+                for k, v in vals.items():
+                    opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws", "correct_solve", "t_in_max", "t_in_min"]
+                    if 'pv' in home["type"]:
+                        opt_keys += ['p_pv_opt','u_pv_curt_opt']
+                    if 'battery' in home["type"]:
+                        opt_keys += ['p_batt_ch', 'p_batt_disch', 'e_batt_opt']
+                    if k in opt_keys:
+                        self.collected_data[home["name"]][k].append(float(v))
+                self.house_load.append(float(vals["p_grid_opt"]))
+                self.forecast_house_load.append(float(vals["forecast_p_grid_opt"]))
+                agg_cost += float(vals["cost_opt"])
+        self.agg_load = np.sum(self.house_load)
+        self.forecast_load = np.sum(self.forecast_house_load)
+        self.agg_cost = agg_cost
+        self.baseline_agg_load_list.append(self.agg_load)
+        self.agg_setpoint = self.gen_setpoint()
+        self.log.logger.info(f"At time t={self.timestep} aggregate load is {round(self.agg_load,2)} kW.")
+
+    def run_baseline(self):
+        """
+        Runs the baseline simulation comprised of community of HEMS controlled homes.
+        Utilizes MPC parameters specified in config file.
+        (For no MPC in HEMS specify the MPC prediction horizon as 0.)
+        :return: None
+        """
+        self.log.logger.info(f"Performing baseline run for horizon: {self.config['home']['hems']['prediction_horizon']}")
+        self.start_time = datetime.now()
+
+        self.as_list = []
+        for rlplayer in self.all_homes_obj:
+            #home = rlplayer.home
+            if self.check_type == "all" or home.type == self.check_type:
+                self.as_list += [rlplayer]#home]
+        for t in range(self.num_timesteps):
+            self.redis_set_current_values()
+            self.run_iteration()
+            self.collect_data()
+
+            if (t+1) % (self.checkpoint_interval) == 0: # weekly checkpoint
+                self.log.logger.info("Creating a checkpoint file.")
+                self.write_outputs()
+
+    def summarize_baseline(self):
+        """
+        Get the maximum of the aggregate demand for each simulation.
+        :return: None
+        """
+        self.end_time = datetime.now()
+        self.t_diff = self.end_time - self.start_time
+        self.log.logger.info(f"Horizon: {self.config['home']['hems']['prediction_horizon']}; Num Hours Simulated: {self.hours}; Run time: {self.t_diff.total_seconds()} seconds")
+
+        self.max_agg_load = max(self.baseline_agg_load_list)
+        self.max_agg_load_list.append(self.max_agg_load)
+
+        self.collected_data["Summary"] = {
+            "case": self.case,
+            "start_datetime": self.start_dt.strftime('%Y-%m-%d %H'),
+            "end_datetime": self.end_dt.strftime('%Y-%m-%d %H'),
+            "solve_time": self.t_diff.total_seconds(),
+            "horizon": self.config['home']['hems']['prediction_horizon'],
+            "num_homes": self.config['community']['total_number_homes'],
+            "p_max_aggregate": self.max_agg_load,
+            "p_grid_aggregate": self.baseline_agg_load_list,
+            "OAT": self.all_data.loc[self.mask, "OAT"].values.tolist(),
+            "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist(),
+            "RP": self.all_rps.tolist(),
+            "p_grid_setpoint": self.all_sps.tolist()
+            # "rl_rewards": self.all_rewards
+        }
+
+        self.my_summary()
+
+        if self.config['agg']['spp_enabled']:
+            self.collected_data["Summary"]["SPP"] = self.all_data.loc[self.mask, "SPP"].values.tolist()
+        else:
+            self.collected_data["Summary"]["TOU"] = self.all_data.loc[self.mask, "tou"].values.tolist()
+
+    def set_run_dir(self):
+        """
+        Sets the run directoy based on the start/end datetime, community and home configs,
+        and the named version.
+        :return: none
+        """
+        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
+        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.config['home']['hems']['prediction_horizon']}-interval_{self.dt_interval}-{self.dt_interval // self.config['home']['hems']['sub_subhourly_steps']}-solver_{self.config['home']['hems']['solver']}")
+
+        self.run_dir = os.path.join(mpc_output, f"version-{self.version}")
+        if not os.path.isdir(self.run_dir):
+            os.makedirs(self.run_dir)
+
+    def write_outputs(self):
+        """
+        Writes values for simulation run to a json file for later reference. Is
+        called at the end of the simulation run period and optionally at a checkpoint period.
+        :return: None
+        """
+        self.summarize_baseline()
+
+        case_dir = os.path.join(self.run_dir, self.case)
+        if not os.path.isdir(case_dir):
+            os.makedirs(case_dir)
+        file = os.path.join(case_dir, "results.json")
+        with open(file, 'w+') as f:
+            json.dump(self.collected_data, f, indent=4)
+
+    def write_home_configs(self):
+        """
+        Writes all home configurations to file at the initialization of the
+        simulation for later reference.
+        :return: None
+        """
+        ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
+        with open(ah, 'w+') as f:
+            json.dump(self.all_homes, f, indent=4)
+
+    def set_agg_mpc_initial_vals(self):
+        """
+        Creates a dictionary to store values at each timestep for non-RL runs.
+        :return: Dictionary
+        """
+        temp = []
+        for h in range(self.hours):
+            temp.append({
+                "timestep": h,
+                "reward_price": [],
+                "agg_cost": [],
+                "agg_load": []
+            })
+        return temp
+
+    def set_dummy_rl_parameters(self):
+        self.tracked_loads = self.config['community']['house_p_avg']*self.config['community']['total_number_homes']*np.ones(12)
+        # self.util = self.util_permutations[0]
+        # self.rl_params = self.rl_permutations[0]
+
+    def setup_rl_agg_run(self):
+        self.flush_redis()
+
+        self.as_list = []
+        for rlplayer in self.all_homes_obj:
+            home = rlplayer.home
+            if self.check_type == "all" or home["type"] == self.check_type:
+                self.as_list += [home]
+
+        # self.log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.config['home']['hems']['prediction_horizon']}")
+        self.start_time = datetime.now()
+
+        self.baseline_agg_load_list = [0]
+        self.all_rewards = []
+
+        self.forecast_load = 3*len(self.all_homes_obj)
+        self.prev_forecast_load = self.forecast_load
+        self.forecast_setpoint = self.gen_setpoint()
+        self.agg_load = self.forecast_load # approximate load for initial timestep
+        self.agg_setpoint = self.gen_setpoint()
+
+        self.redis_set_current_values()
+
+    def test_response(self):
+        """
+        Tests the RL agent using a linear model of the community's response
+        to changes in the reward price.
+        :return: None
+        """
+        c = self.config['agg']['simplified']['response_rate']
+        k = self.config['agg']['simplified']['offset']
+        if self.timestep == 0:
+            self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
+        self.agg_load = self.agg_load - c * self.reward_price[0] * (self.agg_setpoint - self.agg_load)
+        self.agg_cost = self.agg_load * self.reward_price[0]
+        self.log.logger.info(f"Iteration {self.timestep} finished. Aggregate load {self.agg_load}")
+        self.timestep += 1
+
+    def flush_redis(self):
+        """
+        Cleans all information stored in the Redis server. (Including environmental
+        and home data.)
+        :return: None
+        """
+        self.redis_client.conn.flushall()
+        self.log.logger.info("Flushing Redis")
+        time.sleep(1)
+        self.check_all_data_indices()
+        self.calc_start_hour_index()
+        self.redis_add_all_data()
+        self.redis_set_initial_values()
+
+    async def reader(self, channel: aioredis.client.PubSub, redis_instance):
+        print('calling reader')
+        i = 0
+        while True:
+            try:
+                async with async_timeout.timeout(1):
+                    message = await channel.get_message(ignore_subscribe_messages=True)
+                    if message is not None:
+                        print(f"(Reader) Message Received: {message}")
+                        if message["data"].decode() == "mpc_update":
+                            print(f"(Reader) mpc house {i} updated")
+                            i += 1
+                            # break # can use this to close out reader
+                            if i == 3:#n_houses: # now we know that the whole community has stepped
+                                # await redis_instance.publish("channel:1", "ts_complete")
+                                # redis_instance.publish("channel:1", "ts_complete")
+                                print("(Reader) timestep can be moved forward")
+                                print(" (todo) we can implement auxiliary functions (i.e. pandapower here) ")
+                    await asyncio.sleep(0.1)
+            except asyncio.TimeoutError:
+                pass
+
+    async def open_server(self):
+        """
+        Runs simulation(s) specified in the config file with all combinations of
+        parameters specified in the config file.
+        :return: None
+        """
+        self.log.logger.info("Made it to Aggregator Run")
+
+        self.checkpoint_interval = 500 # default to checkpoints every 1000 timesteps
+        if self.config['simulation']['checkpoint_interval'] == 'hourly':
+            self.checkpoint_interval = self.dt
+        elif self.config['simulation']['checkpoint_interval'] == 'daily':
+            self.checkpoint_interval = self.dt * 24
+        elif self.config['simulation']['checkpoint_interval'] == 'weekly':
+            self.checkpoint_interval = self.dt * 24 * 7
+
+        self.version = self.config['simulation']['named_version']
+        self.set_run_dir()
+
+        self.case = "baseline" # no aggregator level control
+        self.flush_redis()
+        self.get_homes()
+        self.post_next_home()
+        self.reset_collected_data()
+        
+        print("starting aioredis listener")
+        redis = aioredis.from_url("redis://localhost")
+        pubsub = redis.pubsub()
+        await pubsub.subscribe("channel:1", "channel:2")
+
+        future = asyncio.create_task(self.reader(pubsub, redis))
+
+        await redis.publish("channel:1", "time_update")
+        # await redis.publish("channel:2", "World")
+        # await redis.publish("channel:1", "stop")
+
+        await future
+
+        self.write_outputs()
+
+if __name__=="__main__":
+    a = RLAggregator()
+    asyncio.run(a.open_server())
