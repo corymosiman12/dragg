@@ -578,14 +578,16 @@ class RLAggregator:
         next_home = self.all_homes.pop()
         for k, v in next_home.items():
             print(k,type(v))
-            if not k in ["wh","hvac","battery","pv", "hems"]:
+            if not k in ["wh","hvac","battery","pv","hems"]:
                 self.redis_client.conn.hset("home_values", k, v)
             else:
                 for k2, v2 in v.items():
-
                     if not k2 in ["draw_sizes", "weekday_occ_schedule"]:
                         print(k2,type(v2))
                         self.redis_client.conn.hset(f"{k}_values", k2, v2)
+                    else:
+                        self.redis_client.conn.delete(k2)
+                        self.redis_client.conn.rpush(k2, *v2)
 
     def reset_collected_data(self):
         self.timestep = 0
@@ -927,7 +929,7 @@ class RLAggregator:
         self.redis_add_all_data()
         self.redis_set_initial_values()
 
-    async def reader(self, channel: aioredis.client.PubSub, redis_instance):
+    async def reader(self, channel: aioredis.client.PubSub, redis_client):
         print('calling reader')
         i = 0
         while True:
@@ -940,9 +942,9 @@ class RLAggregator:
                             print(f"(Reader) mpc house {i} updated")
                             i += 1
                             # break # can use this to close out reader
-                            if i == 3:#n_houses: # now we know that the whole community has stepped
-                                # await redis_instance.publish("channel:1", "ts_complete")
-                                # redis_instance.publish("channel:1", "ts_complete")
+                            if i == len(self.all_homes): # now we know that the whole community has stepped
+                                # await redis_client.publish("channel:1", "ts_complete")
+                                # redis_client.publish("channel:1", "ts_complete")
                                 print("(Reader) timestep can be moved forward")
                                 print(" (todo) we can implement auxiliary functions (i.e. pandapower here) ")
                     await asyncio.sleep(0.1)

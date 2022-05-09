@@ -19,6 +19,8 @@ from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 from dragg.mpc_calc import MPCCalc
 
+REDIS_URL = "redis://localhost"
+
 def manage_home(home):
     """
     Calls class method as a top level function (picklizable by pathos)
@@ -29,25 +31,28 @@ def manage_home(home):
 
 class RLPlayer(gym.Env):
     def __init__(self):#, home):
-        # home = self.set_home()
-        # self.home = MPCCalc(home)
-        # self.name = self.home.name
+        home = self.set_home()
+        self.home = MPCCalc(home)
+        self.name = self.home.name
         with open('data/rl_data/state_action.json','r') as file:
             states_actions = json.load(file)
         self.states = [k for k, v in states_actions['states'].items() if v]
         self.actions = [k for k, v in states_actions['actions'].items() if v]
 
     def set_home(self):
-        self.redis_client = RedisClient()
-        home = self.redis_client.conn.hgetall("home_values")
-        home['hvac'] = self.redis_client.conn.hgetall("hvac")
-        home['wh'] = self.redis_client.conn.hgetall("wh")
-        home['hems'] = self.redis_client.conn.hgetall("hems")
+        redis_client = RedisClient()
+        # redis_client = aioredis.from_url("redis://localhost")
+        home = redis_client.conn.hgetall("home_values")
+        home['hvac'] = redis_client.conn.hgetall("hvac_values")
+        home['wh'] = redis_client.conn.hgetall("wh_values")
+        home['hems'] = redis_client.conn.hgetall("hems_values")
         home['hems']["weekday_occ_schedule"] = [[19,8],[17,18]]
         if 'battery' in home['type']:
-            home['battery'] = self.redis_client.conn.hgetall("battery")
+            home['battery'] = redis_client.conn.hgetall("battery_values")
         if 'pv' in home['type']:
-            home['pv'] = self.redis_client.conn.hgetall("pv")
+            home['pv'] = redis_client.conn.hgetall("pv_values")
+        home['wh']['draw_sizes'] = redis_client.conn.lrange('draw_sizes', 0, -1)
+        home['hems']['weekday_occ_schedule'] = redis_client.conn.lrange('weekday_occ_schedule', 0, -1)
         return home
 
     def get_obs(self):
@@ -62,12 +67,12 @@ class RLPlayer(gym.Env):
 
         return obs
 
-    def get_reward(self):
-        """ determines a reward, function can be redefined by user
-        :return: float value normalized to [-1,1] """
-        reward = 1#self.redis_client.conn.hget("current_demand")
+    # def get_reward(self):
+    #     """ determines a reward, function can be redefined by user
+    #     :return: float value normalized to [-1,1] """
+    #     reward = 1#self.redis_client.conn.hget("current_demand")
 
-        return reward
+    #     return reward
 
     # def step(self, action=None):
     #     """redefines the OpenAI Gym environment.
@@ -106,17 +111,22 @@ class RLPlayer(gym.Env):
 
     #     return self.get_obs(), self.get_reward(), False, {}
 
-    def step(self, action=None):
+    async def step(self, action=None):
         """redefines the OpenAI Gym environment.
         :return: observation, reward, is_done, debug_info"""
 
-        # do stuff
-        fh = logging.FileHandler(os.path.join("home_logs", f"{self.name}.log"))
+        # connect to logger and redis (for parallelization this must be done within the method)
+        fh = logging.FileHandler(os.path.join("home_logs", f"{self.home.name}.log"))
         fh.setLevel(logging.WARN)
+        self.home.log = pathos.logger(level=logging.INFO, handler=fh, name=self.home.name)
+        self.home.redis_client = RedisClient() # RedisClient is a singleton class
 
-        self.home.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
-
-        self.redis_client = RedisClient()
+        # connect to the aioredis database (for asynchronous updates)
+        # must cast to self.home.redis_client based on MPCCalc structure
+        self.async_redis_client = aioredis.from_url(REDIS_URL)
+        pubsub = self.async_redis_client.pubsub()
+        await pubsub.subscribe("channel:1", "channel:2")
+        
         self.home.redis_get_initial_values()
         self.home.cast_redis_timestep()
 
@@ -135,15 +145,37 @@ class RLPlayer(gym.Env):
         self.home.cleanup_and_finish()
         self.home.redis_write_optimal_vals()
 
+        # tell the aggregator that you are done
+        await self.async_redis_client.publish("channel:1", "mpc_updated")
+        
+        pubsub = self.async_redis_client.pubsub()
+        await pubsub.subscribe("channel:1", "channel:2")
+
+        reward = await self.get_reward(pubsub, self.async_redis_client)
+        print(reward)
+
         self.home.log.removeHandler(fh)
 
         if action:
             print(self.home.timestep)
             self.home.t_in_max = temp # reset to default values (@akp, clean up)
 
-        return self.get_obs(), self.get_reward(), False, {}
+        return self.get_obs(), reward, False, {}
 
-    async def reader(self, channel: aioredis.client.PubSub, redis):
+    async def get_reward(self, channel: aioredis.client.PubSub, redis_client):
+        while True:
+            try:
+                async with async_timeout.timeout(1):
+                    message = await channel.get_message(ignore_subscribe_messages=True)
+                    if message is not None:
+                        print(f"(Reader) Message Recieved: {message}")
+                        if message["data"].decode() == "ts_complete":
+                            current_demand = redis_client.conn.hget("current_demand")
+            except asyncio.TimeoutError:
+                pass
+        return current_demand
+
+    async def reader(self, channel: aioredis.client.PubSub, redis_client):
         while True:
             try:
                 async with async_timeout.timeout(1):
@@ -153,8 +185,7 @@ class RLPlayer(gym.Env):
                         if message["data"].decode() == "ts_complete":
                             print(f"(Reader) doing step")
                             # await redis.publish("channel:1", "mpc_update")
-                            redis.publish("channel:1", "mpc_update")
-                            print("here's where we can implement the action")
+                            redis_client.publish("channel:1", "mpc_update")
 
                         elif message["data"].decode() == "get_rewards":
                             print("here's where we can get rewards")
@@ -180,7 +211,7 @@ class RLPlayer(gym.Env):
 
         
 
-        redis = aioredis.from_url("redis://localhost")
+        redis = aioredis.from_url(REDIS_URL)
         pubsub = redis.pubsub()
         await pubsub.subscribe("channel:1", "channel:2")
 
@@ -195,4 +226,4 @@ class RLPlayer(gym.Env):
 
 if __name__=="__main__":
     rlp = RLPlayer()
-    asyncio.run(rlp.main())
+    asyncio.run(rlp.step())
