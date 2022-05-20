@@ -155,7 +155,9 @@ class MPCCalc:
         
         # Set up the HEMS scheule
         self.occ_on = [False] * self.sub_subhourly_steps * self.dt * 24
-        for occ_period in self.home['hems']['weekday_occ_schedule']: # occ_schedule must be a list of lists
+        occ_sched_pairs = [self.home['hems']['weekday_occ_schedule'][2*i:2*i+2] for i in range(len(self.home['hems']['weekday_occ_schedule'])//2)]
+        for occ_period in occ_sched_pairs: # occ_schedule must be a list of lists
+            occ_period = [int(x) for x in occ_period]
             int_occ_schedule = [int(x) for x in np.multiply(self.sub_subhourly_steps * self.dt, occ_period)]
             if occ_period[1] < occ_period[0]: # if period of occupancy is overnight
                 int_occ_schedule = [int_occ_schedule[0], None, 0, int_occ_schedule[1]]
@@ -200,9 +202,10 @@ class MPCCalc:
         # Home temperature constraints
         # create temp bounds based on occ schedule, array should be one week long
         occ_t_in_min = float(self.home["hvac"]["temp_in_min"])
-        unocc_t_in_min = float(self.home["hvac"]["temp_in_min"]) - 2#self.home["hvac"]["temp_setback_delta"]
+        unocc_t_in_min = float(self.home["hvac"]["temp_in_min"]) - 2#float(self.home["hvac"]["temp_setback_delta"])
         occ_t_in_max = float(self.home["hvac"]["temp_in_max"])
-        unocc_t_in_max = float(self.home["hvac"]["temp_in_max"]) + 2#self.home["hvac"]["temp_setback_delta"]
+        unocc_t_in_max = float(self.home["hvac"]["temp_in_max"]) + 2#float(self.home["hvac"]["temp_setback_delta"])
+        self.t_deadband = occ_t_in_max - occ_t_in_min
         self.t_in_min = [occ_t_in_min if i else unocc_t_in_min for i in self.occ_on] * 2
         self.t_in_max = [occ_t_in_max if i else unocc_t_in_max for i in self.occ_on] * 2
         self.t_in_init = float(self.home["hvac"]["temp_in_init"])
@@ -313,7 +316,6 @@ class MPCCalc:
         water heater.
         :return: None
         """
-
         self.hvac_heat_min = 0
         self.hvac_cool_min = 0
         self.wh_heat_max = self.sub_subhourly_steps
@@ -471,12 +473,16 @@ class MPCCalc:
         self.obj = cp.Minimize(cp.sum(cp.multiply(self.cost, self.weights))) #+ self.wh_weighting * cp.sum(cp.abs(self.temp_wh_max - self.temp_wh_ev))) #cp.sum(self.temp_wh_sp - self.temp_wh_ev))
         self.prob = cp.Problem(self.obj, self.constraints)
         if not self.prob.is_dcp():
-            self.log.error("Problem is not DCP")
-        try:
-            self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
-            self.solved = True
-        except:
-            self.solved = False
+            # self.log.error("Problem is not DCP")
+            print("problem is not dcp")
+        # try:
+        #     print('this')
+        self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
+        # self.solved = True
+        # except:
+        #     print('that')
+        #     self.solved = False
+        return
 
     def implement_presolve(self):
         constraints = [
@@ -551,12 +557,12 @@ class MPCCalc:
                 self.optimal_vals["t_in_max"] = self.stored_optimal_vals["t_in_max"][0]
                 self.optimal_vals["correct_solve"] = 1
                 self.optimal_vals["solve_counter"] = 0
-                self.log.debug(f"MPC solved with status {self.prob.status} for {self.name}")
+                # self.log.debug(f"MPC solved with status {self.prob.status} for {self.name}")
                 return
             else:
                 # self.implement_presolve()
                 self.counter += 1
-                self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
+                # self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
                 self.optimal_vals["correct_solve"] = 0
 
                 if self.counter < self.horizon and self.timestep > 0:
@@ -665,7 +671,7 @@ class MPCCalc:
         """
         rp = self.redis_client.conn.lrange('reward_price', 0, -1)
         self.reward_price = rp[:self.horizon]
-        self.log.debug(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
+        # self.log.debug(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
 
     def solve_type_problem(self):
         """
@@ -676,6 +682,7 @@ class MPCCalc:
         self.add_type_constraints()
         self.set_type_p_grid()
         self.solve_mpc()
+        return
 
     def run_home(self):
         """
@@ -686,7 +693,7 @@ class MPCCalc:
         fh = logging.FileHandler(os.path.join("home_logs", f"{self.name}.log"))
         fh.setLevel(logging.WARN)
 
-        self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
+        # self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
 
         self.redis_client = RedisClient()
         self.redis_get_initial_values()
@@ -700,4 +707,4 @@ class MPCCalc:
         self.cleanup_and_finish()
         self.redis_write_optimal_vals()
 
-        self.log.removeHandler(fh)
+        # self.log.removeHandler(fh)

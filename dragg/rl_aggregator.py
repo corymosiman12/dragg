@@ -19,6 +19,7 @@ import itertools as it
 import redis
 import pathos
 from pathos.pools import ProcessPool
+from copy import copy, deepcopy
 
 import asyncio
 import aioredis
@@ -564,6 +565,7 @@ class RLAggregator:
             i += 1
 
         self.all_homes = all_homes
+        self.all_homes_copy = deepcopy(self.all_homes)
         # self.all_names = list(self.all_homes.keys())
         self.all_homes_obj = []
         self.max_poss_load = 0
@@ -575,15 +577,18 @@ class RLAggregator:
         #     self.max_poss_load += home_obj.home.max_load
 
     def post_next_home(self):
-        next_home = self.all_homes.pop()
+        if len(self.all_homes_copy) > 1:
+            next_home = self.all_homes_copy.pop()  
+        else:
+            print("WARNING: You have initialized more players than are set in the community")
+            next_home = self.all_homes_copy[0]
+
         for k, v in next_home.items():
-            print(k,type(v))
             if not k in ["wh","hvac","battery","pv","hems"]:
                 self.redis_client.conn.hset("home_values", k, v)
             else:
                 for k2, v2 in v.items():
                     if not k2 in ["draw_sizes", "weekday_occ_schedule"]:
-                        print(k2,type(v2))
                         self.redis_client.conn.hset(f"{k}_values", k2, v2)
                     else:
                         self.redis_client.conn.delete(k2)
@@ -938,7 +943,9 @@ class RLAggregator:
                     message = await channel.get_message(ignore_subscribe_messages=True)
                     if message is not None:
                         print(f"(Reader) Message Received: {message}")
-                        if message["data"].decode() == "mpc_update":
+                        if message["data"].decode() == "mpc_started":
+                            self.post_next_home()
+                        elif message["data"].decode() == "mpc_update":
                             print(f"(Reader) mpc house {i} updated")
                             i += 1
                             # break # can use this to close out reader
@@ -984,8 +991,6 @@ class RLAggregator:
         future = asyncio.create_task(self.reader(pubsub, redis))
 
         await redis.publish("channel:1", "time_update")
-        # await redis.publish("channel:2", "World")
-        # await redis.publish("channel:1", "stop")
 
         await future
 

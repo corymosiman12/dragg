@@ -1,7 +1,7 @@
 [community]
-total_number_homes = 10
+total_number_homes = 3
 homes_battery = 0
-homes_pv = 4
+homes_pv = 3
 homes_pv_battery = 0
 overwrite_existing = true
 house_p_avg = 1.2
@@ -15,7 +15,7 @@ load_zone = "LZ_HOUSTON"
 check_type = "all"
 run_rbo_mpc = true
 checkpoint_interval = "daily"
-named_version = "test"
+named_version = "marl_test"
 
 [agg]
 base_price = 0.07
@@ -59,7 +59,7 @@ area = [20, 32]
 efficiency = [0.15, 0.2]
 
 [home.hems]
-weekday_occ_schedule = [[19,8],[17,18]]
+weekday_occ_schedule = [19,8,17,18]
 prediction_horizon = 6
 sub_subhourly_steps = 6
 discount_factor = 0.92

@@ -438,7 +438,7 @@ class Aggregator:
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
                     "temp_in_init": home_hvac_temp_init[i],
-                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
+                    "temp_setback_delta": home_hvac_temp_sb_delta[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -482,7 +482,7 @@ class Aggregator:
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
                     "temp_in_init": home_hvac_temp_init[i],
-                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
+                    "temp_setback_delta": home_hvac_temp_sb_delta[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -535,7 +535,7 @@ class Aggregator:
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
                     "temp_in_init": home_hvac_temp_init[i],
-                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
+                    "temp_setback_delta": home_hvac_temp_sb_delta[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -571,7 +571,7 @@ class Aggregator:
                     "temp_in_max": home_hvac_temp_in_max_dist[i],
                     "temp_in_sp": home_hvac_temp_in_sp_dist[i],
                     "temp_in_init": home_hvac_temp_init[i],
-                    #"temp_setback_delta": home_hvac_temp_sb_delta[i]
+                    "temp_setback_delta": home_hvac_temp_sb_delta[i]
                 },
                 "wh": {
                     "r": wh_r_dist[i],
@@ -817,16 +817,16 @@ class Aggregator:
             "OAT": self.all_data.loc[self.mask, "OAT"].values.tolist(),
             "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist(),
             "RP": self.all_rps.tolist(),
-            "p_grid_setpoint": self.all_sps.tolist(),
+            "p_grid_setpoint": self.all_sps.tolist()
             # "rl_rewards": self.all_rewards
         }
 
         self.my_summary()
 
         if self.config['agg']['spp_enabled']:
-            self.collected_data["Summary"]["SPP"] = self.all_data.loc[self.mask, "SPP"].values.tolist(),
+            self.collected_data["Summary"]["SPP"] = self.all_data.loc[self.mask, "SPP"].values.tolist()
         else:
-            self.collected_data["Summary"]["TOU"] = self.all_data.loc[self.mask, "tou"].values.tolist(),
+            self.collected_data["Summary"]["TOU"] = self.all_data.loc[self.mask, "tou"].values.tolist()
 
     def set_run_dir(self):
         """

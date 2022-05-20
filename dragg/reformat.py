@@ -235,8 +235,6 @@ class Reformat:
     def plot_base_home(self, name, fig, data, summary, fname, file, plot_price=True):
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_in_opt"], name=f"Tin - {fname}", legendgroup='tin', line={'color':'blue', 'width':8, 'dash':file['dash']}))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["temp_wh_opt"], showlegend=True, legendgroup='twh', name=f"Twh - {fname}", line={'color':'firebrick', 'width':8, 'dash':file['dash']}))
-        
-        print(data['t_in_min'])
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data['t_in_min'], name=f"Tin_min", fill=None, showlegend=False, mode='lines', line_color='lightsteelblue',line_shape='hv'))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data['t_in_max'], name=f"Tin_bounds", fill='tonexty' , mode='lines', line_color='lightsteelblue',line_shape='hv'))
 #        fig.update_layout(legend=dict(
