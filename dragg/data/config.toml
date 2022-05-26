@@ -1,16 +1,17 @@
 [community]
-total_number_homes = 3
+total_number_homes = 5
 homes_battery = 0
 homes_pv = 3
 homes_pv_battery = 0
 overwrite_existing = true
 house_p_avg = 1.2
+n_players = 1
 
 [simulation]
 start_datetime = "2015-01-01 00"
 end_datetime = "2015-01-02 00"
 random_seed = 12
-n_nodes = 4
+n_nodes = 1
 load_zone = "LZ_HOUSTON"
 check_type = "all"
 run_rbo_mpc = true

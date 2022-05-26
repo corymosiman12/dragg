@@ -104,9 +104,15 @@ class MPCCalc:
         Sends the optimal values for each home to the redis server.
         :return: None
         """
+        fh = logging.FileHandler(os.path.join("home_logs", f"{self.name}.log"))
+        self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
+
         key = self.name
         for field, value in self.optimal_vals.items():
+            # self.log.info(f"field {value}")
             self.redis_client.conn.hset(key, field, value)
+
+        self.log.removeHandler(fh)
 
     def redis_get_prev_optimal_vals(self):
         """

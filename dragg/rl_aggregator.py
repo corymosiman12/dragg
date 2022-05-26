@@ -26,7 +26,8 @@ import aioredis
 import async_timeout
 
 # Local
-from dragg.rl_player import RLPlayer, manage_home
+from dragg.player import Player
+from dragg.mpc_calc import MPCCalc, manage_home
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 
@@ -89,6 +90,8 @@ class RLAggregator:
         self.all_sps = np.zeros(self.num_timesteps)
 
         self.case = "baseline"
+
+        self.mpc_players = []
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -566,6 +569,7 @@ class RLAggregator:
 
         self.all_homes = all_homes
         self.all_homes_copy = deepcopy(self.all_homes)
+        print([home['name'] for home in self.all_homes])
         # self.all_names = list(self.all_homes.keys())
         self.all_homes_obj = []
         self.max_poss_load = 0
@@ -576,23 +580,30 @@ class RLAggregator:
         #     self.all_homes_obj += [home_obj]
         #     self.max_poss_load += home_obj.home.max_load
 
-    def post_next_home(self):
-        if len(self.all_homes_copy) > 1:
-            next_home = self.all_homes_copy.pop()  
-        else:
-            print("WARNING: You have initialized more players than are set in the community")
-            next_home = self.all_homes_copy[0]
-
-        for k, v in next_home.items():
-            if not k in ["wh","hvac","battery","pv","hems"]:
-                self.redis_client.conn.hset("home_values", k, v)
+    def post_next_home(self, initialize_mpc=False):
+        if not initialize_mpc:
+            if len(self.all_homes_copy) > 0:
+                next_home = self.all_homes_copy.pop()
             else:
-                for k2, v2 in v.items():
-                    if not k2 in ["draw_sizes", "weekday_occ_schedule"]:
-                        self.redis_client.conn.hset(f"{k}_values", k2, v2)
-                    else:
-                        self.redis_client.conn.delete(k2)
-                        self.redis_client.conn.rpush(k2, *v2)
+                print("WARNING: You have initialized more players than are set in the community")
+                # next_home = self.all_homes_copy[0]
+
+            for k, v in next_home.items():
+                if not k in ["wh","hvac","battery","pv","hems"]:
+                    self.redis_client.conn.hset("home_values", k, v)
+                else:
+                    for k2, v2 in v.items():
+                        if not k2 in ["draw_sizes", "weekday_occ_schedule"]:
+                            self.redis_client.conn.hset(f"{k}_values", k2, v2)
+                        else:
+                            self.redis_client.conn.delete(k2)
+                            self.redis_client.conn.rpush(k2, *v2)
+
+        else:
+            print('initializing mpc players')
+            for next_home in self.all_homes_copy:
+                self.mpc_players += [MPCCalc(next_home)]
+                print(f"Aggregator initialized {self.mpc_players[-1].name}")
 
     def reset_collected_data(self):
         self.timestep = 0
@@ -677,7 +688,7 @@ class RLAggregator:
         :return: None
         """
         self.redis_client.conn.hset("current_values", "timestep", self.timestep)
-
+        self.redis_client.conn.hset("current_values", "current_demand", self.agg_load)
         if 'rl' in self.case:
             self.all_sps[self.timestep] = self.agg_setpoint
             self.all_rps[self.timestep] = self.reward_price[0]
@@ -731,7 +742,7 @@ class RLAggregator:
         self.max_daily_ghi = max(self.ghi[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
 
         pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-        results = pool.map(manage_home, self.as_list)
+        results = pool.map(manage_home, self.mpc_players)
 
         self.timestep += 1
 
@@ -745,6 +756,8 @@ class RLAggregator:
         self.house_load = []
         self.forecast_house_load = []
         for home in self.all_homes:
+            # if not home["name"] == 'Robert-2D73X':
+
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
                 for k, v in vals.items():
@@ -759,6 +772,7 @@ class RLAggregator:
                 self.forecast_house_load.append(float(vals["forecast_p_grid_opt"]))
                 agg_cost += float(vals["cost_opt"])
         self.agg_load = np.sum(self.house_load)
+        print("sum", self.agg_load)
         self.forecast_load = np.sum(self.forecast_house_load)
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
@@ -937,23 +951,37 @@ class RLAggregator:
     async def reader(self, channel: aioredis.client.PubSub, redis_client):
         print('calling reader')
         i = 0
+        
         while True:
             try:
                 async with async_timeout.timeout(1):
                     message = await channel.get_message(ignore_subscribe_messages=True)
                     if message is not None:
                         print(f"(Reader) Message Received: {message}")
-                        if message["data"].decode() == "mpc_started":
-                            self.post_next_home()
-                        elif message["data"].decode() == "mpc_update":
-                            print(f"(Reader) mpc house {i} updated")
+                        if "initialized" in message["data"].decode():
+                            i += 1 
+                            # pretty sure there's an issue here with the time it takes for a time out/sleep
+                            if i < self.config['community']['n_players']:
+                                self.post_next_home()
+                                i += 1
+                                
+                            elif i == self.config['community']['n_players']: # now we know that the whole community has stepped
+                                i = 0
+                                print('initializing other homes')
+                                self.post_next_home(initialize_mpc=True)
+
+                        elif "updated" in message["data"].decode():
+                            print(f"(Reader) rl house {i} updated")
                             i += 1
                             # break # can use this to close out reader
-                            if i == len(self.all_homes): # now we know that the whole community has stepped
-                                # await redis_client.publish("channel:1", "ts_complete")
-                                # redis_client.publish("channel:1", "ts_complete")
+                            if i == self.config['community']['n_players']: # now we know that the whole community has stepped
+                                self.redis_set_current_values()
+                                self.run_iteration()
+                                await redis_client.publish("channel:1", "timestep can be moved forward")
+                                self.collect_data()
+
+                                i = 0
                                 print("(Reader) timestep can be moved forward")
-                                print(" (todo) we can implement auxiliary functions (i.e. pandapower here) ")
                     await asyncio.sleep(0.1)
             except asyncio.TimeoutError:
                 pass
