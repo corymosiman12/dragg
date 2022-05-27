@@ -26,7 +26,7 @@ import aioredis
 import async_timeout
 
 # Local
-from dragg.player import Player
+from dragg.player import PlayerHome
 from dragg.mpc_calc import MPCCalc, manage_home
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
@@ -92,6 +92,8 @@ class RLAggregator:
         self.case = "baseline"
 
         self.mpc_players = []
+
+        self.start_time = datetime.now()
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -575,10 +577,6 @@ class RLAggregator:
         self.max_poss_load = 0
         self.min_poss_load = 0
         self.max_poss_load = 1
-        # for home in all_homes:
-        #     home_obj = RLPlayer(home)
-        #     self.all_homes_obj += [home_obj]
-        #     self.max_poss_load += home_obj.home.max_load
 
     def post_next_home(self, initialize_mpc=False):
         if not initialize_mpc:
@@ -831,8 +829,6 @@ class RLAggregator:
             # "rl_rewards": self.all_rewards
         }
 
-        self.my_summary()
-
         if self.config['agg']['spp_enabled']:
             self.collected_data["Summary"]["SPP"] = self.all_data.loc[self.mask, "SPP"].values.tolist()
         else:
@@ -873,6 +869,7 @@ class RLAggregator:
         :return: None
         """
         ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
+        print(f'writing to {ah}')
         with open(ah, 'w+') as f:
             json.dump(self.all_homes, f, indent=4)
 
@@ -982,6 +979,9 @@ class RLAggregator:
 
                                 i = 0
                                 print("(Reader) timestep can be moved forward")
+
+                        elif "done" in message["data"].decode():
+                            self.write_outputs()
                     await asyncio.sleep(0.1)
             except asyncio.TimeoutError:
                 pass
@@ -1017,8 +1017,6 @@ class RLAggregator:
         await pubsub.subscribe("channel:1", "channel:2")
 
         future = asyncio.create_task(self.reader(pubsub, redis))
-
-        await redis.publish("channel:1", "time_update")
 
         await future
 

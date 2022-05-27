@@ -19,18 +19,11 @@ import async_timeout
 from dragg.redis_client import RedisClient
 from dragg.logger import Logger
 from dragg.mpc_calc import MPCCalc
+from dragg.agent import RandomAgent
 
 REDIS_URL = "redis://localhost"
 
-# def manage_home(home):
-#     """
-#     Calls class method as a top level function (picklizable by pathos)
-#     :return: None
-#     """
-#     home.step()#np.random.uniform(19,22))
-#     return
-
-class Player(gym.Env):
+class PlayerHome(gym.Env):
     def __init__(self):
         # redis = aioredis.from_url(REDIS_URL)
         # pubsub = redis.pubsub()
@@ -80,7 +73,8 @@ class Player(gym.Env):
 
     def get_obs(self):
         """
-        Gets the corresponding values for each of the desired state values, as set in state_action.json
+        Gets the corresponding values for each of the desired state values, as set in state_action.json.
+        User can change this method according to how it post processes any observation values and/or in what values it receives.
         :return: list of float values
         """
         obs = []
@@ -94,11 +88,10 @@ class Player(gym.Env):
 
     def get_reward(self):
         """ 
-        Determines a reward, function can be redefined by user
+        Determines a reward, function can be redefined by user in any way they would like.
         :return: float value normalized to [-1,1] 
         """
         reward = self.redis_client.conn.hget("current_values", "current_demand")
-        print(f"read current demand as {reward}")
         return reward
 
     def step(self, action=None):
@@ -169,8 +162,11 @@ class Player(gym.Env):
         await async_redis.publish("channel:1", f"{self.home.name} {status}.")
 
 if __name__=="__main__":
-    player = Player()
+    my_home = PlayerHome()
+    agent = RandomAgent(my_home)
 
-    for _ in range(24 * player.home.dt):
-        action = player.action_space.sample()
-        player.step() 
+    for _ in range(6 * my_home.home.dt):
+        action = my_home.action_space.sample()
+        my_home.step() 
+
+    asyncio.run(my_home.post_status("done"))
