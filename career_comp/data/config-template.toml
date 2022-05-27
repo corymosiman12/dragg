@@ -1,0 +1,70 @@
+[community]
+total_number_homes = 10
+homes_battery = 0
+homes_pv = 4
+homes_pv_battery = 0
+overwrite_existing = true
+house_p_avg = 1.2
+
+[simulation]
+start_datetime = "2015-01-01 00"
+end_datetime = "2015-01-04 00"
+random_seed = 12
+n_nodes = 4
+load_zone = "LZ_HOUSTON"
+check_type = "all"
+run_rbo_mpc = true
+checkpoint_interval = "daily"
+named_version = "test"
+
+[agg]
+base_price = 0.07
+subhourly_steps = 1
+tou_enabled = true
+spp_enabled = false
+
+[agg.rl]
+action_horizon = 1
+forecast_horizon = 1
+prev_timesteps = 12
+max_rp = 0.02
+
+[home.hvac]
+r_dist = [ 6.8, 9.199999999999999,]
+c_dist = [ 4.25, 5.75,]
+p_cool_dist = [ 3.5, 3.5,]
+p_heat_dist = [ 3.5, 3.5,]
+temp_sp_dist = [ 18, 22,]
+temp_deadband_dist = [ 2, 3,]
+
+[home.wh]
+r_dist = [ 18.7, 25.3,]
+p_dist = [ 2.5, 2.5,]
+sp_dist = [ 45.5, 48.5,]
+deadband_dist = [ 9, 12,]
+size_dist = [ 200, 300,]
+waterdraw_file = '100_Random_Flow_Profiles.csv'
+
+[home.battery]
+max_rate = [3,5]
+capacity = [9.0,13.5]
+lower_bound = [ 0.01, 0.15]
+upper_bound = [ 0.85, 0.99]
+charge_eff = [0.85, 0.95]
+discharge_eff = [0.97, 0.99]
+
+[home.pv]
+area = [20, 32]
+efficiency = [0.15, 0.2]
+
+[home.hems]
+prediction_horizon = 6
+sub_subhourly_steps = 6
+discount_factor = 0.92
+solver = "GLPK_MI"
+
+[agg.tou]
+shoulder_times = [ 9, 21,]
+shoulder_price = 0.09
+peak_times = [ 14, 18,]
+peak_price = 0.13

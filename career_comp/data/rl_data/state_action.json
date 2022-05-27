@@ -1,0 +1,17 @@
+{"states":{
+	"t_in_current":true,
+	"t_out_current":true,
+	"t_out_6hr":true,
+	"t_our_12hr":false,
+	"h_out":true,
+	"h_out_6hr":true,
+	"h_out_12hr":true,
+	"time_of_day":true,
+	"day_of_week":true,
+	"is_holiday":false,
+	"occupancy":true
+},
+"actions":{
+	"hvac_setpoint":true,
+	"wh_setpoint":false}
+}
