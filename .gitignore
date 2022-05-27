@@ -6,3 +6,4 @@ archive
 *.log
 ~$*.xlsx
 dragg/dump.rdb
+*home_logs
