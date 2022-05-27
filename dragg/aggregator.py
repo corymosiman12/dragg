@@ -63,7 +63,7 @@ class Aggregator:
         self.hours = None  # Set by _set_dt
         self.dt = None  # Set by _set_dt
         self.num_timesteps = None  # Set by _set_dt
-        self.all_homes = None  # Set by get_homes
+        self.all_homes = None  # Set by create_homes
         self.redis_client = RedisClient()
         self.config = self._import_config()
         self.check_type = self.config['simulation']['check_type']  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
@@ -84,6 +84,7 @@ class Aggregator:
         self.all_sps = np.zeros(self.num_timesteps)
 
         self.case = "baseline"
+        self.start_time = datetime.now()
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -267,6 +268,7 @@ class Aggregator:
                 self.all_homes = json.load(f)
         else:
             self.create_homes()
+            self.create_mpc_home_obj()
         self._check_home_configs()
         self.write_home_configs()
 
@@ -591,10 +593,16 @@ class Aggregator:
         self.all_homes_obj = []
         self.max_poss_load = 0
         self.min_poss_load = 0
-        for home in all_homes:
+        # for home in all_homes:
+        #     home_obj = MPCCalc(home)
+        #     self.all_homes_obj += [home_obj]
+        #     self.max_poss_load += home_obj.max_load
+
+    def create_mpc_home_obj(self):
+        for home in self.all_homes:
             home_obj = MPCCalc(home)
             self.all_homes_obj += [home_obj]
-            self.max_poss_load += home_obj.max_load
+            self.max_poss_load += home_obj.max_load   
 
     def reset_collected_data(self):
         self.timestep = 0
@@ -733,7 +741,7 @@ class Aggregator:
         self.max_daily_ghi = max(self.ghi[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
 
         pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
-        results = pool.map(manage_home, self.as_list)
+        results = pool.map(manage_home, self.mpc_players)
 
         self.timestep += 1
 
@@ -777,10 +785,10 @@ class Aggregator:
         self.log.logger.info(f"Performing baseline run for horizon: {self.config['home']['hems']['prediction_horizon']}")
         self.start_time = datetime.now()
 
-        self.as_list = []
+        self.mpc_players = []
         for home in self.all_homes_obj:
             if self.check_type == "all" or home.type == self.check_type:
-                self.as_list += [home]
+                self.mpc_players += [home]
         for t in range(self.num_timesteps):
             self.redis_set_current_values()
             self.run_iteration()
@@ -889,10 +897,10 @@ class Aggregator:
     def setup_rl_agg_run(self):
         self.flush_redis()
 
-        self.as_list = []
+        self.mpc_players = []
         for home in self.all_homes_obj:
             if self.check_type == "all" or home["type"] == self.check_type:
-                self.as_list += [home]
+                self.mpc_players += [home]
 
         # self.log.logger.info(f"Performing RL AGG (agg. horizon: {self.util['rl_agg_horizon']}, learning rate: {self.rl_params['alpha']}, discount factor: {self.rl_params['beta']}, exploration rate: {self.rl_params['epsilon']}) with MPC HEMS for horizon: {self.config['home']['hems']['prediction_horizon']}")
         self.start_time = datetime.now()
@@ -908,21 +916,6 @@ class Aggregator:
 
         self.redis_set_current_values()
 
-    def test_response(self):
-        """
-        Tests the RL agent using a linear model of the community's response
-        to changes in the reward price.
-        :return: None
-        """
-        c = self.config['agg']['simplified']['response_rate']
-        k = self.config['agg']['simplified']['offset']
-        if self.timestep == 0:
-            self.agg_load = self.agg_setpoint + 0.1*self.agg_setpoint
-        self.agg_load = self.agg_load - c * self.reward_price[0] * (self.agg_setpoint - self.agg_load)
-        self.agg_cost = self.agg_load * self.reward_price[0]
-        self.log.logger.info(f"Iteration {self.timestep} finished. Aggregate load {self.agg_load}")
-        self.timestep += 1
-
     def flush_redis(self):
         """
         Cleans all information stored in the Redis server. (Including environmental
@@ -936,20 +929,6 @@ class Aggregator:
         self.calc_start_hour_index()
         self.redis_add_all_data()
         self.redis_set_initial_values()
-
-    # def set_value_permutations(self):
-    #     """
-    #     --CURRENTLY DEPRICATED TO INTERFACE WITH DRAGGEnv--
-    #     Uses the list of config parameters to create permutations of all parameters listed
-    #     for use in batch runs.
-    #     """
-    #     mpc_parameters = {"horizon": [int(i) for i in self.config['home']['hems'][]]}
-    #     keys, values = zip(*mpc_parameters.items())
-    #     self.mpc_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
-    #
-    #     util_parameters = {"rl_agg_horizon": [int(i) for i in self.config['agg'][]]]}
-    #     keys, values = zip(*util_parameters.items())
-    #     self.util_permutations = [dict(zip(keys, v)) for v in it.product(*values)]
 
     def run(self):
         """
@@ -981,3 +960,7 @@ class Aggregator:
             self.reset_collected_data()
             self.run_baseline()
             self.write_outputs()
+
+if __name__=="__main__":
+    a = Aggregator()
+    a.run()
