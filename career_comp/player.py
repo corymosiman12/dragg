@@ -44,6 +44,10 @@ class PlayerHome(gym.Env):
         self.action_space = Box(-1, 1, shape=(len(self.actions), ))
         asyncio.run(self.post_status("initialized as RL player"))
 
+    def reset(self):
+        obs = self.get_obs()
+        return obs 
+
     def set_home(self):
         """
         Gets the first home in the queue (broadcast by the Aggregator).
