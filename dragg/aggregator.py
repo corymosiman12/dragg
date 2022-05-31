@@ -3,8 +3,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import os
 import sys
-import threading
-from queue import Queue
+# import threading
+# from queue import Queue
 
 import pandas as pd
 from datetime import datetime, timedelta
@@ -15,7 +15,7 @@ import toml
 import random
 import names
 import string
-import itertools as it
+# import itertools as it
 import redis
 import pathos
 from pathos.pools import ProcessPool

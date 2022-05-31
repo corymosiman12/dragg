@@ -1,9 +1,9 @@
 import os
 import numpy as np
 import cvxpy as cp
-from redis import StrictRedis
+# from redis import StrictRedis
 import redis
-import scipy.stats
+# import scipy.stats
 import logging
 import pathos
 from collections import defaultdict
