@@ -17,7 +17,6 @@ setup(name='dragg',
         'prettytable',
         'plotly',
         'toml',
-        'random',
         'names'],
       py_modules=['dragg'],
       classifiers=[
