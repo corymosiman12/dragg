@@ -757,6 +757,7 @@ class Aggregator:
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.conn.hgetall(home["name"])
+                print(home["name"])
                 for k, v in vals.items():
                     opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws", "correct_solve", "t_in_max", "t_in_min"]
                     if 'pv' in home["type"]:
