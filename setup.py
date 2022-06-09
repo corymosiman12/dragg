@@ -11,7 +11,6 @@ setup(name='dragg',
       install_requires=[
         'redis',
         'pathos',
-        'logging',
         'cvxpy',
         'numpy',
         'collections',
