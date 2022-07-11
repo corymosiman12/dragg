@@ -441,32 +441,15 @@ class MPCCalc:
         e_disch_trip = min_daily_soc * ev_batt_cap
         p_disch_trip = -1 * e_disch_trip * self.dt #* self.sub_subhourly_steps
 
-        # daily_soc_return = # need to fix 
-        # current_occ = self.occ_on[(self.timestep*self.dt*self.sub_subhourly_steps):((self.timestep+self.h_plus)*self.dt*self.sub_subhourly_steps)+1]# current slice of occupancy schedule
-        # print('here', len(current_occ))
-
-        # ts_occ = self.occ_on[::self.sub_subhourly_steps]
-
         start = (self.timestep) 
         end = (start + self.h_plus ) 
         index = [i % (24 * self.dt) for i in range(start, end)]
-        # print(index, len(self.occ_on))
-
-
-        # charge at 8am
-        # time_of_day = [self.timestep % 24
         index_8am = [i for i, e in enumerate(index) if e in self.leaving_times] #[1 if time == 8 else 0 for time in time_of_day]
         index_5pm = [i-1 for i, e in enumerate(index) if e in self.returning_times]
         index_not5pm = [i for i, e in enumerate(index) if not e in self.returning_times]
-        print(index_5pm)
-        self.constraints += [self.e_ev[i] >= 8 for i in index_8am]
+
+        self.constraints += [self.e_ev[i] >= e_disch_trip + self.ev_cap_min for i in index_8am]
         self.p_ev_disch = cp.Constant([p_disch_trip if i in index_5pm else 0 for i in range(self.horizon)])
-        print(self.p_ev_disch)
-        # is_leaving_soon = [1 if self.occ_on[(i+1)% (24 * self.dt)] < self.occ_on[i] else 0 for i in index[:-1]]
-        # leaving_soon_index = np.argmax(is_leaving_soon[:-1])
-        # is_returning_soon = [1 if self.occ_on[(i+1)% (24 * self.dt)] > self.occ_on[i] else 0 for i in index[:-1]]
-        # returning_soon_index = np.argmax(is_returning_soon[:-1])
-        # is_home = [self.occ_on[i] for i in index]
 
         # generic battery constraints added
         self.constraints += [
@@ -480,32 +463,6 @@ class MPCCalc:
             self.e_ev[1:self.h_plus] <= self.ev_cap_max,
             self.e_ev[1:self.h_plus] >= self.ev_cap_min,
         ]
-
-        # self.constraints += [self.p_ev_disch[i] == p_disch_trip for i in index_5pm[:-1]]
-        # self.constraints += [self.p_ev_disch[i] == 0 for i in index_not5pm[:-1]]
-        
-        # curr_sts_leaving = [j if index[j] in self.sts_leaving else None for j in range(len(index))]
-
-        # curr_sts_returning = [j if index[j] in self.sts_returning else None for j in range(len(index))]
-        # print(curr_sts_returning)
-        ####
-        # for i in range(len(index)-1):
-        #     if curr_sts_leaving[i]:
-        #         # print('....THIs')
-        #         self.constraints += [self.e_ev[curr_sts_leaving[i]] >= e_disch_trip]
-        #     if curr_sts_returning[i] and curr_sts_returning[i] < 3:
-        #         # print("...THAT")
-        #         self.constraints += [self.p_ev_disch[curr_sts_leaving[i]] == p_disch_trip]
-        #         self.constraints += [self.p_ev_ch[curr_sts_leaving[i]] == 0] 
-####
-        # if leaving_soon_index < returning_soon_index:
-        #     # print('heloo...')
-        #     self.constraints += [self.e_ev[leaving_soon_index] >= min_daily_soc, 
-        #         # self.p_ev_ch[is_leaving_soon:is_returning_soon] == 0, # no charge while traveling/away
-        #         self.p_ev_disch[returning_soon_index] == p_disch_trip
-        #     ] 
-
-        # if is_returning_soon < is_leaving_soon:
 
     def add_pv_constraints(self):
         """
