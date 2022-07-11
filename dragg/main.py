@@ -1,10 +1,9 @@
 from dragg.aggregator import Aggregator
-from dragg.rl_aggregator import RLAggregator
 from dragg.reformat import Reformat
 
 if __name__ == "__main__":
 
-    a = RLAggregator()
+    a = Aggregator()
     a.run()
 
     # agg_params = {"alpha": [0.0625], "beta":[1.0], "epsilon":[0.05, 0.025], "rl_horizon":[], "mpc_disutility":[]} # set parameters from earlier runs
