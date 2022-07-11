@@ -42,7 +42,7 @@ class Reformat:
     def main(self):
         # put a list of plotting functions here
         self.sample_homes = ["Crystal-RXXFA", "Myles-XQ5IA"]
-        self.plots = [self.rl2baseline] + [self.plot_single_home]
+        self.plots = [self.rl2baseline] + [self.plot_single_home] #+ [self.plot_ev]
 
         self.images = self.plot_all()
 
@@ -256,9 +256,15 @@ class Reformat:
         return fig
 
     def plot_battery(self, name, fig, data, fname, file):
-        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["e_batt_opt"], name=f"SOC (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["e_batt_opt"], name=f"SOC (kWh) - {fname}", line_shape='hv', visible='legendonly'))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_batt_ch"], name=f"Pch (kW) - {fname}", line_shape='hv', visible='legendonly'))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_batt_disch"], name=f"Pdis (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        return fig
+
+    def plot_ev(self, name, fig, data, fname, file):
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["e_ev_opt"], name=f"SOC (kWh) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_ev_ch"], name=f"Pch (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_ev_disch"], name=f"Pdis (kW) - {fname}", line_shape='hv', visible='legendonly'))
         return fig
 
     def plot_single_home(self, fig):
@@ -305,6 +311,7 @@ class Reformat:
                 if 'batt' in type:
                     fig = self.plot_battery(self.sample_home, fig, data, file["name"], file)
 
+                fig = self.plot_ev(self.sample_home, fig, data, file['name'], file)
                 #figs += [fig]
         return figs
 
