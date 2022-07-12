@@ -265,6 +265,7 @@ class Reformat:
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["e_ev_opt"], name=f"SOC (kWh) - {fname}", line_shape='hv', visible='legendonly'))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_ev_ch"], name=f"Pch (kW) - {fname}", line_shape='hv', visible='legendonly'))
         fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_ev_disch"], name=f"Pdis (kW) - {fname}", line_shape='hv', visible='legendonly'))
+        fig.add_trace(go.Scatter(x=file['parent']['x_lims'], y=data["p_v2g"], name=f"Pv2g (kW) - {fname}", line_shape='hv', visible='legendonly'))
         return fig
 
     def plot_single_home(self, fig):

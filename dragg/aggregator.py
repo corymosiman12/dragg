@@ -637,6 +637,7 @@ class Aggregator:
                 self.collected_data[home["name"]]["e_ev_opt"] = ["16"]
                 self.collected_data[home["name"]]["p_ev_ch"] = []
                 self.collected_data[home["name"]]["p_ev_disch"] = []
+                self.collected_data[home["name"]]["p_v2g"] = []
 
     def check_all_data_indices(self):
         """
@@ -769,7 +770,7 @@ class Aggregator:
                     if 'battery' in home["type"]:
                         opt_keys += ['p_batt_ch', 'p_batt_disch', 'e_batt_opt']
                     if True: #'ev' in home["type"]:
-                        opt_keys += ['p_ev_ch', 'p_ev_disch', 'e_ev_opt']
+                        opt_keys += ['p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt']
                     if k in opt_keys:
                         self.collected_data[home["name"]][k].append(float(v))
                 self.house_load.append(float(vals["p_grid_opt"]))

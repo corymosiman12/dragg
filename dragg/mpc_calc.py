@@ -293,6 +293,7 @@ class MPCCalc:
         # Define battery optimization variables
         self.p_ev_ch = cp.Variable(self.horizon)
         self.p_ev_disch = cp.Constant(self.horizon)
+        self.p_v2g = cp.Variable(self.horizon)
         self.e_ev = cp.Variable(self.h_plus)
 
         self.e_ev_init = 16
@@ -396,7 +397,7 @@ class MPCCalc:
             self.temp_wh >= self.temp_wh_min,
             self.temp_wh <= self.temp_wh_max,
 
-            self.p_load ==  self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on + self.p_ev_ch),
+            self.p_load == self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on + self.p_ev_ch + self.p_v2g),
 
             self.hvac_cool_on <= self.hvac_cool_max,
             self.hvac_cool_on >= self.hvac_cool_min,
@@ -446,22 +447,32 @@ class MPCCalc:
         index = [i % (24 * self.dt) for i in range(start, end)]
         index_8am = [i for i, e in enumerate(index) if e in self.leaving_times] #[1 if time == 8 else 0 for time in time_of_day]
         index_5pm = [i-1 for i, e in enumerate(index) if e in self.returning_times]
-        index_not5pm = [i for i, e in enumerate(index) if not e in self.returning_times]
+        # index_not5pm = [i for i, e in enumerate(index) if not e in self.returning_times]
+        after_5pm = [i for i, e in enumerate(index) if e in self.returning_times]
+        curr_is_occ = [-1 * self.occ_on[i] * self.ev_max_rate for i in index[:-1]]
 
-        self.constraints += [self.e_ev[i] >= e_disch_trip + self.ev_cap_min for i in index_8am]
+        for i in range(self.h_plus):
+            if i in index_8am:
+                self.constraints += [self.e_ev[i] >= (e_disch_trip + self.ev_cap_min)]
+            elif i in after_5pm:
+                self.constraints += [self.e_ev[i] >= 0]
+            else:
+                self.constraints += [self.e_ev[i] >= self.ev_cap_min]
         self.p_ev_disch = cp.Constant([p_disch_trip if i in index_5pm else 0 for i in range(self.horizon)])
+        self.constraints += [self.p_v2g[0:self.horizon] <= 0,
+                            self.p_v2g >= curr_is_occ]
+        # self.constraints += [self.p_v2g == 0]
 
-        # generic battery constraints added
         self.constraints += [
             self.e_ev[1:self.h_plus] == self.e_ev[0:self.horizon]
                                         + (self.ev_ch_eff * self.p_ev_ch[0:self.horizon]
-                                        + self.p_ev_disch[0:self.horizon] / self.ev_disch_eff) / self.dt,
+                                        + self.p_ev_disch[0:self.horizon] / self.ev_disch_eff
+                                        + self.p_v2g[0:self.horizon] / self.ev_disch_eff) / self.dt,
             self.e_ev[0] == self.e_ev_init,
             self.p_ev_ch[0:self.horizon] <= self.ev_max_rate,
             self.p_ev_ch[0:self.horizon] >= 0,
-            # self.p_ev_disch[0:self.horizon] <= 0,
             self.e_ev[1:self.h_plus] <= self.ev_cap_max,
-            self.e_ev[1:self.h_plus] >= self.ev_cap_min,
+            # self.e_ev[1:self.h_plus] >= self.ev_cap_min,
         ]
 
     def add_pv_constraints(self):
@@ -614,7 +625,8 @@ class MPCCalc:
                     self.stored_optimal_vals['e_ev_opt'] = (self.e_ev.value).tolist()[1:]
                     self.stored_optimal_vals['p_ev_ch'] = (self.p_ev_ch.value).tolist()
                     self.stored_optimal_vals['p_ev_disch'] = (self.p_ev_disch.value).tolist()
-                    opt_keys.update(['p_ev_ch', 'p_ev_disch', 'e_ev_opt'])
+                    self.stored_optimal_vals['p_v2g'] = (self.p_v2g.value).tolist()
+                    opt_keys.update(['p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt'])
 
                 for k in opt_keys:
                     if not k == "waterdraws":
