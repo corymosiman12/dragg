@@ -350,6 +350,7 @@ class MPCCalc:
 
 
     def add_current_bounds(self):
+        print("now this...")
         start = self.timestep % (24 * self.dt)
         stop = start + self.horizon
         self.t_in_max_current = cp.Constant(self.t_in_max[start:stop])
@@ -422,10 +423,12 @@ class MPCCalc:
     def override_t_in(self, t_sp):
         # assume unocc temps are the safety bounds
         # pretty much allows for pre-heat/pre-cool since we aren't allowing relaxing the bounds
-        if self.season == "heating" and t_sp <= self.unocc_t_in_min:
-            self.t_in_min_current = cp.Constant(t_sp)
-        elif self.season == "cooling" and t_sp >= self.unocc_t_in_max:
-            self.t_in_max_current = cp.Constant(t_sp)
+        if self.season == "heating" and t_sp >= self.unocc_t_in_min:
+            print("this")
+            self.t_in_min_current = cp.Constant([t_sp]*self.horizon)
+        elif self.season == "cooling" and t_sp <= self.unocc_t_in_max:
+            print("that")
+            self.t_in_max_current = cp.Constant([t_sp]*self.horizon)
 
     def override_t_wh(self, t_sp):
         # change the minimum temperature
@@ -436,7 +439,6 @@ class MPCCalc:
         # self.constraints += [self.p_ev_ch >= p_ch]
         # else:
         return
-
 
     def add_battery_constraints(self, is_ev=False):
         """
@@ -724,7 +726,6 @@ class MPCCalc:
                 # pass
 
     def add_type_constraints(self):
-        self.add_current_bounds()
         self.add_base_constraints()
         self.add_ev_constraints()
         if 'pv' in self.type:
