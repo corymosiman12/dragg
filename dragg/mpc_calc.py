@@ -107,10 +107,13 @@ class MPCCalc:
         fh = logging.FileHandler(os.path.join("home_logs", f"{self.name}.log"))
         self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
 
+        # optimization variables
         key = self.name
         for field, value in self.optimal_vals.items():
             # self.log.info(f"field {value}")
             self.redis_client.conn.hset(key, field, value)
+
+        self.redis_client.conn.hset(key, "future_waterdraws", sum(self.draw_frac.value))
 
         self.log.removeHandler(fh)
 
@@ -174,8 +177,6 @@ class MPCCalc:
                 self.occ_on[start:end] = [True]*len_period
         self.leaving_times = [pair[1] * self.dt for pair in occ_sched_pairs]
         self.returning_times = [pair[0] * self.dt for pair in occ_sched_pairs]
-        # self.sts_leaving = [pair[1] * self.dt for pair in occ_sched_pairs]
-        # self.sts_returning = [pair[0] * self.dt for pair in occ_sched_pairs]
 
         # Initialize RP structure so that non-forecasted RPs have an expected value of 0.
         self.reward_price = np.zeros(self.horizon)
@@ -211,13 +212,13 @@ class MPCCalc:
 
         # Home temperature constraints
         # create temp bounds based on occ schedule, array should be one week long
-        occ_t_in_min = float(self.home["hvac"]["temp_in_min"])
-        unocc_t_in_min = float(self.home["hvac"]["temp_in_min"]) - 2#float(self.home["hvac"]["temp_setback_delta"])
-        occ_t_in_max = float(self.home["hvac"]["temp_in_max"])
-        unocc_t_in_max = float(self.home["hvac"]["temp_in_max"]) + 2#float(self.home["hvac"]["temp_setback_delta"])
-        self.t_deadband = occ_t_in_max - occ_t_in_min
-        self.t_in_min = [occ_t_in_min if i else unocc_t_in_min for i in self.occ_on] * 2 # 2 days worth to avoid not accounting for the horizon
-        self.t_in_max = [occ_t_in_max if i else unocc_t_in_max for i in self.occ_on] * 2
+        self.occ_t_in_min = float(self.home["hvac"]["temp_in_min"])
+        self.unocc_t_in_min = float(self.home["hvac"]["temp_in_min"]) - 2#float(self.home["hvac"]["temp_setback_delta"])
+        self.occ_t_in_max = float(self.home["hvac"]["temp_in_max"])
+        self.unocc_t_in_max = float(self.home["hvac"]["temp_in_max"]) + 2#float(self.home["hvac"]["temp_setback_delta"])
+        self.t_deadband = self.occ_t_in_max - self.occ_t_in_min
+        self.t_in_min = [self.occ_t_in_min if i else self.unocc_t_in_min for i in self.occ_on] * 2 # 2 days worth to avoid not accounting for the horizon
+        self.t_in_max = [self.occ_t_in_max if i else self.unocc_t_in_max for i in self.occ_on] * 2
         self.t_in_init = float(self.home["hvac"]["temp_in_init"])
         self.max_load = (max(self.hvac_p_c.value, self.hvac_p_h.value) + self.wh_p.value) * self.sub_subhourly_steps
         # for electric vehicles
@@ -262,6 +263,8 @@ class MPCCalc:
         self.oat_forecast = cp.Constant(self.oat_current)
         self.ghi_forecast = cp.Constant(self.ghi_current)
         self.cast_redis_curr_rps()
+
+        
 
     def setup_battery_problem(self):
         """
@@ -341,6 +344,17 @@ class MPCCalc:
 
             self.counter = int(self.prev_optimal_vals["solve_counter"])
 
+        self.set_environmental_variables()
+        self.season = "heating" if max(self.oat_current_ev) <= 27 else "cooling"
+        self.add_current_bounds()
+
+
+    def add_current_bounds(self):
+        start = self.timestep % (24 * self.dt)
+        stop = start + self.horizon
+        self.t_in_max_current = cp.Constant(self.t_in_max[start:stop])
+        self.t_in_min_current = cp.Constant(self.t_in_min[start:stop])
+
     def add_base_constraints(self):
         """
         Creates the system dynamics for thermal energy storage systems: HVAC and
@@ -352,18 +366,13 @@ class MPCCalc:
         self.wh_heat_max = self.sub_subhourly_steps
         self.wh_heat_min = 0
         # Set constraints on HVAC by season
-        if max(self.oat_current_ev) <= 30: # "winter"
+        if self.season == "heating": #max(self.oat_current_ev) <= 30: # "winter"
             self.hvac_heat_max = self.sub_subhourly_steps
             self.hvac_cool_max = 0
 
         else: # "summer"
             self.hvac_heat_max = 0
             self.hvac_cool_max = self.sub_subhourly_steps
-        
-        start = self.timestep % (24 * self.dt)
-        stop = start + self.horizon
-        self.t_in_max_current = cp.Constant(self.t_in_max[start:stop])
-        self.t_in_min_current = cp.Constant(self.t_in_min[start:stop])
         
         self.constraints = [
             # Indoor air temperature constraints
@@ -410,6 +419,25 @@ class MPCCalc:
         # set total price for electricity
         self.total_price = cp.Constant(np.array(self.reward_price, dtype=float) + self.base_price[:self.horizon])
 
+    def override_t_in(self, t_sp):
+        # assume unocc temps are the safety bounds
+        # pretty much allows for pre-heat/pre-cool since we aren't allowing relaxing the bounds
+        if self.season == "heating" and t_sp <= self.unocc_t_in_min:
+            self.t_in_min_current = cp.Constant(t_sp)
+        elif self.season == "cooling" and t_sp >= self.unocc_t_in_max:
+            self.t_in_max_current = cp.Constant(t_sp)
+
+    def override_t_wh(self, t_sp):
+        # change the minimum temperature
+        self.constraints += [self.temp_wh_ev >= t_sp]
+
+    def override_ev_charge(self, p_ch):
+        # come up with lower bounded state of charge and then enforce constraint: e_cntl >= e_min
+        # self.constraints += [self.p_ev_ch >= p_ch]
+        # else:
+        return
+
+
     def add_battery_constraints(self, is_ev=False):
         """
         Creates the system dynamics for chemical energy storage.
@@ -443,22 +471,22 @@ class MPCCalc:
         p_disch_trip = -1 * e_disch_trip * self.dt #* self.sub_subhourly_steps
 
         start = (self.timestep) 
-        end = (start + self.h_plus ) 
+        end = (start + self.h_plus) 
         index = [i % (24 * self.dt) for i in range(start, end)]
-        index_8am = [i for i, e in enumerate(index) if e in self.leaving_times] #[1 if time == 8 else 0 for time in time_of_day]
-        index_5pm = [i-1 for i, e in enumerate(index) if e in self.returning_times]
-        # index_not5pm = [i for i, e in enumerate(index) if not e in self.returning_times]
+        self.index_8am = [i for i, e in enumerate(index) if e in self.leaving_times] #[1 if time == 8 else 0 for time in time_of_day]
+        self.index_5pm = [i-1 for i, e in enumerate(index) if e in self.returning_times]
         after_5pm = [i for i, e in enumerate(index) if e in self.returning_times]
         curr_is_occ = [-1 * self.occ_on[i] * self.ev_max_rate for i in index[:-1]]
+        self.currently_occupied = self.occ_on[index[0]]
 
         for i in range(self.h_plus):
-            if i in index_8am:
+            if i in self.index_8am:
                 self.constraints += [self.e_ev[i] >= (e_disch_trip + self.ev_cap_min)]
             elif i in after_5pm:
                 self.constraints += [self.e_ev[i] >= 0]
             else:
                 self.constraints += [self.e_ev[i] >= self.ev_cap_min]
-        self.p_ev_disch = cp.Constant([p_disch_trip if i in index_5pm else 0 for i in range(self.horizon)])
+        self.p_ev_disch = cp.Constant([p_disch_trip if i in self.index_5pm else 0 for i in range(self.horizon)])
         self.constraints += [self.p_v2g[0:self.horizon] <= 0,
                             self.p_v2g >= curr_is_occ]
         # self.constraints += [self.p_v2g == 0]
@@ -551,34 +579,8 @@ class MPCCalc:
         if not self.prob.is_dcp():
             # self.log.error("Problem is not DCP")
             print("problem is not dcp")
-        # try:
-        #     print('this')
         self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
-        # self.solved = True
-        # except:
-        #     print('that')
-        #     self.solved = False
         return
-
-    def implement_presolve(self):
-        constraints = [
-            # Indoor air temperature constraints
-            self.temp_in_ev[0] == self.temp_in_init,
-            self.temp_in_ev[1:self.h_plus] == self.temp_in_ev[0:self.horizon]
-                                            + (((self.oat_forecast[1:self.h_plus] - self.temp_in_ev[0:self.horizon]) / self.home_r)
-                                            - self.hvac_cool_on * self.hvac_p_c
-                                            + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
-
-            # Hot water heater contraints
-            self.temp_wh_ev[0] == self.temp_wh_init,
-            self.temp_wh_ev[1:] == self.temp_wh_ev[:self.horizon]
-                                + (((self.temp_in_ev[1:self.h_plus] - self.temp_wh_ev[:self.horizon]) / self.wh_r)
-                                + self.wh_heat_on * self.wh_p) / (self.wh_c * self.dt),
-
-            self.hvac_cool_on == np.array(self.presolve_hvac_cool_on, dtype=np.double),
-            self.hvac_heat_on == np.array(self.presolve_hvac_heat_on, dtype=np.double),
-            self.wh_heat_on == np.array(self.presolve_wh_heat_on, dtype=np.double)
-        ]
 
     def cleanup_and_finish(self):
         """
@@ -644,7 +646,6 @@ class MPCCalc:
                 # self.log.debug(f"MPC solved with status {self.prob.status} for {self.name}")
                 return
             else:
-                # self.implement_presolve()
                 self.counter += 1
                 # self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
                 print("wrong solve")
@@ -701,13 +702,18 @@ class MPCCalc:
                                     + 3600 * (((new_temp_in - self.temp_wh_init.value) / self.wh_r.value)
                                     + (self.presolve_wh_heat_on * self.wh_p.value)) / (self.wh_c.value * self.dt))
 
+                self.optimal_vals["p_ev_ch"] = 0 if not self.currently_occupied else self.ev_max_rate 
+                self.optimal_vals["p_ev_disch"] = self.p_ev_disch.value[0]
+                self.optimal_vals["p_ev_v2g"] = 0
+                self.optimal_vals["e_ev_opt"] = self.e_ev_init.value + (self.ev_ch_eff.value * self.optimal_vals["p_ev_ch"] + self.optimal_vals["p_ev_disch"] / self.ev_disch_eff.value) / self.dt
+                # print(self.optimal_vals["e_ev_opt"])
                 self.optimal_vals["wh_heat_on_opt"] = self.presolve_wh_heat_on / self.sub_subhourly_steps
                 self.optimal_vals["hvac_heat_on_opt"] = self.presolve_hvac_heat_on / self.sub_subhourly_steps
                 self.optimal_vals["hvac_cool_on_opt"] = self.presolve_hvac_cool_on / self.sub_subhourly_steps
                 self.optimal_vals["temp_in_opt"] = new_temp_in
                 self.optimal_vals["temp_wh_opt"] = new_temp_wh
                 self.optimal_vals["solve_counter"] = self.counter
-                self.optimal_vals["p_load_opt"] = self.presolve_wh_heat_on * self.wh_p.value + self.presolve_hvac_cool_on * self.hvac_p_c.value + self.presolve_hvac_heat_on * self.hvac_p_h.value
+                self.optimal_vals["p_load_opt"] = self.presolve_wh_heat_on * self.wh_p.value + self.presolve_hvac_cool_on * self.hvac_p_c.value + self.presolve_hvac_heat_on * self.hvac_p_h.value + self.optimal_vals["p_ev_ch"] + self.optimal_vals["p_ev_v2g"]
                 self.optimal_vals["forecast_p_grid_opt"] = self.optimal_vals["p_load_opt"]
                 self.optimal_vals["waterdraws"] = self.draw_size[0]
                 self.optimal_vals["p_grid_opt"] = self.optimal_vals["p_load_opt"]
@@ -718,6 +724,7 @@ class MPCCalc:
                 # pass
 
     def add_type_constraints(self):
+        self.add_current_bounds()
         self.add_base_constraints()
         self.add_ev_constraints()
         if 'pv' in self.type:
@@ -764,7 +771,7 @@ class MPCCalc:
         Selects routine for MPC optimization problem setup and solve using home type.
         :return: None
         """
-        self.set_environmental_variables()
+        
         self.add_type_constraints()
         self.set_type_p_grid()
         self.solve_mpc()
