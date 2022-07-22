@@ -99,6 +99,8 @@ class MPCCalc:
             # setup the pv variables
             self.setup_pv_problem()
 
+        self.ev_override_profile = None
+
     def redis_write_optimal_vals(self):
         """
         Sends the optimal values for each home to the redis server.
@@ -111,6 +113,8 @@ class MPCCalc:
         key = self.name
         for field, value in self.optimal_vals.items():
             # self.log.info(f"field {value}")
+            if isinstance(value, cp.Constant):#type(value) != 
+                print(field)
             self.redis_client.conn.hset(key, field, value)
 
         self.redis_client.conn.hset(key, "future_waterdraws", sum(self.draw_frac.value))
@@ -264,8 +268,6 @@ class MPCCalc:
         self.ghi_forecast = cp.Constant(self.ghi_current)
         self.cast_redis_curr_rps()
 
-        
-
     def setup_battery_problem(self):
         """
         Adds CVX variables for battery subsystem in battery and battery_pv homes.
@@ -288,7 +290,7 @@ class MPCCalc:
         # Define constants
         self.ev_max_rate = 5 # kWh
         self.ev_cap_total = 16 # kWh
-        self.ev_cap_min = cp.Constant(0.2*self.ev_cap_total)
+        self.ev_cap_min = 0.2*self.ev_cap_total
         self.ev_cap_max = self.ev_cap_total
         self.ev_ch_eff = cp.Constant(0.95)
         self.ev_disch_eff = cp.Constant(0.97)
@@ -299,7 +301,7 @@ class MPCCalc:
         self.p_v2g = cp.Variable(self.horizon)
         self.e_ev = cp.Variable(self.h_plus)
 
-        self.e_ev_init = 16
+        self.e_ev_init = cp.Constant(16)
 
     def setup_pv_problem(self):
         """
@@ -350,7 +352,6 @@ class MPCCalc:
 
 
     def add_current_bounds(self):
-        print("now this...")
         start = self.timestep % (24 * self.dt)
         stop = start + self.horizon
         self.t_in_max_current = cp.Constant(self.t_in_max[start:stop])
@@ -424,20 +425,24 @@ class MPCCalc:
         # assume unocc temps are the safety bounds
         # pretty much allows for pre-heat/pre-cool since we aren't allowing relaxing the bounds
         if self.season == "heating" and t_sp >= self.unocc_t_in_min:
-            print("this")
+            t_sp = min(t_sp, self.occ_t_in_max)
             self.t_in_min_current = cp.Constant([t_sp]*self.horizon)
         elif self.season == "cooling" and t_sp <= self.unocc_t_in_max:
-            print("that")
+            t_sp = max(t_sp, self.occ_t_in_min)
             self.t_in_max_current = cp.Constant([t_sp]*self.horizon)
+        return 
 
     def override_t_wh(self, t_sp):
         # change the minimum temperature
+        t_sp = max(t_sp, self.temp_wh_max.value)
         self.constraints += [self.temp_wh_ev >= t_sp]
+        return
 
-    def override_ev_charge(self, p_ch):
+    def override_ev_charge(self, e_new):
         # come up with lower bounded state of charge and then enforce constraint: e_cntl >= e_min
-        # self.constraints += [self.p_ev_ch >= p_ch]
-        # else:
+        self.ev_override_profile = [e_new] * self.h_plus
+        # print(e_new)
+        self.constraints += [self.e_ev >= np.multiply(self.ev_override_profile,self.occ_slice)]
         return
 
     def add_battery_constraints(self, is_ev=False):
@@ -470,16 +475,18 @@ class MPCCalc:
         min_daily_soc = 41/150
         ev_batt_cap = 16 # kWh
         e_disch_trip = min_daily_soc * ev_batt_cap
-        p_disch_trip = -1 * e_disch_trip * self.dt #* self.sub_subhourly_steps
+        p_disch_trip = -1 * e_disch_trip * self.dt 
 
         start = (self.timestep) 
         end = (start + self.h_plus) 
         index = [i % (24 * self.dt) for i in range(start, end)]
-        self.index_8am = [i for i, e in enumerate(index) if e in self.leaving_times] #[1 if time == 8 else 0 for time in time_of_day]
+        self.leaving_times = [int(i) if not isinstance(i, int) else i for i in self.leaving_times]
+        print(self.leaving_times)
+        self.returning_times = [int(i) if not isinstance(i, int) else i for i in self.returning_times]
+        self.index_8am = [i for i, e in enumerate(index) if e in self.leaving_times]
         self.index_5pm = [i-1 for i, e in enumerate(index) if e in self.returning_times]
         after_5pm = [i for i, e in enumerate(index) if e in self.returning_times]
-        curr_is_occ = [-1 * self.occ_on[i] * self.ev_max_rate for i in index[:-1]]
-        self.currently_occupied = self.occ_on[index[0]]
+        self.occ_slice = [self.occ_on[i] for i in index]
 
         for i in range(self.h_plus):
             if i in self.index_8am:
@@ -488,10 +495,10 @@ class MPCCalc:
                 self.constraints += [self.e_ev[i] >= 0]
             else:
                 self.constraints += [self.e_ev[i] >= self.ev_cap_min]
+        
         self.p_ev_disch = cp.Constant([p_disch_trip if i in self.index_5pm else 0 for i in range(self.horizon)])
         self.constraints += [self.p_v2g[0:self.horizon] <= 0,
-                            self.p_v2g >= curr_is_occ]
-        # self.constraints += [self.p_v2g == 0]
+                            self.p_v2g >= -1 * np.multiply(self.ev_max_rate, self.occ_slice)[:-1]]
 
         self.constraints += [
             self.e_ev[1:self.h_plus] == self.e_ev[0:self.horizon]
@@ -501,8 +508,7 @@ class MPCCalc:
             self.e_ev[0] == self.e_ev_init,
             self.p_ev_ch[0:self.horizon] <= self.ev_max_rate,
             self.p_ev_ch[0:self.horizon] >= 0,
-            self.e_ev[1:self.h_plus] <= self.ev_cap_max,
-            # self.e_ev[1:self.h_plus] >= self.ev_cap_min,
+            self.e_ev[1:self.h_plus] <= self.ev_cap_max
         ]
 
     def add_pv_constraints(self):
@@ -514,7 +520,7 @@ class MPCCalc:
             # PV constraints.  GHI provided in W/m2 - convert to kWh
             self.p_pv == self.pv_area * self.pv_eff * cp.multiply(self.ghi_forecast[0:self.horizon], (1 - self.u_pv_curt)) / 1000,
             self.u_pv_curt >= 0,
-            self.u_pv_curt <= 1,
+            self.u_pv_curt <= 1
         ]
 
     def set_base_p_grid(self):
@@ -564,7 +570,7 @@ class MPCCalc:
             self.p_grid == self.p_load + self.sub_subhourly_steps * (self.p_batt_ch + self.p_batt_disch - self.p_pv)
         ]
 
-    def solve_mpc(self):
+    def solve_mpc(self, debug=False):
         """
         Sets the objective function of the Home Energy Management System to be the
         minimization of cost over the MPC time horizon and solves via CVXPY.
@@ -650,7 +656,6 @@ class MPCCalc:
             else:
                 self.counter += 1
                 # self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
-                print("wrong solve")
                 self.optimal_vals["correct_solve"] = 0
 
                 if self.counter < self.horizon and self.timestep > 0:
@@ -704,11 +709,17 @@ class MPCCalc:
                                     + 3600 * (((new_temp_in - self.temp_wh_init.value) / self.wh_r.value)
                                     + (self.presolve_wh_heat_on * self.wh_p.value)) / (self.wh_c.value * self.dt))
 
-                self.optimal_vals["p_ev_ch"] = 0 if not self.currently_occupied else self.ev_max_rate 
-                self.optimal_vals["p_ev_disch"] = self.p_ev_disch.value[0]
-                self.optimal_vals["p_ev_v2g"] = 0
-                self.optimal_vals["e_ev_opt"] = self.e_ev_init.value + (self.ev_ch_eff.value * self.optimal_vals["p_ev_ch"] + self.optimal_vals["p_ev_disch"] / self.ev_disch_eff.value) / self.dt
-                # print(self.optimal_vals["e_ev_opt"])
+                self.closest_ev_charge()
+
+                # self.optimal_vals["p_ev_ch"] = 0 if not self.currently_occupied else self.ev_max_rate 
+                # self.optimal_vals["p_ev_disch"] = self.p_ev_disch.value[0]
+                # self.optimal_vals["p_ev_v2g"] = 0
+                # self.optimal_vals["e_ev_opt"] = self.e_ev_init.value + (self.ev_ch_eff.value * self.optimal_vals["p_ev_ch"] + self.optimal_vals["p_ev_disch"] / self.ev_disch_eff.value) / self.dt
+                self.optimal_vals["p_ev_ch"] = self.p_ev_ch.value.tolist()[0]
+                self.optimal_vals["p_ev_disch"] = self.p_ev_disch.value.tolist()[0]
+                self.optimal_vals["p_ev_v2g"] = self.p_v2g.value.tolist()[0]
+                self.optimal_vals["e_ev_opt"] = self.e_ev.value.tolist()[0]
+
                 self.optimal_vals["wh_heat_on_opt"] = self.presolve_wh_heat_on / self.sub_subhourly_steps
                 self.optimal_vals["hvac_heat_on_opt"] = self.presolve_hvac_heat_on / self.sub_subhourly_steps
                 self.optimal_vals["hvac_cool_on_opt"] = self.presolve_hvac_cool_on / self.sub_subhourly_steps
@@ -724,6 +735,24 @@ class MPCCalc:
                 self.optimal_vals["t_in_max"] = self.t_in_max_current.value[0]
                 i+=1
                 # pass
+
+    def closest_ev_charge(self):
+        ev_cons = [
+            self.e_ev[1:self.h_plus] == self.e_ev[0:self.horizon]
+                                        + (self.ev_ch_eff * self.p_ev_ch[0:self.horizon]
+                                        + self.p_ev_disch[0:self.horizon] / self.ev_disch_eff
+                                        + self.p_v2g[0:self.horizon] / self.ev_disch_eff) / self.dt,
+            self.e_ev[0] == self.e_ev_init,
+            self.p_ev_ch[0:self.horizon] >= 0,
+            self.e_ev[1:self.h_plus] <= self.ev_cap_max,
+            self.p_v2g >= -1 * np.multiply(self.ev_max_rate, self.occ_slice)
+        ]
+        if self.ev_override_profile:
+            obj = cp.Minimize(cp.sum(self.e_ev - self.ev_override_profile))
+        else:
+            obj = cp.Minimize(cp.sum(self.e_ev - self.ev_cap_min))
+        prob = cp.Problem(obj, ev_cons)
+        prob.solve()
 
     def add_type_constraints(self):
         self.add_base_constraints()
@@ -772,7 +801,6 @@ class MPCCalc:
         Selects routine for MPC optimization problem setup and solve using home type.
         :return: None
         """
-        
         self.add_type_constraints()
         self.set_type_p_grid()
         self.solve_mpc()
