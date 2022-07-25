@@ -162,7 +162,7 @@ class MPCCalc:
         # Set up the horizon for the MPC calc (min horizon = 1, no MPC)
         self.sub_subhourly_steps = max(1, int(self.home['hems']['sub_subhourly_steps']))
         self.dt = max(1, int(self.home['hems']['hourly_agg_steps']))
-        self.horizon = max(1, int(self.home['hems']['horizon'] * self.dt))
+        self.horizon = max(1, int(self.home['hems']['horizon']) * int(self.dt))
         self.h_plus = self.horizon + 1
         self.discount = float(self.home['hems']['discount_factor'])
         
@@ -424,24 +424,23 @@ class MPCCalc:
     def override_t_in(self, t_sp):
         # assume unocc temps are the safety bounds
         # pretty much allows for pre-heat/pre-cool since we aren't allowing relaxing the bounds
-        if self.season == "heating" and t_sp >= self.unocc_t_in_min:
-            t_sp = min(t_sp, self.occ_t_in_max)
-            self.t_in_min_current = cp.Constant([t_sp]*self.horizon)
-        elif self.season == "cooling" and t_sp <= self.unocc_t_in_max:
-            t_sp = max(t_sp, self.occ_t_in_min)
-            self.t_in_max_current = cp.Constant([t_sp]*self.horizon)
+        # if self.season == "heating" and t_sp >= self.unocc_t_in_min:
+        #     t_sp = min(t_sp, self.occ_t_in_max)
+        #     self.t_in_min_current = cp.Constant([t_sp]*self.horizon)
+        #     self.t_in_max_current = cp.Constant([max(i+0.5*self.t_deadband,j) for i,j in zip(self.t_in_min_current.value, self.t_in_max_current.value)])
+        # elif self.season == "cooling" and t_sp <= self.unocc_t_in_max:
+        #     t_sp = max(t_sp, self.occ_t_in_min)
+        #     self.t_in_max_current = cp.Constant([t_sp]*self.horizon)
+        #     self.t_in_min_current = cp.Constant([min(i-0.5*self.t_deadband,j) for i,j in zip(self.t_in_max_current.value, self.t_in_min_current.value)])
+        t_sp = np.clip(t_sp, self.unocc_t_in_min, self.unocc_t_in_max)
+        self.t_in_max_current = cp.Constant([t_sp + 0.5*self.t_deadband]*self.h_plus)
+        self.t_in_min_current = cp.Constant([t_sp - 0.5*self.t_deadband]*self.h_plus)
         return 
 
     def override_t_wh(self, t_sp):
         # change the minimum temperature
         t_sp = max(t_sp, self.temp_wh_max.value)
         self.constraints += [self.temp_wh_ev >= t_sp]
-        return
-
-    def override_ev_charge(self, e_new):
-        # come up with lower bounded state of charge and then enforce constraint: e_cntl >= e_min
-        self.ev_override_profile = [e_new] * self.h_plus
-        self.constraints += [self.e_ev >= np.multiply(self.ev_override_profile,self.occ_slice)]
         return
 
     def add_battery_constraints(self, is_ev=False):
@@ -486,13 +485,17 @@ class MPCCalc:
         after_5pm = [i for i, e in enumerate(index) if e in self.returning_times]
         self.occ_slice = [self.occ_on[i] for i in index]
 
-        for i in range(self.h_plus):
+        self.e_ev_min = []
+        for i in range(1,self.h_plus):
             if i in self.index_8am:
-                self.constraints += [self.e_ev[i] >= (e_disch_trip + self.ev_cap_min)]
+                self.e_ev_min += [(e_disch_trip + self.ev_cap_min)]
+                # self.constraints += [self.e_ev[i] >= (e_disch_trip + self.ev_cap_min)]
             elif i in after_5pm:
-                self.constraints += [self.e_ev[i] >= 0]
+                self.e_ev_min += [0]
+                # self.constraints += [self.e_ev[i] >= 0]
             else:
-                self.constraints += [self.e_ev[i] >= self.ev_cap_min]
+                self.e_ev_min += [self.ev_cap_min]
+                # self.constraints += [self.e_ev[i] >= self.ev_cap_min]
         
         self.p_ev_disch = cp.Constant([p_disch_trip if i in self.index_5pm else 0 for i in range(self.horizon)])
         self.constraints += [self.p_v2g[0:self.horizon] <= 0,
@@ -506,8 +509,32 @@ class MPCCalc:
             self.e_ev[0] == self.e_ev_init,
             self.p_ev_ch[0:self.horizon] <= self.ev_max_rate,
             self.p_ev_ch[0:self.horizon] >= 0,
-            self.e_ev[1:self.h_plus] <= self.ev_cap_max
+            self.e_ev[1:self.h_plus] <= self.ev_cap_max,
+            self.e_ev[1:self.h_plus] >= self.e_ev_min
         ]
+
+    def override_ev_charge(self, p_cmd):
+        # come up with lower bounded state of charge and then enforce constraint: e_cntl >= e_min
+        # self.ev_override_profile = [e_new] * self.h_plus
+        # self.constraints += [self.e_ev >= np.multiply(self.ev_override_profile,self.occ_slice)]
+        
+        # determine if car is parked at home
+        if self.occ_slice[0] == 1:
+            # get max avail bounds
+            max_ch = self.ev_cap_total - self.e_ev_init.value
+            max_dis = self.e_ev_init.value - self.e_ev_min[0]
+            p_cmd = np.clip(p_cmd, max_dis, max_ch)
+
+            # self.constraints += [self.p_ev_ch[0] >= p_cmd,
+            #     self.p_v2g <= p_cmd]
+            if p_cmd >= 0:
+                self.constraints += [self.p_ev_ch[0] == p_cmd,
+                                    self.p_v2g[0] == 0]
+            else:
+                self.constraints += [self.p_v2g[0] == p_cmd,
+                                    self.p_ch[0] == 0]
+
+        return
 
     def add_pv_constraints(self):
         """
@@ -743,7 +770,7 @@ class MPCCalc:
             self.e_ev[0] == self.e_ev_init,
             self.p_ev_ch[0:self.horizon] >= 0,
             self.e_ev[1:self.h_plus] <= self.ev_cap_max,
-            self.p_v2g >= -1 * np.multiply(self.ev_max_rate, self.occ_slice)
+            self.p_v2g >= -1 * np.multiply(self.ev_max_rate, self.occ_slice[:-1])
         ]
         if self.ev_override_profile:
             obj = cp.Minimize(cp.sum(self.e_ev - self.ev_override_profile))
