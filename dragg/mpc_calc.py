@@ -441,7 +441,6 @@ class MPCCalc:
     def override_ev_charge(self, e_new):
         # come up with lower bounded state of charge and then enforce constraint: e_cntl >= e_min
         self.ev_override_profile = [e_new] * self.h_plus
-        # print(e_new)
         self.constraints += [self.e_ev >= np.multiply(self.ev_override_profile,self.occ_slice)]
         return
 
@@ -481,7 +480,6 @@ class MPCCalc:
         end = (start + self.h_plus) 
         index = [i % (24 * self.dt) for i in range(start, end)]
         self.leaving_times = [int(i) if not isinstance(i, int) else i for i in self.leaving_times]
-        print(self.leaving_times)
         self.returning_times = [int(i) if not isinstance(i, int) else i for i in self.returning_times]
         self.index_8am = [i for i, e in enumerate(index) if e in self.leaving_times]
         self.index_5pm = [i-1 for i, e in enumerate(index) if e in self.returning_times]
