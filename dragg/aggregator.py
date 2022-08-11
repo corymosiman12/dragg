@@ -22,11 +22,14 @@ from pathos.pools import ProcessPool
 
 # Local
 from dragg.mpc_calc import MPCCalc, manage_home
-from dragg.redis_client import RedisClient
+# from dragg.redis_client import RedisClient
+import dragg.redis_client as rc
 from dragg.logger import Logger
 
+REDIS_URL = "redis://localhost"
+
 class Aggregator:
-    def __init__(self):
+    def __init__(self, start=None, end=None, redis_url=REDIS_URL):
         self.log = Logger("aggregator")
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
         self.outputs_dir = os.path.join('outputs')
@@ -48,6 +51,10 @@ class Aggregator:
             # "agg":          {"action_horizon", "forecast_horizon", "base_price", "max_rp", "subhourly_steps"}
             "agg":          {"base_price", "subhourly_steps"}
         }
+        
+        self.str_start_dt = start 
+        self.str_end_dt = end
+
         self.timestep = None  # Set by redis_set_initial_values
         self.iteration = None  # Set by redis_set_initial_values
         self.reward_price = None  # Set by redis_set_initial_values
@@ -64,7 +71,8 @@ class Aggregator:
         self.dt = None  # Set by _set_dt
         self.num_timesteps = None  # Set by _set_dt
         self.all_homes = None  # Set by create_homes
-        self.redis_client = RedisClient()
+        self.redis_url = redis_url
+        self.redis_client = rc.connection(redis_url)#RedisClient(redis_url)
         self.config = self._import_config()
         self.check_type = self.config['simulation']['check_type']  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
 
@@ -115,9 +123,12 @@ class Aggregator:
         objects.  Calculate the number of hours for which the simulation will run.
         :return:
         """
-        try:
-            self.start_dt = datetime.strptime(self.config['simulation']['start_datetime'], '%Y-%m-%d %H')
-            self.end_dt = datetime.strptime(self.config['simulation']['end_datetime'], '%Y-%m-%d %H')
+        try: 
+            if not self.str_start_dt and not self.str_end_dt:
+                self.str_start_dt = self.config["simulation"]["start_datetime"]
+                self.str_end_dt = self.config["simulation"]["end_datetime"]
+            self.start_dt = datetime.strptime(self.str_start_dt, '%Y-%m-%d %H')
+            self.end_dt = datetime.strptime(self.str_end_dt, '%Y-%m-%d %H')
         except ValueError as e:
             self.log.logger.error(f"Error parsing datetimes: {e}")
             sys.exit(1)
@@ -600,7 +611,7 @@ class Aggregator:
 
     def create_mpc_home_obj(self):
         for home in self.all_homes:
-            home_obj = MPCCalc(home)
+            home_obj = MPCCalc(home, self.redis_url)
             self.all_homes_obj += [home_obj]
             self.max_poss_load += home_obj.max_load   
 
@@ -669,11 +680,11 @@ class Aggregator:
         """
         self.timestep = 0
 
-        self.redis_client.conn.set("start_hour_index", self.start_hour_index)
-        self.redis_client.conn.hset("current_values", "timestep", self.timestep)
+        self.redis_client.set("start_hour_index", self.start_hour_index)
+        self.redis_client.hset("current_values", "timestep", self.timestep)
 
         self.reward_price = np.zeros(self.config['agg']['rl']['action_horizon'] * self.dt)
-        self.redis_client.conn.rpush("reward_price", *self.reward_price.tolist())
+        self.redis_client.rpush("reward_price", *self.reward_price.tolist())
 
     def redis_add_all_data(self):
         """
@@ -683,21 +694,21 @@ class Aggregator:
         :return: None
         """
         for c in self.all_data.columns.to_list():
-            self.redis_client.conn.delete(c)
-            self.redis_client.conn.rpush(c, *self.all_data[c].values.tolist())
+            self.redis_client.delete(c)
+            self.redis_client.rpush(c, *self.all_data[c].values.tolist())
 
     def redis_set_current_values(self):
         """
         Sets the current values of the utility agent (reward price).
         :return: None
         """
-        self.redis_client.conn.hset("current_values", "timestep", self.timestep)
+        self.redis_client.hset("current_values", "timestep", self.timestep)
 
         if 'rl' in self.case:
             self.all_sps[self.timestep] = self.agg_setpoint
             self.all_rps[self.timestep] = self.reward_price[0]
-            self.redis_client.conn.delete("reward_price")
-            self.redis_client.conn.rpush("reward_price", *self.reward_price)
+            self.redis_client.delete("reward_price")
+            self.redis_client.rpush("reward_price", *self.reward_price)
 
     def gen_setpoint(self):
         """
@@ -761,7 +772,7 @@ class Aggregator:
         self.forecast_house_load = []
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
-                vals = self.redis_client.conn.hgetall(home["name"])
+                vals = self.redis_client.hgetall(home["name"])
                 print(home["name"])
                 for k, v in vals.items():
                     opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws", "correct_solve", "t_in_max", "t_in_min"]
@@ -930,7 +941,7 @@ class Aggregator:
         and home data.)
         :return: None
         """
-        self.redis_client.conn.flushall()
+        self.redis_client.flushall()
         self.log.logger.info("Flushing Redis")
         time.sleep(1)
         self.check_all_data_indices()

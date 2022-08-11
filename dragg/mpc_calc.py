@@ -10,8 +10,10 @@ from collections import defaultdict
 import json
 from copy import deepcopy
 
-from dragg.redis_client import RedisClient
+import dragg.redis_client as rc # from dragg.redis_client import connection#RedisClient
 from dragg.logger import Logger
+
+REDIS_URL = "redis://localhost"
 
 def manage_home(home):
     """
@@ -22,11 +24,12 @@ def manage_home(home):
     return
 
 class MPCCalc:
-    def __init__(self, home):
+    def __init__(self, home, redis_url=REDIS_URL):
         """
         params
         home: Dictionary with keys for HVAC, WH, and optionally PV, battery parameters
         """
+        self.redis_url = redis_url
         self.home = home  # reset every time home retrieved from Queue
         self.name = home['name']
         self.type = self.home['type']  # reset every time home retrieved from Queue
@@ -59,7 +62,19 @@ class MPCCalc:
         self.temp_wh_max = None
         self.temp_in_min = None
         self.temp_in_max = None
-        self.optimal_vals = {}
+        self.optimal_vals = {
+           "p_grid_opt": None,
+           "forecast_p_grid_opt": None,
+           "p_load_opt": None,
+           "temp_in_opt": None,
+           "temp_wh_ev_opt": None,
+           "hvac_cool_on_opt": None,
+           "hvac_heat_on_opt": None,
+           "wh_heat_on_opt": None,
+           "cost_opt": None,
+           "t_in_min": None,
+           "t_in_max": None
+        }
         self.stored_optimal_vals = {
            "p_grid_opt": None,
            "forecast_p_grid_opt": None,
@@ -112,12 +127,12 @@ class MPCCalc:
         # optimization variables
         key = self.name
         for field, value in self.optimal_vals.items():
-            # self.log.info(f"field {value}")
-            if isinstance(value, cp.Constant):#type(value) != 
-                print(field)
-            self.redis_client.conn.hset(key, field, value)
+            try:
+                self.redis_client.hset(key, field, value)
+            except:
+                print(key, field, value)
 
-        self.redis_client.conn.hset(key, "future_waterdraws", sum(self.draw_frac.value))
+        self.redis_client.hset(key, "future_waterdraws", sum(self.draw_frac.value))
 
         self.log.removeHandler(fh)
 
@@ -127,17 +142,17 @@ class MPCCalc:
         :return: None
         """
         key = self.name
-        self.prev_optimal_vals = self.redis_client.conn.hgetall(key)
+        self.prev_optimal_vals = self.redis_client.hgetall(key)
 
     def initialize_environmental_variables(self):
-        self.redis_client = RedisClient()
+        self.redis_client = rc.connection(self.redis_url)#RedisClient(self.redis_url)
 
         # collect all values necessary
-        self.start_hour_index = self.redis_client.conn.get('start_hour_index')
-        self.all_ghi = self.redis_client.conn.lrange('GHI', 0, -1)
-        self.all_oat = self.redis_client.conn.lrange('OAT', 0, -1)
-        self.all_spp = self.redis_client.conn.lrange('SPP', 0, -1)
-        self.all_tou = self.redis_client.conn.lrange('tou', 0, -1)
+        self.start_hour_index = self.redis_client.get('start_hour_index')
+        self.all_ghi = self.redis_client.lrange('GHI', 0, -1)
+        self.all_oat = self.redis_client.lrange('OAT', 0, -1)
+        self.all_spp = self.redis_client.lrange('SPP', 0, -1)
+        self.all_tou = self.redis_client.lrange('tou', 0, -1)
         self.base_cents = float(self.all_tou[0])
 
         # cast all values to proper type
@@ -225,6 +240,12 @@ class MPCCalc:
         self.t_in_max = [self.occ_t_in_max if i else self.unocc_t_in_max for i in self.occ_on] * 2
         self.t_in_init = float(self.home["hvac"]["temp_in_init"])
         self.max_load = (max(self.hvac_p_c.value, self.hvac_p_h.value) + self.wh_p.value) * self.sub_subhourly_steps
+        
+
+        self.opt_keys = {"p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_ev_opt", 
+            "temp_wh_ev_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", 
+            "cost_opt", "waterdraws", "t_in_min", "t_in_max"}
+
         # for electric vehicles
         self.setup_ev_problem()
 
@@ -286,6 +307,9 @@ class MPCCalc:
         self.p_batt_disch = cp.Variable(self.horizon)
         self.e_batt = cp.Variable(self.h_plus)
 
+        self.opt_keys.update(['p_batt_ch', 'p_batt_disch', 'e_batt_opt'])
+
+
     def setup_ev_problem(self):
         # Define constants
         self.ev_max_rate = 5 # kWh
@@ -303,6 +327,9 @@ class MPCCalc:
 
         self.e_ev_init = cp.Constant(16)
 
+        self.opt_keys.update(['p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt'])
+
+
     def setup_pv_problem(self):
         """
         Adds CVX variables for photovoltaic subsystem in pv and battery_pv homes.
@@ -315,6 +342,8 @@ class MPCCalc:
         # Define PV Optimization variables
         self.p_pv = cp.Variable(self.horizon)
         self.u_pv_curt = cp.Variable(self.horizon)
+
+        self.opt_keys.update(['p_pv_opt', 'u_pv_curt_opt'])
 
     def get_initial_conditions(self):
         self.water_draws()
@@ -621,9 +650,6 @@ class MPCCalc:
         :return: None
         """
         end_slice = max(1, self.sub_subhourly_steps)
-        opt_keys = {"p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_ev_opt", 
-            "temp_wh_ev_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", 
-            "cost_opt", "waterdraws", "t_in_min", "t_in_max"}
 
         i = 0
         while i < 1:
@@ -650,20 +676,17 @@ class MPCCalc:
                 if 'pv' in self.type:
                     self.stored_optimal_vals['p_pv_opt'] = (self.p_pv.value).tolist()
                     self.stored_optimal_vals['u_pv_curt_opt'] = (self.u_pv_curt.value).tolist()
-                    opt_keys.update(['p_pv_opt', 'u_pv_curt_opt'])
                 if 'battery' in self.type:
                     self.stored_optimal_vals['e_batt_opt'] = (self.e_batt.value).tolist()[1:]
                     self.stored_optimal_vals['p_batt_ch'] = (self.p_batt_ch.value).tolist()
                     self.stored_optimal_vals['p_batt_disch'] = (self.p_batt_disch.value).tolist()
-                    opt_keys.update(['p_batt_ch', 'p_batt_disch', 'e_batt_opt'])
                 if True: #'ev' in self.type:
                     self.stored_optimal_vals['e_ev_opt'] = (self.e_ev.value).tolist()[1:]
                     self.stored_optimal_vals['p_ev_ch'] = (self.p_ev_ch.value).tolist()
                     self.stored_optimal_vals['p_ev_disch'] = (self.p_ev_disch.value).tolist()
                     self.stored_optimal_vals['p_v2g'] = (self.p_v2g.value).tolist()
-                    opt_keys.update(['p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt'])
 
-                for k in opt_keys:
+                for k in self.opt_keys:
                     if not k == "waterdraws":
                         self.optimal_vals[k] = self.stored_optimal_vals[k][0]
                     else:
@@ -684,7 +707,7 @@ class MPCCalc:
                 self.optimal_vals["correct_solve"] = 0
 
                 if self.counter < self.horizon and self.timestep > 0:
-                    for k in opt_keys:
+                    for k in self.opt_keys:
                         self.optimal_vals[k] = self.prev_optimal_vals[f"{k}_{self.counter}"]
 
                     self.presolve_wh_heat_on = float(self.optimal_vals["wh_heat_on_opt"][0])
@@ -803,7 +826,7 @@ class MPCCalc:
         the base price set by the utility.
         :return: None
         """
-        self.current_values = self.redis_client.conn.hgetall("current_values")
+        self.current_values = self.redis_client.hgetall("current_values")
 
     def cast_redis_timestep(self):
         """
@@ -817,7 +840,7 @@ class MPCCalc:
         Casts the reward price signal values for the current timestep.
         :return: None
         """
-        rp = self.redis_client.conn.lrange('reward_price', 0, -1)
+        rp = self.redis_client.lrange('reward_price', 0, -1)
         self.reward_price[:self.dt] = float(rp[-1])
         # self.log.debug(f"ts: {self.timestep}; RP: {self.reward_price[0]}")
 
@@ -842,7 +865,7 @@ class MPCCalc:
 
         # self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
 
-        self.redis_client = RedisClient()
+        self.redis_client = rc.connection(self.redis_url)#RedisClient(self.redis_url)
         self.redis_get_initial_values()
         self.cast_redis_timestep()
 
