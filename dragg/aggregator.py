@@ -32,7 +32,8 @@ class Aggregator:
     def __init__(self, start=None, end=None, redis_url=REDIS_URL):
         self.log = Logger("aggregator")
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
-        self.outputs_dir = os.path.join('outputs')
+        self.outputs_dir = os.path.join(os.getcwd(), 'outputs')
+        print(self.outputs_dir)
         if not os.path.isdir(self.outputs_dir):
             os.makedirs(self.outputs_dir)
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
@@ -93,6 +94,8 @@ class Aggregator:
 
         self.case = "baseline"
         self.start_time = datetime.now()
+
+        self.overwrite_output = False
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -861,12 +864,15 @@ class Aggregator:
         and the named version.
         :return: none
         """
-        date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
-        mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.config['home']['hems']['prediction_horizon']}-interval_{self.dt_interval}-{self.dt_interval // self.config['home']['hems']['sub_subhourly_steps']}-solver_{self.config['home']['hems']['solver']}")
+        if not self.overwrite_output:
+            date_output = os.path.join(self.outputs_dir, f"{self.start_dt.strftime('%Y-%m-%dT%H')}_{self.end_dt.strftime('%Y-%m-%dT%H')}")
+            mpc_output = os.path.join(date_output, f"{self.check_type}-homes_{self.config['community']['total_number_homes']}-horizon_{self.config['home']['hems']['prediction_horizon']}-interval_{self.dt_interval}-{self.dt_interval // self.config['home']['hems']['sub_subhourly_steps']}-solver_{self.config['home']['hems']['solver']}")
 
-        self.run_dir = os.path.join(mpc_output, f"version-{self.version}")
-        if not os.path.isdir(self.run_dir):
-            os.makedirs(self.run_dir)
+            self.run_dir = os.path.join(mpc_output, f"version-{self.version}")
+            if not os.path.isdir(self.run_dir):
+                os.makedirs(self.run_dir)
+        else:
+            self.run_dir = self.outputs_dir
 
     def write_outputs(self):
         """
@@ -876,10 +882,13 @@ class Aggregator:
         """
         self.summarize_baseline()
 
-        case_dir = os.path.join(self.run_dir, self.case)
-        if not os.path.isdir(case_dir):
-            os.makedirs(case_dir)
-        file = os.path.join(case_dir, "results.json")
+        if not self.overwrite_output:
+            case_dir = os.path.join(self.run_dir, self.case)
+            if not os.path.isdir(case_dir):
+                os.makedirs(case_dir)
+            file = os.path.join(case_dir, "results.json")
+        else:
+            file = os.path.join(self.outputs_dir, "results.json")
         with open(file, 'w+') as f:
             json.dump(self.collected_data, f, indent=4)
 

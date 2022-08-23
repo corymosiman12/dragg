@@ -365,10 +365,7 @@ class MPCCalc:
             self.temp_wh_init = cp.Constant((float(self.prev_optimal_vals["temp_wh_opt"])*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
 
             if 'battery' in self.type:
-                # self.e_batt_init = cp.Constant(float(self.home["battery"]["e_batt_init"]))
                 self.e_batt_init = cp.Constant(float(self.prev_optimal_vals["e_batt_opt"]))
-                # self.p_batt_ch_init = cp.Constant(float(self.prev_optimal_vals["p_batt_ch"])
-                #                                 - float(self.prev_optimal_vals["p_batt_disch"]))
 
             if True: #'ev' in self.type:
                 self.e_ev_init = cp.Constant(float(self.prev_optimal_vals["e_ev_opt"]))
