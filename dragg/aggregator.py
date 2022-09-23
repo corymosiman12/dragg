@@ -448,6 +448,8 @@ class Aggregator:
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
+                    "hvac_seer": self.config["home"]["hvac"]["seer"],
+                    "hvac_hspf": self.config["home"]["hvac"]["hspf"],
                     "p_c": home_hvac_p_cool_dist[i],
                     "p_h": home_hvac_p_heat_dist[i],
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
@@ -492,6 +494,8 @@ class Aggregator:
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
+                    "hvac_seer": self.config["home"]["hvac"]["seer"],
+                    "hvac_hspf": self.config["home"]["hvac"]["hspf"],
                     "p_c": home_hvac_p_cool_dist[i],
                     "p_h": home_hvac_p_heat_dist[i],
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
@@ -545,6 +549,8 @@ class Aggregator:
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
+                    "hvac_seer": self.config["home"]["hvac"]["seer"],
+                    "hvac_hspf": self.config["home"]["hvac"]["hspf"],
                     "p_c": home_hvac_p_cool_dist[i],
                     "p_h": home_hvac_p_heat_dist[i],
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
@@ -581,6 +587,8 @@ class Aggregator:
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
+                    "hvac_seer": self.config["home"]["hvac"]["seer"],
+                    "hvac_hspf": self.config["home"]["hvac"]["hspf"],
                     "p_c": home_hvac_p_cool_dist[i],
                     "p_h": home_hvac_p_heat_dist[i],
                     "temp_in_min": home_hvac_temp_in_min_dist[i],
