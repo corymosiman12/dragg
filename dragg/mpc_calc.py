@@ -180,6 +180,7 @@ class MPCCalc:
         self.horizon = max(1, int(self.home['hems']['horizon']) * int(self.dt))
         self.h_plus = self.horizon + 1
         self.discount = float(self.home['hems']['discount_factor'])
+        self.dt_frac = 1 / self.dt / self.sub_subhourly_steps
         
         # Set up the HEMS scheule
         self.occ_on = [False] * self.dt * 24
@@ -201,14 +202,19 @@ class MPCCalc:
         self.reward_price = np.zeros(self.horizon)
 
         self.home_r = cp.Constant(float(self.home["hvac"]["r"]))
-        self.home_c = cp.Constant(float(self.home["hvac"]["c"]) * 1000)
-        self.hvac_p_c = cp.Constant(float(self.home["hvac"]["p_c"]) / self.sub_subhourly_steps)
-        self.hvac_p_h = cp.Constant((float(self.home["hvac"]["p_h"])) / self.sub_subhourly_steps)
+        self.home_c = cp.Constant(float(self.home["hvac"]["c"])) * 1e7
+        self.hvac_p_c = cp.Constant(float(self.home["hvac"]["p_c"])) # thermal power (kW)
+        self.hvac_p_h = cp.Constant((float(self.home["hvac"]["p_h"])))
+        self.hvac_cop_c = 0.293 * cp.Constant(float(self.home["hvac"]["hvac_seer"])) # seer = thermal power / electrical power (kW/kW)
+        self.hvac_cop_h = 0.293 * cp.Constant(float(self.home["hvac"]["hvac_hspf"]))
         self.wh_r = cp.Constant(float(self.home["wh"]["r"]) * 1000)
         self.wh_p = cp.Constant(float(self.home["wh"]["p"]) / self.sub_subhourly_steps)
+        self.window_eq = 10
+        self.b = [1/(self.home_r.value*self.home_c.value), self.window_eq/self.home_c.value, 1/self.home_c.value]
 
         # Define optimization variables
         self.p_load = cp.Variable(self.horizon)
+        self.p_hvac = cp.Variable(self.horizon)
         self.temp_in_ev = cp.Variable(self.h_plus)
         self.temp_in = cp.Variable(1)
         self.temp_wh_ev = cp.Variable(self.h_plus)
@@ -240,7 +246,6 @@ class MPCCalc:
         self.t_in_max = [self.occ_t_in_max if i else self.unocc_t_in_max for i in self.occ_on] * 2
         self.t_in_init = float(self.home["hvac"]["temp_in_init"])
         self.max_load = (max(self.hvac_p_c.value, self.hvac_p_h.value) + self.wh_p.value) * self.sub_subhourly_steps
-        
 
         self.opt_keys = {"p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_ev_opt", 
             "temp_wh_ev_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", 
@@ -402,21 +407,30 @@ class MPCCalc:
             self.hvac_heat_max = 0
             self.hvac_cool_max = self.sub_subhourly_steps
         
+
+
         self.constraints = [
             # Indoor air temperature constraints
             # self.temp_in_ev = indoor air temperature expected value (prediction)
             self.temp_in_ev[0] == self.temp_in_init,
-            self.temp_in_ev[1:self.h_plus] == self.temp_in_ev[0:self.horizon]
-                                            + 3600 * ((((self.oat_forecast[1:self.h_plus] - self.temp_in_ev[0:self.horizon]) / self.home_r))
-                                            - self.hvac_cool_on * self.hvac_p_c
-                                            + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
+            # self.temp_in_ev[1:self.h_plus] == self.temp_in_ev[0:self.horizon]
+            #                                 + 3600 * ((((self.oat_forecast[1:self.h_plus] - self.temp_in_ev[0:self.horizon]) / self.home_r))
+            #                                 - self.hvac_cool_on * self.hvac_p_c
+            #                                 + self.hvac_heat_on * self.hvac_p_h) / (self.home_c * self.dt),
+            self.temp_in_ev[1:] == self.temp_in_ev[:self.horizon]
+                                + (self.b[0] * (self.oat_forecast[1:] - self.temp_in_ev[:-1]) 
+                                + self.b[1] * self.ghi_forecast[1:] 
+                                - self.b[2] * self.hvac_cool_on * self.hvac_p_c * 1000
+                                + self.b[2] * self.hvac_heat_on * self.hvac_p_h * 1000) * 3600 * self.dt_frac,
+            self.p_hvac == (self.hvac_p_c / self.hvac_cop_c + self.hvac_p_h / self.hvac_cop_h) * self.dt_frac,
             self.temp_in_ev[1:self.h_plus] >= self.t_in_min_current,
             self.temp_in_ev[1:self.h_plus] <= self.t_in_max_current,
 
             self.temp_in == self.temp_in_init
-                            + 3600 * (((self.oat_current[1] - self.temp_in_init) / self.home_r)
-                            - self.hvac_cool_on[0] * self.hvac_p_c
-                            + self.hvac_heat_on[0] * self.hvac_p_h) / (self.home_c * self.dt),
+                            + (self.b[0] * (self.oat_current[1] - self.temp_in_init) 
+                            + self.b[1] * self.ghi_current[0]
+                            - self.b[2] * self.hvac_cool_on[0] * self.hvac_p_c * 1000
+                            + self.b[2] * self.hvac_heat_on[0] * self.hvac_p_h * 1000) * 3600 * self.dt_frac,
             self.temp_in <= self.t_in_max_current[0],
             self.temp_in >= self.t_in_min_current[0],
 
@@ -434,7 +448,7 @@ class MPCCalc:
             self.temp_wh >= self.temp_wh_min,
             self.temp_wh <= self.temp_wh_max,
 
-            self.p_load == self.sub_subhourly_steps * (self.hvac_p_c * self.hvac_cool_on + self.hvac_p_h * self.hvac_heat_on + self.wh_p * self.wh_heat_on + self.p_ev_ch + self.p_v2g),
+            self.p_load == self.sub_subhourly_steps * (self.p_hvac + self.wh_p * self.wh_heat_on + self.p_ev_ch + self.p_v2g),
 
             self.hvac_cool_on <= self.hvac_cool_max,
             self.hvac_cool_on >= self.hvac_cool_min,
@@ -711,10 +725,17 @@ class MPCCalc:
                     self.presolve_hvac_cool_on = float(self.optimal_vals["hvac_cool_on_opt"][0])
                     self.presolve_hvac_heat_on = float(self.optimal_vals["hvac_heat_on_opt"][0])
 
+# self.temp_in_ev[:self.horizon]
+#                                 + (self.b[0] * (self.oat_forecast[1:] - self.temp_in_ev[:-1]) 
+#                                 + self.b[1] * self.ghi_forecast[1:] 
+#                                 - self.b[2] * self.hvac_cool_on * self.hvac_p_c * 1000
+#                                 + self.b[2] * self.hvac_heat_on * self.hvac_p_h * 1000) * 3600 * self.dt_frac,
+#             self.p_hvac == (self.hvac_p_c / self.hvac_seer + self.hvac_p_h / self.hvac_hspf) * self.dt_frac,
                     new_temp_in = float(self.temp_in_init.value
-                                        + 3600 * ((((self.oat_current[1] - self.temp_in_init.value) / self.home_r.value))
-                                        - self.presolve_hvac_cool_on * self.hvac_p_c.value
-                                        + self.presolve_hvac_heat_on * self.hvac_p_h.value) / (self.home_c.value * self.dt))
+                                        + (self.b[0] * (self.oat_current[1] - self.temp_in_init.value)
+                                        + self.b[1] * self.ghi_forecast.value[1] 
+                                        - self.b[2] * self.presolve_hvac_cool_on * self.hvac_p_c.value * 1000
+                                        + self.b[2] * self.presolve_hvac_heat_on * self.hvac_p_h.value * 1000) * self.dt_frac)
                     new_temp_wh = float(self.temp_wh_init.value
                                         + 3600 * ((((new_temp_in - self.temp_wh_init.value) / self.wh_r.value))
                                         + self.presolve_wh_heat_on * self.wh_p.value) / (self.wh_c.value * self.dt))
@@ -747,9 +768,10 @@ class MPCCalc:
                         self.presolve_wh_heat_on = self.wh_heat_min
 
                 new_temp_in = float(self.temp_in_init.value
-                                    + 3600 * ((((self.oat_current[1] - self.temp_in_init.value) / self.home_r.value))
-                                    - self.presolve_hvac_cool_on * self.hvac_p_c.value
-                                    + self.presolve_hvac_heat_on * self.hvac_p_h.value) / (self.home_c.value * self.dt))
+                                        + (self.b[0] * (self.oat_current[1] - self.temp_in_init.value)
+                                        + self.b[1] * self.ghi_forecast.value[1] 
+                                        - self.b[2] * self.presolve_hvac_cool_on * self.hvac_p_c.value * 1000
+                                        + self.b[2] * self.presolve_hvac_heat_on * self.hvac_p_h.value * 1000) * self.dt_frac)
                 new_temp_wh = float(self.temp_wh_init.value
                                     + 3600 * (((new_temp_in - self.temp_wh_init.value) / self.wh_r.value)
                                     + (self.presolve_wh_heat_on * self.wh_p.value)) / (self.wh_c.value * self.dt))
