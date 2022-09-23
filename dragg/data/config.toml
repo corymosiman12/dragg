@@ -3,7 +3,6 @@ total_number_homes = 5
 homes_battery = 0
 homes_pv = 0
 homes_pv_battery = 0
-homes_ev_pv = 3
 overwrite_existing = true
 house_p_avg = 1.2
 n_players = 1
@@ -32,10 +31,12 @@ prev_timesteps = 12
 max_rp = 0.02
 
 [home.hvac]
-r_dist = [ 6.8, 9.199999999999999,]
-c_dist = [ 4.25, 5.75,]
+r_dist = [ 0.014, 0.02,]
+c_dist = [ 1.2, 1.7,]
+seer = 20
+hspf = 10
 p_cool_dist = [ 3.5, 3.5,]
-p_heat_dist = [ 3.5, 3.5,]
+p_heat_dist = [ 4.5, 4.5,]
 temp_sp_dist = [ 18, 22,]
 temp_deadband_dist = [ 2, 3,]
 temp_setback_delta = [ 1,2]
