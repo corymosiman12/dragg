@@ -785,7 +785,7 @@ class MPCCalc:
                 self.optimal_vals["p_ev_ch"] = self.p_ev_ch.value.tolist()[0]
                 self.optimal_vals["p_ev_disch"] = self.p_ev_disch.value.tolist()[0]
                 self.optimal_vals["p_ev_v2g"] = self.p_v2g.value.tolist()[0]
-                self.optimal_vals["e_ev_opt"] = self.e_ev.value.tolist()[0]
+                self.optimal_vals["e_ev_opt"] = self.e_ev.value.tolist()[1]
 
                 self.optimal_vals["wh_heat_on_opt"] = self.presolve_wh_heat_on / self.sub_subhourly_steps
                 self.optimal_vals["hvac_heat_on_opt"] = self.presolve_hvac_heat_on / self.sub_subhourly_steps
@@ -806,20 +806,24 @@ class MPCCalc:
     def closest_ev_charge(self):
         ev_cons = [
             self.e_ev[1:self.h_plus] == self.e_ev[0:self.horizon]
-                                        + (self.ev_ch_eff * self.p_ev_ch[0:self.horizon]
-                                        + self.p_ev_disch[0:self.horizon] / self.ev_disch_eff
-                                        + self.p_v2g[0:self.horizon] / self.ev_disch_eff) / self.dt,
+                                        # + (self.ev_ch_eff * self.p_ev_ch[0:self.horizon]
+                                        + self.p_ev_disch[0:self.horizon] / self.ev_disch_eff / self.dt,
+                                        # + self.p_v2g[0:self.horizon] / self.ev_disch_eff) / self.dt,
             self.e_ev[0] == self.e_ev_init,
             self.p_ev_ch[0:self.horizon] >= 0,
             self.e_ev[1:self.h_plus] <= self.ev_cap_max,
             self.p_v2g >= -1 * np.multiply(self.ev_max_rate, self.occ_slice[:-1])
         ]
+        for i in range(len(self.occ_slice[:-1])):
+            if self.occ_slice[i] == 0:
+                ev_cons += [self.p_ev_ch[i] == 0]
         if self.ev_override_profile:
-            obj = cp.Minimize(cp.sum(self.e_ev - self.ev_override_profile))
+            ev_obj = cp.Minimize(cp.sum(self.e_ev - self.ev_override_profile))
         else:
-            obj = cp.Minimize(cp.sum(self.e_ev - self.ev_cap_min))
-        prob = cp.Problem(obj, ev_cons)
-        prob.solve()
+            ev_obj = cp.Minimize(0)
+        ev_prob = cp.Problem(ev_obj, ev_cons)
+        ev_prob.solve()
+        print(ev_prob.status)
 
     def add_type_constraints(self):
         self.add_base_constraints()
