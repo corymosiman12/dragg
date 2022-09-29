@@ -1,9 +1,7 @@
 import os
 import numpy as np
 import cvxpy as cp
-# from redis import StrictRedis
 import redis
-# import scipy.stats
 import logging
 import pathos
 from collections import defaultdict
@@ -22,6 +20,24 @@ def manage_home(home):
     """
     home.run_home()
     return
+
+class HVAC:
+    def __init__(self, r, c, p_cool, p_heat, cop_cool, cop_heat):
+        self.p_c = p_cool 
+        self.home_r = cp.Constant(r)
+        self.home_c = cp.Constant(c) * 1e7
+        self.hvac_p_c = cp.Constant(p_cool) # thermal power (kW)
+        self.hvac_p_h = cp.Constant(p_heat)
+        self.hvac_cop_c = cp.Constant(cop_cool) # seer = thermal power / electrical power (kW/kW)
+        self.hvac_cop_h = cp.Constant(cop_heat)
+        # self.wh_r = cp.Constant(float(self.home["wh"]["r"]) * 1000)
+        # self.wh_p = cp.Constant(float(self.home["wh"]["p"]) / self.sub_subhourly_steps)
+        self.window_eq = 10
+        self.b = [1/(self.home_r.value*self.home_c.value), self.window_eq/self.home_c.value, 1/self.home_c.value]
+
+    def add_constraints(self):
+
+
 
 class MPCCalc:
     def __init__(self, home, redis_url=REDIS_URL):
@@ -202,7 +218,7 @@ class MPCCalc:
         self.reward_price = np.zeros(self.horizon)
 
         self.home_r = cp.Constant(float(self.home["hvac"]["r"]))
-        self.home_c = cp.Constant(float(self.home["hvac"]["c"])) * 1e7
+        self.home_c = cp.Constant(float(self.home["hvac"]["c"])* 1e7) 
         self.hvac_p_c = cp.Constant(float(self.home["hvac"]["p_c"])) # thermal power (kW)
         self.hvac_p_h = cp.Constant((float(self.home["hvac"]["p_h"])))
         self.hvac_cop_c = 0.293 * cp.Constant(float(self.home["hvac"]["hvac_seer"])) # seer = thermal power / electrical power (kW/kW)
@@ -211,6 +227,8 @@ class MPCCalc:
         self.wh_p = cp.Constant(float(self.home["wh"]["p"]) / self.sub_subhourly_steps)
         self.window_eq = 10
         self.b = [1/(self.home_r.value*self.home_c.value), self.window_eq/self.home_c.value, 1/self.home_c.value]
+        self.hvac = HVAC(self.home_r.value, self.home_c.value, self.home_p_c.value, self.home_p_h.value, self.home_cop_c.value, self.home_cop_h.value)
+
 
         # Define optimization variables
         self.p_load = cp.Variable(self.horizon)
@@ -357,6 +375,7 @@ class MPCCalc:
             self.initialize_environmental_variables()
 
             self.temp_in_init = cp.Constant(self.t_in_init)
+            self.hvac.temp_in_init = self.temp_in_init
             self.temp_wh_init = cp.Constant((self.t_wh_init*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
 
             if 'battery' in self.type:
@@ -367,6 +386,7 @@ class MPCCalc:
 
         else:
             self.temp_in_init = cp.Constant(float(self.prev_optimal_vals["temp_in_opt"]))
+            self.hvac.temp_in_init = self.temp_in_init
             self.temp_wh_init = cp.Constant((float(self.prev_optimal_vals["temp_wh_opt"])*(self.wh_size - self.draw_size[0]) + self.tap_temp * self.draw_size[0]) / self.wh_size)
 
             if 'battery' in self.type:
