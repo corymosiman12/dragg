@@ -31,6 +31,7 @@ class EV:
         """
         Creates constraints that make the battery act as an EV with charge/discharge constraints
         based on occupancy and travel distance.
+        
         :return: None
         """
         trip_mi = 41 # round trip avg (home to work)

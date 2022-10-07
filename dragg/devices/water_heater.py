@@ -36,6 +36,7 @@ class WH:
         """
         :input: None
         :return: None
+
         A method to determine the current hot water consumption. Data based on NREL database (to cite)
         """
         draw_sizes = (self.hems.horizon // self.hems.dt + 1) * [0] + self.hems.home["wh"]["draw_sizes"]
@@ -53,8 +54,9 @@ class WH:
 
     def add_constraints(self, enforce_bounds=True):
         """
-        :input: enforce_bounds, boolean determines whether comfort bounds are strictly enforced
+        :parameter enforce_bounds: boolean determines whether comfort bounds are strictly enforced
         :return: cons, a list of CVXPY constraints
+
         A method to introduce physical constraints to the water heater. 
         """
         self._get_water_draws()
@@ -98,6 +100,7 @@ class WH:
         """
         :input: None
         :return: None
+
         A method for re-solving the constraints specific to the hot water heater in the event
         that the whole house HEMS cannot satisfy all constraints -- first attempts to minimize the 
         device-specific electricity consumption while satisfying comfort bounds, second attempt 
@@ -115,8 +118,9 @@ class WH:
 
     def override_p_wh(self, cmd):
         """
-        :input: cmd, float in [-1,1]
+        :parameter cmd: float in [-1,1]
         :return: None
+        
         A method to override the current on/off status of the hot water heater. Directly controls
         the power consumed with a conservative check that the resulting water temperature will not
         exceed bounds in either direction.

@@ -42,8 +42,9 @@ class HVAC:
 
     def add_constraints(self, enforce_bounds=True):
         """
-        :input: enforce_bounds, boolean determines whether comfort bounds are strictly enforced
+        :parameter enforce_bounds: boolean determines whether comfort bounds are strictly enforced
         :return: cons, a list of CVXPY constraints
+
         A method to introduce physical constraints to the HVAC equipment. The A/C and heat are 
         alternately disabled by "season" to reduce on/off cycling and/or simaultaneous heating
         and cooling when the electricity price is negative.
@@ -95,8 +96,8 @@ class HVAC:
 
     def resolve(self):
         """
-        :input: none
         :return: none
+
         Re-solves only the HVAC portion of the MPC scheduling problem, since sometimes the comfort
         constraints are impossible to adhere to the comfort bounds are not enforced but the difference
         in the observed temp and the desired temp is minimized.
@@ -118,8 +119,9 @@ class HVAC:
 
     def override_t_in(self, cmd):
         """
-        :input: cmd, float between [-1,1]
+        :parameter cmd: float between [-1,1]
         :return: none
+
         A method for manually setting the temperature setpoint in the home.
         The result will set the thermal setpoint between the min and max safety bounds (unoccupied 
         temperatures) as dictated by the normalized command.
