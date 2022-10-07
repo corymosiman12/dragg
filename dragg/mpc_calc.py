@@ -25,8 +25,8 @@ def manage_home(home):
 class MPCCalc:
     def __init__(self, home, redis_url=REDIS_URL):
         """
-        params
-        home: Dictionary with keys for HVAC, WH, and optionally PV, battery parameters
+        :paremeter home: dictionary with keys for HVAC, WH, and optionally PV, battery parameters
+        :redis_url: optional override of the Redis host URL (must align with MPCCalc REDIS_URL) 
         """
         self.redis_url = redis_url
         self.home = home  # reset every time home retrieved from Queue
@@ -215,6 +215,7 @@ class MPCCalc:
     def set_environmental_variables(self):
         """
         Slices cast values of the environmental values for the current timestep.
+        
         :return: None
         """
         start_slice = self.start_hour_index + self.timestep
@@ -256,6 +257,7 @@ class MPCCalc:
     def _setup_pv_problem(self):
         """
         Adds CVX variables for photovoltaic subsystem in pv and battery_pv homes.
+        
         :return: None
         """
         self.pv = PV(self)
@@ -303,6 +305,7 @@ class MPCCalc:
         """
         Creates the system dynamics for thermal energy storage systems: HVAC and
         water heater.
+        
         :return: None
         """
         self.constraints = [
@@ -327,6 +330,7 @@ class MPCCalc:
         """
         Sets p_grid of home to equal the load of the HVAC and water heater. To
         be used if and only if home type is base.
+        
         :return: None
         """
         self.constraints += [
@@ -339,6 +343,7 @@ class MPCCalc:
         Sets p_grid of home to equal the load of the HVAC and water heater, plus
         or minus the charge/discharge of the battery. To be used if and only if
         home is of type battery_only.
+        
         :return: None
         """
         self.constraints += [
@@ -351,6 +356,7 @@ class MPCCalc:
         Sets p_grid of home equal to the load of the HVAC and water heater minus
         potential generation from the PV subsystem. To be used if and only if the
         home is of type pv_only.
+        
         :return: None
         """
         self.constraints += [
@@ -363,6 +369,7 @@ class MPCCalc:
         Sets p_grid of home equal to the load of the HVAC and water heater, plus
         or minus the charge/discharge of the battery, minus potential generation
         from the PV subsystem. To be used if and only if the home is of type pv_battery.
+        
         :return: None
         """
         self.constraints += [
@@ -375,6 +382,7 @@ class MPCCalc:
         Sets the objective function of the Home Energy Management System to be the
         minimization of cost over the MPC time horizon and solves via CVXPY.
         Used for all home types.
+        
         :return: None
         """
         self.cost = cp.Variable(self.horizon)
@@ -393,6 +401,7 @@ class MPCCalc:
     def cleanup_and_finish(self):
         """
         Resolves .solve_mpc() with error handling and collects all data on solver.
+        
         :return: None
         """
         end_slice = max(1, self.sub_subhourly_steps)
@@ -514,6 +523,7 @@ class MPCCalc:
         """
         Collects the values from the outside environment including GHI, OAT, and
         the base price set by the utility.
+        
         :return: None
         """
         self.current_values = self.redis_client.hgetall("current_values")
@@ -521,6 +531,7 @@ class MPCCalc:
     def cast_redis_timestep(self):
         """
         Sets the timestep of the current time with respect to total simulation time.
+        
         :return: None
         """
         self.timestep = int(self.current_values["timestep"])
@@ -528,6 +539,7 @@ class MPCCalc:
     def cast_redis_curr_rps(self):
         """
         Casts the reward price signal values for the current timestep.
+        
         :return: None
         """
         rp = self.redis_client.lrange('reward_price', 0, -1)
@@ -537,6 +549,7 @@ class MPCCalc:
     def solve_type_problem(self):
         """
         Selects routine for MPC optimization problem setup and solve using home type.
+        
         :return: None
         """
         self.add_base_constraints()
@@ -548,6 +561,7 @@ class MPCCalc:
         """
         Intended for parallelization in parent class (e.g. aggregator); runs a
         single MPCCalc home.
+        
         :return: None
         """
         fh = logging.FileHandler(os.path.join("home_logs", f"{self.name}.log"))

@@ -41,7 +41,7 @@ class Reformat:
 
     def main(self):
         # put a list of plotting functions here
-        self.sample_homes = ["Serena-98EPE","Robert-2D73X"]
+        self.sample_homes = ["Serena-98EPE","Robert-2D73X", "Crystal-RXXFA", "Myles-XQ5IA"]
         # self.plots = [self.rl2baseline] + 
         self.plots = [self.plot_single_home] #+ [self.plot_ev]
 

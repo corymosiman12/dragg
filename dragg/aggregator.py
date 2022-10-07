@@ -25,7 +25,16 @@ from dragg.logger import Logger
 REDIS_URL = "redis://localhost"
 
 class Aggregator:
+    """
+    The aggregator combines the power consumption from all homes in the simulation, and manages
+    the simulation of each home (MPCCalc) object in parallel.
+    """
     def __init__(self, start=None, end=None, redis_url=REDIS_URL):
+        """
+        :parameter start: optional override of the start simulation datetime, string "YYYY-MM-DD HH"
+        :parameter end: optional override of the end simulation datetime, string "YYYY-MM-DD HH"
+        :parameter redis_url: optional override of the Redis host URL (must align with MPCCalc REDIS_URL)
+        """
         self.log = Logger("aggregator")
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
         self.outputs_dir = os.path.join(os.getcwd(), 'outputs')
@@ -45,7 +54,6 @@ class Aggregator:
                 "hems":     {"prediction_horizon", "discomfort", "disutility"}
             },
             "simulation":   {"start_datetime", "end_datetime", "random_seed", "load_zone", "check_type", "run_rbo_mpc"},
-            # "agg":          {"action_horizon", "forecast_horizon", "base_price", "max_rp", "subhourly_steps"}
             "agg":          {"base_price", "subhourly_steps"}
         }
         
@@ -932,8 +940,6 @@ class Aggregator:
 
     def set_dummy_rl_parameters(self):
         self.tracked_loads = self.config['community']['house_p_avg']*self.config['community']['total_number_homes']*np.ones(12)
-        # self.util = self.util_permutations[0]
-        # self.rl_params = self.rl_permutations[0]
 
     def setup_rl_agg_run(self):
         self.flush_redis()
