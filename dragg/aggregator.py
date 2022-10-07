@@ -3,8 +3,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 import os
 import sys
-# import threading
-# from queue import Queue
 
 import pandas as pd
 from datetime import datetime, timedelta
@@ -15,14 +13,12 @@ import toml
 import random
 import names
 import string
-# import itertools as it
 import redis
 import pathos
 from pathos.pools import ProcessPool
 
 # Local
 from dragg.mpc_calc import MPCCalc, manage_home
-# from dragg.redis_client import RedisClient
 import dragg.redis_client as rc
 from dragg.logger import Logger
 
@@ -308,6 +304,11 @@ class Aggregator:
             self.config['home']['hvac']['c_dist'][1],
             self.config['community']['total_number_homes']
         )
+        home_w_dist = np.random.uniform(
+            self.config['home']['hvac']['window_eq_dist'][0],
+            self.config['home']['hvac']['window_eq_dist'][1],
+            self.config['community']['total_number_homes']
+        )
         home_hvac_p_cool_dist = np.random.uniform(
             self.config['home']['hvac']['p_cool_dist'][0],
             self.config['home']['hvac']['p_cool_dist'][1],
@@ -448,6 +449,7 @@ class Aggregator:
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
+                    "w": home_w_dist[i],
                     "hvac_seer": self.config["home"]["hvac"]["seer"],
                     "hvac_hspf": self.config["home"]["hvac"]["hspf"],
                     "p_c": home_hvac_p_cool_dist[i],
@@ -494,6 +496,7 @@ class Aggregator:
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
+                    "w": home_w_dist[i],
                     "hvac_seer": self.config["home"]["hvac"]["seer"],
                     "hvac_hspf": self.config["home"]["hvac"]["hspf"],
                     "p_c": home_hvac_p_cool_dist[i],
@@ -549,6 +552,7 @@ class Aggregator:
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
+                    "w": home_w_dist[i],
                     "hvac_seer": self.config["home"]["hvac"]["seer"],
                     "hvac_hspf": self.config["home"]["hvac"]["hspf"],
                     "p_c": home_hvac_p_cool_dist[i],
@@ -587,6 +591,7 @@ class Aggregator:
                 "hvac": {
                     "r": home_r_dist[i],
                     "c": home_c_dist[i],
+                    "w": home_w_dist[i],
                     "hvac_seer": self.config["home"]["hvac"]["seer"],
                     "hvac_hspf": self.config["home"]["hvac"]["hspf"],
                     "p_c": home_hvac_p_cool_dist[i],
@@ -624,7 +629,7 @@ class Aggregator:
         for home in self.all_homes:
             home_obj = MPCCalc(home, self.redis_url)
             self.all_homes_obj += [home_obj]
-            self.max_poss_load += home_obj.max_load   
+            self.max_poss_load += home_obj.max_load
 
     def reset_collected_data(self):
         self.timestep = 0
