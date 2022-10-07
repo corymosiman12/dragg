@@ -3,6 +3,10 @@ import numpy as np
 import cvxpy as cp
 
 class WH:
+    """
+    A class for the water heater device in a smart home. This model uses a linear R1-C1 model 
+    of the water heater tank with electric resistance heating (efficiency ~=100%)
+    """
     def __init__(self, hems):
         self.hems = hems
         self.temp_wh_ev = cp.Variable(self.hems.h_plus)
@@ -29,6 +33,11 @@ class WH:
         self.override = False
 
     def _get_water_draws(self):
+        """
+        :input: None
+        :return: None
+        A method to determine the current hot water consumption. Data based on NREL database (to cite)
+        """
         draw_sizes = (self.hems.horizon // self.hems.dt + 1) * [0] + self.hems.home["wh"]["draw_sizes"]
         raw_draw_size_list = draw_sizes[(self.hems.timestep // self.hems.dt):(self.hems.timestep // self.hems.dt) + (self.hems.horizon // self.hems.dt + 1)]
         raw_draw_size_list = (np.repeat(raw_draw_size_list, self.hems.dt) / self.hems.dt).tolist()
@@ -40,10 +49,15 @@ class WH:
         df = np.divide(self.draw_size, self.wh_size)
         self.draw_frac = cp.Constant(df)
         self.remainder_frac = cp.Constant(1-df)
+        return
 
     def add_constraints(self, enforce_bounds=True):
+        """
+        :input: enforce_bounds, boolean determines whether comfort bounds are strictly enforced
+        :return: cons, a list of CVXPY constraints
+        A method to introduce physical constraints to the water heater. 
+        """
         self._get_water_draws()
-
         cons = [
             # Hot water heater contraints, expected value after approx waterdraws
             self.temp_wh_ev[0] == self.hems.temp_wh_init,
@@ -81,6 +95,14 @@ class WH:
         return cons 
 
     def resolve(self):
+        """
+        :input: None
+        :return: None
+        A method for re-solving the constraints specific to the hot water heater in the event
+        that the whole house HEMS cannot satisfy all constraints -- first attempts to minimize the 
+        device-specific electricity consumption while satisfying comfort bounds, second attempt 
+        minimizes the deviation of the new temperature and the desired setpoint.
+        """
         cons = self.add_constraints()
         obj = cp.Minimize(cp.sum(self.p * self.heat_on))
         prob = cp.Problem(obj, cons)
@@ -92,6 +114,13 @@ class WH:
             prob.solve(solver=self.hems.solver)
 
     def override_p_wh(self, cmd):
+        """
+        :input: cmd, float in [-1,1]
+        :return: None
+        A method to override the current on/off status of the hot water heater. Directly controls
+        the power consumed with a conservative check that the resulting water temperature will not
+        exceed bounds in either direction.
+        """
         # project the normalized value [-1,1] to [0, self.hems.sub_subhourly_steps]
         self.override = True
         cmd_p = (cmd + 1) * 0.5

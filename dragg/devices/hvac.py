@@ -41,6 +41,14 @@ class HVAC:
         self.rand = np.random.uniform(0,1)
 
     def add_constraints(self, enforce_bounds=True):
+        """
+        :input: enforce_bounds, boolean determines whether comfort bounds are strictly enforced
+        :return: cons, a list of CVXPY constraints
+        A method to introduce physical constraints to the HVAC equipment. The A/C and heat are 
+        alternately disabled by "season" to reduce on/off cycling and/or simaultaneous heating
+        and cooling when the electricity price is negative.
+        """
+
         self.cool_min = 0 
         self.heat_min = 0
         if self.hems.season == 'heating':
@@ -87,17 +95,18 @@ class HVAC:
 
     def resolve(self):
         """
+        :input: none
+        :return: none
         Re-solves only the HVAC portion of the MPC scheduling problem, since sometimes the comfort
         constraints are impossible to adhere to the comfort bounds are not enforced but the difference
         in the observed temp and the desired temp is minimized.
         """
-        # try:
         cons = self.add_constraints()
         obj = cp.Minimize(cp.sum(self.p_elec))
         prob = cp.Problem(obj, cons)
         prob.solve(solver=cp.GLPK_MI)
+
         if not prob.status == 'optimal':
-        # except:
             cons = self.add_constraints(enforce_bounds=False)
             if self.hems.season == 'heating':
                 obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - self.t_in_min_current[0])))
@@ -108,6 +117,13 @@ class HVAC:
 
 
     def override_t_in(self, cmd):
+        """
+        :input: cmd, float between [-1,1]
+        :return: none
+        A method for manually setting the temperature setpoint in the home.
+        The result will set the thermal setpoint between the min and max safety bounds (unoccupied 
+        temperatures) as dictated by the normalized command.
+        """
         t_sp = np.clip(cmd, self.unocc_t_in_min, self.unocc_t_in_max)
         self.t_in_max_current = cp.Constant([t_sp + 0.5*self.t_deadband]*self.hems.h_plus)
         self.t_in_min_current = cp.Constant([t_sp - 0.5*self.t_deadband]*self.hems.h_plus)
