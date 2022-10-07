@@ -1,0 +1,226 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>dragg &#8212; DRAGG 3.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="dragg">
+<h1>dragg<a class="headerlink" href="#dragg" title="Permalink to this heading">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dragg.html">dragg package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dragg.html#subpackages">Subpackages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dragg.devices.html">dragg.devices package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dragg.devices.html#submodules">Submodules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.devices.html#module-dragg.devices.battery">dragg.devices.battery module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.devices.html#module-dragg.devices.electric_vehicle">dragg.devices.electric_vehicle module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.devices.html#module-dragg.devices.hvac">dragg.devices.hvac module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.devices.html#module-dragg.devices.pv">dragg.devices.pv module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.devices.html#module-dragg.devices.water_heater">dragg.devices.water_heater module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.devices.html#module-dragg.devices">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dragg.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dragg.html#module-dragg.aggregator">dragg.aggregator module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator"><code class="docutils literal notranslate"><span class="pre">Aggregator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.calc_start_hour_index"><code class="docutils literal notranslate"><span class="pre">Aggregator.calc_start_hour_index()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.check_all_data_indices"><code class="docutils literal notranslate"><span class="pre">Aggregator.check_all_data_indices()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.check_baseline_vals"><code class="docutils literal notranslate"><span class="pre">Aggregator.check_baseline_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.collect_data"><code class="docutils literal notranslate"><span class="pre">Aggregator.collect_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.create_homes"><code class="docutils literal notranslate"><span class="pre">Aggregator.create_homes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.create_mpc_home_obj"><code class="docutils literal notranslate"><span class="pre">Aggregator.create_mpc_home_obj()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.flush_redis"><code class="docutils literal notranslate"><span class="pre">Aggregator.flush_redis()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.gen_setpoint"><code class="docutils literal notranslate"><span class="pre">Aggregator.gen_setpoint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.get_homes"><code class="docutils literal notranslate"><span class="pre">Aggregator.get_homes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.join_data"><code class="docutils literal notranslate"><span class="pre">Aggregator.join_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.my_summary"><code class="docutils literal notranslate"><span class="pre">Aggregator.my_summary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.redis_add_all_data"><code class="docutils literal notranslate"><span class="pre">Aggregator.redis_add_all_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.redis_set_current_values"><code class="docutils literal notranslate"><span class="pre">Aggregator.redis_set_current_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.redis_set_initial_values"><code class="docutils literal notranslate"><span class="pre">Aggregator.redis_set_initial_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.reset_collected_data"><code class="docutils literal notranslate"><span class="pre">Aggregator.reset_collected_data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.reset_seed"><code class="docutils literal notranslate"><span class="pre">Aggregator.reset_seed()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.run"><code class="docutils literal notranslate"><span class="pre">Aggregator.run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.run_baseline"><code class="docutils literal notranslate"><span class="pre">Aggregator.run_baseline()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.run_iteration"><code class="docutils literal notranslate"><span class="pre">Aggregator.run_iteration()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.set_agg_mpc_initial_vals"><code class="docutils literal notranslate"><span class="pre">Aggregator.set_agg_mpc_initial_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.set_dummy_rl_parameters"><code class="docutils literal notranslate"><span class="pre">Aggregator.set_dummy_rl_parameters()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.set_run_dir"><code class="docutils literal notranslate"><span class="pre">Aggregator.set_run_dir()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.setup_rl_agg_run"><code class="docutils literal notranslate"><span class="pre">Aggregator.setup_rl_agg_run()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.summarize_baseline"><code class="docutils literal notranslate"><span class="pre">Aggregator.summarize_baseline()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.write_home_configs"><code class="docutils literal notranslate"><span class="pre">Aggregator.write_home_configs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.aggregator.Aggregator.write_outputs"><code class="docutils literal notranslate"><span class="pre">Aggregator.write_outputs()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dragg.html#module-dragg.logger">dragg.logger module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dragg.html#dragg.logger.Logger"><code class="docutils literal notranslate"><span class="pre">Logger</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dragg.html#dragg.logger.progress"><code class="docutils literal notranslate"><span class="pre">progress()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dragg.html#module-dragg.mpc_calc">dragg.mpc_calc module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc"><code class="docutils literal notranslate"><span class="pre">MPCCalc</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.add_base_constraints"><code class="docutils literal notranslate"><span class="pre">MPCCalc.add_base_constraints()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.add_current_bounds"><code class="docutils literal notranslate"><span class="pre">MPCCalc.add_current_bounds()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.cast_redis_curr_rps"><code class="docutils literal notranslate"><span class="pre">MPCCalc.cast_redis_curr_rps()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.cast_redis_timestep"><code class="docutils literal notranslate"><span class="pre">MPCCalc.cast_redis_timestep()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.cleanup_and_finish"><code class="docutils literal notranslate"><span class="pre">MPCCalc.cleanup_and_finish()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.get_initial_conditions"><code class="docutils literal notranslate"><span class="pre">MPCCalc.get_initial_conditions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.initialize_environmental_variables"><code class="docutils literal notranslate"><span class="pre">MPCCalc.initialize_environmental_variables()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.redis_get_initial_values"><code class="docutils literal notranslate"><span class="pre">MPCCalc.redis_get_initial_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.redis_get_prev_optimal_vals"><code class="docutils literal notranslate"><span class="pre">MPCCalc.redis_get_prev_optimal_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.redis_write_optimal_vals"><code class="docutils literal notranslate"><span class="pre">MPCCalc.redis_write_optimal_vals()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.run_home"><code class="docutils literal notranslate"><span class="pre">MPCCalc.run_home()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.set_base_p_grid"><code class="docutils literal notranslate"><span class="pre">MPCCalc.set_base_p_grid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.set_battery_only_p_grid"><code class="docutils literal notranslate"><span class="pre">MPCCalc.set_battery_only_p_grid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.set_environmental_variables"><code class="docutils literal notranslate"><span class="pre">MPCCalc.set_environmental_variables()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.set_p_grid"><code class="docutils literal notranslate"><span class="pre">MPCCalc.set_p_grid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.set_pv_battery_p_grid"><code class="docutils literal notranslate"><span class="pre">MPCCalc.set_pv_battery_p_grid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.set_pv_only_p_grid"><code class="docutils literal notranslate"><span class="pre">MPCCalc.set_pv_only_p_grid()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.setup_base_problem"><code class="docutils literal notranslate"><span class="pre">MPCCalc.setup_base_problem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.solve_mpc"><code class="docutils literal notranslate"><span class="pre">MPCCalc.solve_mpc()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.mpc_calc.MPCCalc.solve_type_problem"><code class="docutils literal notranslate"><span class="pre">MPCCalc.solve_type_problem()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="dragg.html#dragg.mpc_calc.manage_home"><code class="docutils literal notranslate"><span class="pre">manage_home()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dragg.html#module-dragg.redis_client">dragg.redis_client module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dragg.html#dragg.redis_client.connection"><code class="docutils literal notranslate"><span class="pre">connection()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dragg.html#module-dragg.reformat">dragg.reformat module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat"><code class="docutils literal notranslate"><span class="pre">Reformat</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.add_date_ranges"><code class="docutils literal notranslate"><span class="pre">Reformat.add_date_ranges()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.add_mpc_params"><code class="docutils literal notranslate"><span class="pre">Reformat.add_mpc_params()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.all_rps"><code class="docutils literal notranslate"><span class="pre">Reformat.all_rps()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.get_type_list"><code class="docutils literal notranslate"><span class="pre">Reformat.get_type_list()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.main"><code class="docutils literal notranslate"><span class="pre">Reformat.main()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_all"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_all()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_all_homes"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_all_homes()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_base_home"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_base_home()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_baseline"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_baseline()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_battery"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_battery()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_environmental_values"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_environmental_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_ev"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_ev()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_max_and_12hravg"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_max_and_12hravg()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_parametric"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_parametric()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_pv"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_pv()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_single_home"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_single_home()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_thermal_bounds"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_thermal_bounds()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.plot_typ_day"><code class="docutils literal notranslate"><span class="pre">Reformat.plot_typ_day()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.rl2baseline"><code class="docutils literal notranslate"><span class="pre">Reformat.rl2baseline()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.save_images"><code class="docutils literal notranslate"><span class="pre">Reformat.save_images()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.set_date_folders"><code class="docutils literal notranslate"><span class="pre">Reformat.set_date_folders()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.set_files"><code class="docutils literal notranslate"><span class="pre">Reformat.set_files()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dragg.html#dragg.reformat.Reformat.set_mpc_folders"><code class="docutils literal notranslate"><span class="pre">Reformat.set_mpc_folders()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dragg.html#module-dragg">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">DRAGG</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, Aisling Pigott.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.2.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/modules.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
