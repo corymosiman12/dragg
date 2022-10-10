@@ -7,7 +7,7 @@ setup(name='dragg',
       author='Aisling Pigott and Cory Mosiman',
       author_email='aisling.pigott@colorado.edu',
       packages=find_packages(),
-      scripts=["dragg/main.py"],
+      scripts=[],
       install_requires=[
         'redis',
         'pathos',
