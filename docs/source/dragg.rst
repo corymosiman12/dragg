@@ -1,5 +1,5 @@
-dragg package
-=============
+dragg
+=====
 
 .. automodule:: dragg.aggregator
    :members:

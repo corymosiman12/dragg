@@ -1,5 +1,5 @@
-dragg.devices package
-=====================
+dragg.devices
+=============
 
 .. automodule:: dragg.devices.battery
    :members:

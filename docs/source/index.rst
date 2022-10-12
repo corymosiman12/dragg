@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Distributed Resource AGGregator (DRAGG)
-=================================
+=======================================
 
 DRAGG is a Python based package for creating approximate load profiles of single family homes. DRAGG's thermal models can be used to validate demand response from consumers (e.g. maintaining thermal comfort and safety) while providing the corresponding demand. The thermal models in DRAGG are stochastically initialized to emulate the diversity of a typical residential community.
 
@@ -16,11 +16,12 @@ Every system is approximated by a set of `mixed-integer linear programming <http
    :scale: 50%
 
 Contents
------
+---------
 .. toctree::
    :maxdepth: 1
    
    getting_started
+   config
    dragg
    dragg.devices
    
