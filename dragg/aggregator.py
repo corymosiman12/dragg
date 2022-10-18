@@ -86,8 +86,10 @@ class Aggregator:
         self.max_daily_ghi = None
         self.min_daily_temp = None
         self.prev_load = None
-        self.ts_data = self._import_ts_data() # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
+        self.dt = int(self.config['agg']['subhourly_steps'])
         self._set_dt()
+        self.ts_data = self._import_ts_data() # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
+        
 
         self.spp_data = self._import_spp_data() # SPP: $/kWh
         self.tou_data = self._build_tou_price() # TOU: $/kWh
@@ -157,29 +159,35 @@ class Aggregator:
             sys.exit(1)
 
         df = pd.read_csv(self.ts_data_file, skiprows=2)
-        self.dt = int(self.config['agg']['subhourly_steps'])
+
+        
         self.dt_interval = 60 // self.dt
-        reps = [np.ceil(self.dt/2) if val==0 else np.floor(self.dt/2) for val in df.Minute]
-        df = df.loc[np.repeat(df.index.values, reps)]
-        interval_minutes = self.dt_interval * np.arange(self.dt)
-        n_intervals = len(df.index) // self.dt
-        x = np.tile(interval_minutes, n_intervals)
-        df.Minute = x
-        df = df.astype(str)
-        df['ts'] = df[["Year", "Month", "Day", "Hour", "Minute"]].apply(lambda x: ' '.join(x), axis=1)
+
+        # read in original data
+        df["ts"] = pd.to_datetime(df[['Year','Month','Day','Hour','Minute']])
         df = df.rename(columns={"Temperature": "OAT"})
-        df["ts"] = df["ts"].apply(lambda x: datetime.strptime(x, '%Y %m %d %H %M'))
-        df = df.filter(["ts", "GHI", "OAT"])
-        df[["GHI", "OAT"]] = df[["GHI", "OAT"]].astype(int)
+        df.set_index('ts', inplace=True)
+
+        # create interpolated index
+        df_interp = pd.DataFrame(index=pd.date_range(start=df.index.min(),end=df.index.max(),
+                                                          freq=f'{self.dt_interval}T'))
+
+        # create merged data and interpolate to fill missing points
+        df = pd.concat([df, df_interp]).sort_index().interpolate('linear')
+        df = df[~df.index.duplicated(keep='first')]
+
+        # filter to only interpolated data (exclude non-control datetimes)
+        df.filter(df_interp.index, axis=0)
+
         self.oat = df['OAT'].to_numpy()
         self.ghi = df['GHI'].to_numpy()
-        df = df.set_index('ts')
 
-        day_of_year = 0
-        self.thermal_trend = self.oat[4 * self.dt] - self.oat[0]
-        self.max_daily_temp = max(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
-        self.min_daily_temp = min(self.oat[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
-        self.max_daily_ghi = max(self.ghi[day_of_year*(self.dt*24):(day_of_year+1)*(self.dt*24)])
+        idx = df.index[df.index.get_loc(self.start_dt, method='nearest')]
+        idx_h = df.index[df.index.get_loc(self.start_dt+timedelta(hours=4), method='nearest')]
+        self.thermal_trend = df.loc[idx_h, 'OAT'] - df.loc[idx, 'OAT']
+        self.max_daily_temp = max(df.loc[df.index.date >= self.start_dt.date()]["OAT"])
+        self.min_daily_temp = min(df.loc[df.index.date >= self.start_dt.date()]["OAT"])
+        self.max_daily_ghi = max(df.loc[df.index.date >= self.start_dt.date()]["GHI"])
 
         return df
 

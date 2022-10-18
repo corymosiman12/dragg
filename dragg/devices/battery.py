@@ -29,7 +29,7 @@ class Battery:
     def add_constraints(self):
         cons = [
         # Battery constraints
-            self.e_batt[1:s] == self.e_batt[:-1]
+            self.e_batt[1:] == self.e_batt[:-1]
                 + (self.batt_ch_eff * self.p_batt_ch 
                                + self.p_batt_disch / self.batt_disch_eff) / self.hems.dt,
             self.e_batt[0] == self.hems.e_batt_init,
