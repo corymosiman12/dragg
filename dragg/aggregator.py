@@ -38,7 +38,6 @@ class Aggregator:
         self.log = Logger("aggregator")
         self.data_dir = os.path.expanduser(os.environ.get('DATA_DIR','data'))
         self.outputs_dir = os.path.join(os.getcwd(), 'outputs')
-        print(self.outputs_dir)
         if not os.path.isdir(self.outputs_dir):
             os.makedirs(self.outputs_dir)
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
@@ -178,6 +177,7 @@ class Aggregator:
 
         # filter to only interpolated data (exclude non-control datetimes)
         df.filter(df_interp.index, axis=0)
+        df.bfill(inplace=True)
 
         self.oat = df['OAT'].to_numpy()
         self.ghi = df['GHI'].to_numpy()
@@ -725,6 +725,7 @@ class Aggregator:
         as the data in self.all_data, which is 8760 for default config file.
         :return: None
         """
+        self.all_data.bfill(inplace=True)
         for c in self.all_data.columns.to_list():
             self.redis_client.delete(c)
             self.redis_client.rpush(c, *self.all_data[c].values.tolist())
@@ -805,7 +806,6 @@ class Aggregator:
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.hgetall(home["name"])
-                print(home["name"])
                 for k, v in vals.items():
                     opt_keys = ["p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "temp_in_opt", "temp_wh_opt", "hvac_cool_on_opt", "hvac_heat_on_opt", "wh_heat_on_opt", "cost_opt", "waterdraws", "correct_solve", "t_in_max", "t_in_min"]
                     if 'pv' in home["type"]:
