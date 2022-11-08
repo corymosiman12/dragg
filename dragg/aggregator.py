@@ -89,7 +89,6 @@ class Aggregator:
         self._set_dt()
         self.ts_data = self._import_ts_data() # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
         
-
         self.spp_data = self._import_spp_data() # SPP: $/kWh
         self.tou_data = self._build_tou_price() # TOU: $/kWh
         self.all_data = self.join_data()
@@ -132,8 +131,9 @@ class Aggregator:
         :return:
         """
         try: 
-            if not self.str_start_dt and not self.str_end_dt:
+            if not self.str_start_dt:
                 self.str_start_dt = self.config["simulation"]["start_datetime"]
+            if not self.str_end_dt:
                 self.str_end_dt = self.config["simulation"]["end_datetime"]
             self.start_dt = datetime.strptime(self.str_start_dt, '%Y-%m-%d %H')
             self.end_dt = datetime.strptime(self.str_end_dt, '%Y-%m-%d %H')
@@ -182,13 +182,16 @@ class Aggregator:
         self.oat = df['OAT'].to_numpy()
         self.ghi = df['GHI'].to_numpy()
 
-        idx = df.index[df.index.get_loc(self.start_dt, method='nearest')]
-        idx_h = df.index[df.index.get_loc(self.start_dt+timedelta(hours=4), method='nearest')]
+        self.start_index = df.index.get_loc(self.start_dt, method='nearest') # the index of the start datetime w/r/t the entire year
+        self.end_index = df.index.get_loc(self.end_dt, method='nearest')
+        idx = df.index[self.start_index]
+        idx_h = df.index[self.start_index + 4 * self.dt]
+        idx_end = df.index[self.end_index]
         self.thermal_trend = df.loc[idx_h, 'OAT'] - df.loc[idx, 'OAT']
         self.max_daily_temp = max(df.loc[df.index.date >= self.start_dt.date()]["OAT"])
         self.min_daily_temp = min(df.loc[df.index.date >= self.start_dt.date()]["OAT"])
         self.max_daily_ghi = max(df.loc[df.index.date >= self.start_dt.date()]["GHI"])
-
+        
         return df
 
     def _import_spp_data(self):
@@ -714,7 +717,8 @@ class Aggregator:
 
         self.redis_client.set("start_hour_index", self.start_hour_index)
         self.redis_client.hset("current_values", "timestep", self.timestep)
-
+        self.redis_client.hset("current_values", "start_index", self.start_index)
+        self.redis_client.hset("current_values", "end_index", self.end_index)
         self.reward_price = np.zeros(self.config['agg']['rl']['action_horizon'] * self.dt)
         self.redis_client.rpush("reward_price", *self.reward_price.tolist())
 
@@ -792,7 +796,7 @@ class Aggregator:
         pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
         results = pool.map(manage_home, self.mpc_players)
 
-        self.timestep += 1
+        self.timestep = (self.timestep + 1) % self.num_timesteps
 
     def collect_data(self):
         """

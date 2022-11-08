@@ -78,6 +78,7 @@ class MPCCalc:
         self.prev_optimal_vals = None  # set after timestep > 0, set_vals_for_current_run
         self.p_grid_opt = None
         self.timestep = 0
+        self.start_index = None
 
         # setup cvxpy verbose solver
         self.verbose_flag = os.environ.get('VERBOSE','False')
@@ -405,13 +406,12 @@ class MPCCalc:
         :return: None
         """
         end_slice = max(1, self.sub_subhourly_steps)
-
         
         i = 0
         while i < 1:
             if self.prob.status == 'optimal': # if the problem has been solved
                 self.counter = 0
-                self.timestep += 1
+                # self.timestep += 1
                 self.stored_optimal_vals = defaultdict()
 
                 # general base values
@@ -534,7 +534,7 @@ class MPCCalc:
         
         :return: None
         """
-        self.timestep = int(self.current_values["timestep"])
+        self.timestep = int(self.current_values["start_index"]) + int(self.current_values["timestep"])
 
     def cast_redis_curr_rps(self):
         """
