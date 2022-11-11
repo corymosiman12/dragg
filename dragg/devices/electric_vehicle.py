@@ -23,7 +23,7 @@ class EV:
         self.e_ev_init = cp.Constant(16)
         self.ev_override_profile = None
 
-        self.opt_keys = {'p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt'}
+        self.opt_keys = {'p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt', 'returning_horizon', 'leaving_horizon'}
 
         self.override = False
 
@@ -48,6 +48,9 @@ class EV:
         self.index_5pm = [i-1 for i, e in enumerate(index) if e in self.hems.returning_times]
         after_5pm = [i for i, e in enumerate(index) if e in self.hems.returning_times]
         self.occ_slice = [self.hems.occ_on[i] for i in index]
+
+        # self.leaving_horizon = 
+        # self.returning_horizon = 
 
         self.e_ev_min = []
         for i in range(1,self.hems.h_plus):

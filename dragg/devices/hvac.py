@@ -36,7 +36,7 @@ class HVAC:
         self.t_in_min = [self.occ_t_in_min if i else self.unocc_t_in_min for i in self.hems.occ_on] * 2 # 2 days worth to avoid not accounting for the horizon
         self.t_in_max = [self.occ_t_in_max if i else self.unocc_t_in_max for i in self.hems.occ_on] * 2
 
-        self.opt_keys = {"temp_in_ev_opt","hvac_cool_on_opt", "hvac_heat_on_opt","t_in_min", "t_in_max"}
+        self.opt_keys = {"temp_in_ev_opt","hvac_cool_on_opt", "hvac_heat_on_opt","t_in_min", "t_in_max", "occupancy_status"}
 
         self.rand = np.random.uniform(0,1)
 

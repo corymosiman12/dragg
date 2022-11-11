@@ -210,8 +210,9 @@ class MPCCalc:
             self.max_load += self.wh.p.value
         if 'ev' in self.devices:
             self._setup_ev_problem()
+            self.max_load += self.ev.ev_max_rate
 
-        self.opt_keys.update({"p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "cost_opt"})
+        self.opt_keys.update({"p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "cost_opt", "occupancy_status"})
     
     def set_environmental_variables(self):
         """
@@ -219,21 +220,21 @@ class MPCCalc:
         
         :return: None
         """
-        start_slice = self.start_hour_index + self.timestep
-        end_slice = start_slice + self.h_plus # Need to extend 1 timestep past horizon for OAT slice
+        self.start_slice = self.start_hour_index + self.timestep
+        end_slice = self.start_slice + self.h_plus # Need to extend 1 timestep past horizon for OAT slice
 
         # Get the current values from a list of all values
-        self.ghi_current = cp.Constant(self.all_ghi[start_slice:end_slice])
+        self.ghi_current = cp.Constant(self.all_ghi[self.start_slice:end_slice])
         self.ghi_current_ev = deepcopy(self.ghi_current.value)
         ghi_noise = np.multiply(self.ghi_current.value[1:], 0.01 * np.power(1.3*np.ones(self.horizon), np.arange(self.horizon)))
         self.ghi_current_ev[1:] = np.add(self.ghi_current.value[1:], ghi_noise)
 
-        self.oat_current = cp.Constant(self.all_oat[start_slice:end_slice])
+        self.oat_current = cp.Constant(self.all_oat[self.start_slice:end_slice])
         self.oat_current_ev = deepcopy(self.oat_current.value)
         oat_noise = np.multiply(np.power(1.1*np.ones(self.horizon), np.arange(self.horizon)), np.random.randn(self.horizon))
         self.oat_current_ev[1:] = np.add(self.oat_current.value[1:], oat_noise)
 
-        self.tou_current = self.all_tou[start_slice:end_slice]
+        self.tou_current = self.all_tou[self.start_slice:end_slice]
         self.base_price = np.array(self.tou_current, dtype=float)
 
         self.cast_redis_curr_rps()
@@ -294,7 +295,6 @@ class MPCCalc:
         self.set_environmental_variables()
         self.season = "heating" if max(self.oat_current_ev) <= 27 else "cooling"
         self.add_current_bounds()
-
 
     def add_current_bounds(self):
         start = self.timestep % (24 * self.dt)
@@ -419,6 +419,7 @@ class MPCCalc:
                 self.stored_optimal_vals["p_grid_opt"] = (self.p_grid.value / self.sub_subhourly_steps).tolist()
                 self.stored_optimal_vals["forecast_p_grid_opt"] = (self.p_grid.value[1:] / self.sub_subhourly_steps).tolist() + [0]
                 self.stored_optimal_vals["p_load_opt"] = (self.p_load.value / self.sub_subhourly_steps).tolist()
+                self.stored_optimal_vals["occupancy_status"] = [int(x) for x in self.occ_on]
                 
                 if 'hvac' in self.devices:
                     self.stored_optimal_vals["temp_in_ev_opt"] = (self.hvac.temp_in_ev.value[1:]).tolist()
@@ -439,6 +440,8 @@ class MPCCalc:
                     self.stored_optimal_vals['p_ev_ch'] = (self.ev.p_ev_ch.value).tolist()
                     self.stored_optimal_vals['p_ev_disch'] = (self.ev.p_ev_disch.value).tolist()
                     self.stored_optimal_vals['p_v2g'] = (self.ev.p_v2g.value).tolist()
+                    self.stored_optimal_vals['leaving_horizon'] = self.ev.index_8am if len(self.ev.index_8am) else [-1]
+                    self.stored_optimal_vals['returning_horizon'] = self.ev.index_5pm if len(self.ev.index_5pm) else [-1]
 
                 if 'pv' in self.type:
                     self.stored_optimal_vals['p_pv_opt'] = (self.p_pv.value).tolist()
@@ -451,8 +454,9 @@ class MPCCalc:
                 
                 for k in self.opt_keys:
                     self.optimal_vals[k] = self.stored_optimal_vals[k][0]
-                    for j in range(self.horizon):
-                        self.optimal_vals[f"{k}_{j} "] = self.stored_optimal_vals[k][j]
+                    if not k in ['leaving_horizon', 'returning_horizon']:
+                        for j in range(self.horizon):
+                            self.optimal_vals[f"{k}_{j} "] = self.stored_optimal_vals[k][j]
 
                 if 'hvac' in self.devices:
                     self.optimal_vals["temp_in_opt"] = self.stored_optimal_vals["temp_in_opt"][0]

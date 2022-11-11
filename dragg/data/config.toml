@@ -9,7 +9,7 @@ n_players = 1
 
 [simulation]
 start_datetime = "2015-01-01 00"
-end_datetime = "2015-01-04 00"
+end_datetime = "2015-01-02 00"
 random_seed = 12
 n_nodes = 1
 load_zone = "LZ_HOUSTON"
