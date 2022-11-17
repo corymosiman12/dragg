@@ -267,8 +267,7 @@ class MPCCalc:
 
     def get_initial_conditions(self):
         # self.water_draws()
-
-        if self.timestep == 0:
+        if int(self.current_values["timestep"])== 0:
             self.initialize_environmental_variables()
 
             self.temp_in_init = cp.Constant(float(self.home["hvac"]["temp_in_init"]))

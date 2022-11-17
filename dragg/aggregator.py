@@ -881,7 +881,6 @@ class Aggregator:
             "GHI": self.all_data.loc[self.mask, "GHI"].values.tolist(),
             "RP": self.all_rps.tolist(),
             "p_grid_setpoint": self.all_sps.tolist()
-            # "rl_rewards": self.all_rewards
         }
 
         self.my_summary()
