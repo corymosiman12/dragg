@@ -115,7 +115,10 @@ class MPCCalc:
             try:
                 self.redis_client.hset(key, field, value)
             except:
-                print(key, field, value)
+                if not "ev" in field:
+                    print("ERROR:", key, field, value)
+                else:
+                    print("DEBUG:", key, field, value)
 
         self.log.removeHandler(fh)
 
@@ -497,13 +500,14 @@ class MPCCalc:
                     self.optimal_vals["p_ev_v2g"] = self.ev.p_v2g.value.tolist()[0]
                     self.optimal_vals["e_ev_opt"] = self.ev.e_ev.value.tolist()[1]
                     self.optimal_vals["p_load_opt"] += self.optimal_vals["p_ev_ch"] + self.optimal_vals["p_ev_v2g"]
+                    self.optimal_vals['leaving_horizon'] = self.ev.index_8am[0] if len(self.ev.index_8am) else -1
+                    self.optimal_vals['returning_horizon'] = self.ev.index_5pm[0] if len(self.ev.index_5pm) else -1
 
                 if 'pv' in self.devices:
                     self.pv.resolve()
 
                 if 'battery' in self.devices:
                     self.battery.resolve()
-
 
                 self.optimal_vals["solve_counter"] = self.counter
                 self.optimal_vals["forecast_p_grid_opt"] = self.optimal_vals["p_load_opt"]

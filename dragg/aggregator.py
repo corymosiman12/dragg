@@ -399,9 +399,9 @@ class Aggregator:
             self.config['community']['total_number_homes']
         )
 
-        ndays = self.num_timesteps // (24 * self.dt) + 1
         daily_timesteps = int(24 * self.dt)
-
+        ndays = self.num_timesteps // daily_timesteps + 1
+        
         home_wh_all_draw_size_dist = []
         self.waterdraws_file = os.path.join(self.data_dir, self.config['home']['wh']['waterdraw_file'])
 
@@ -411,10 +411,12 @@ class Aggregator:
         waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
         waterdraw_df = waterdraw_df.resample('H').sum()
         for j in range(self.config['community']['total_number_homes']):
-            this_house = waterdraw_df.sample(axis='columns').values
-            this_house = np.reshape(this_house, (-1, 24))
-            this_house = this_house[np.random.choice(this_house.shape[0], ndays)].flatten()
-            this_house = np.clip(this_house, 0, home_wh_size_dist[j]) #.tolist()
+            this_house = waterdraw_df[list(waterdraw_df.sample(axis='columns'))[0]].values.tolist()
+
+            # this_house = np.reshape(this_house, (-1, 24))
+            # this_house = this_house[np.random.choice(this_house.shape[0], 7)].flatten()
+            # print(len(this_house))
+            this_house = np.clip(this_house, 0, home_wh_size_dist[j])
             home_wh_all_draw_size_dist.append(this_house.tolist())
 
         all_homes = []

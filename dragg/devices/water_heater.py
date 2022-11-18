@@ -39,14 +39,14 @@ class WH:
 
         A method to determine the current hot water consumption. Data based on NREL database (to cite)
         """
-        draw_sizes = (self.hems.horizon // self.hems.dt + 1) * [0] + self.hems.home["wh"]["draw_sizes"]
-        raw_draw_size_list = draw_sizes[(self.hems.timestep // self.hems.dt):(self.hems.timestep // self.hems.dt) + (self.hems.horizon // self.hems.dt + 1)]
-        raw_draw_size_list = (np.repeat(raw_draw_size_list, self.hems.dt) / self.hems.dt).tolist()
-        draw_size_list = raw_draw_size_list[:self.hems.dt]
-        for i in range(self.hems.dt, self.hems.h_plus):
-            draw_size_list.append(np.average(raw_draw_size_list[i-1:i+2]))
+        daily_draw_sizes = 2 * self.hems.home["wh"]["draw_sizes"] # repeat list for 2 weeks
 
-        self.draw_size = draw_size_list
+        current_ts = [i % (24 * 7 * self.hems.dt) for i in range(self.hems.timestep, self.hems.timestep + self.hems.dt)]
+        current_draw_size_actual = [daily_draw_sizes[i] for i in current_ts]
+        future_ts = [i % (24 * 7 * self.hems.dt) for i in range(self.hems.timestep + self.hems.dt, self.hems.timestep + self.hems.h_plus)]
+        future_draw_size_ev = [np.average(daily_draw_sizes[i-self.hems.dt:i+self.hems.dt]) for i in future_ts]
+
+        self.draw_size = current_draw_size_actual + future_draw_size_ev
         df = np.divide(self.draw_size, self.wh_size)
         self.draw_frac = cp.Constant(df)
         self.remainder_frac = cp.Constant(1-df)
