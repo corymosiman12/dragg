@@ -8,8 +8,8 @@ house_p_avg = 1.2
 n_players = 1
 
 [simulation]
-start_datetime = "2015-01-01 00"
-end_datetime = "2015-01-02 00"
+start_datetime = "2003-01-01 00"
+end_datetime = "2003-01-02 00"
 random_seed = 12
 n_nodes = 1
 load_zone = "LZ_HOUSTON"
@@ -33,10 +33,10 @@ max_rp = 0.02
 [home.hvac]
 r_dist = [ 0.014, 0.02,]
 c_dist = [ 1.2, 1.7,]
-window_eq_dist = [6, 9]
+window_eq_dist = [2, 5]
 seer = 20
 hspf = 10
-p_cool_dist = [ 4.5, 4.5,]
+p_cool_dist = [ 6.5, 8.5,]
 p_heat_dist = [ 4.5, 4.5,]
 temp_sp_dist = [ 18, 22,]
 temp_deadband_dist = [ 2, 3,]
