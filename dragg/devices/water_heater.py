@@ -28,7 +28,7 @@ class WH:
 
         self.heat_on = cp.Variable(self.hems.horizon, integer=True)
         self._get_water_draws()
-        self.opt_keys = {"waterdraws", "temp_wh_ev_opt", "wh_heat_on_opt"}
+        self.opt_keys = {"waterdraws", "temp_wh_opt", "wh_heat_on_opt"}
 
         self.override = False
 
@@ -50,6 +50,7 @@ class WH:
         df = np.divide(self.draw_size, self.wh_size)
         self.draw_frac = cp.Constant(df)
         self.remainder_frac = cp.Constant(1-df)
+
         return
 
     def add_constraints(self, enforce_bounds=True):

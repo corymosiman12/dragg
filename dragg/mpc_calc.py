@@ -399,6 +399,7 @@ class MPCCalc:
             # self.log.error("Problem is not DCP")
             print("problem is not dcp")
         self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
+        print("!!!!!!", self.prob.status)
         return
 
     def cleanup_and_finish(self):
@@ -458,7 +459,10 @@ class MPCCalc:
                     self.optimal_vals[k] = self.stored_optimal_vals[k][0]
                     if not k in ['leaving_horizon', 'returning_horizon']:
                         for j in range(self.horizon):
-                            self.optimal_vals[f"{k}_{j} "] = self.stored_optimal_vals[k][j]
+                            try:
+                                self.optimal_vals[f"{k}_{j} "] = self.stored_optimal_vals[k][j]
+                            except:
+                                pass #print(k)
 
                 if 'hvac' in self.devices:
                     self.optimal_vals["temp_in_opt"] = self.stored_optimal_vals["temp_in_opt"][0]
@@ -587,5 +591,3 @@ class MPCCalc:
         self.solve_type_problem()
         self.cleanup_and_finish()
         self.redis_write_optimal_vals()
-
-        # self.log.removeHandler(fh)
