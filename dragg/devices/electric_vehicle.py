@@ -108,6 +108,7 @@ class EV:
         ev_prob.solve(solver=self.hems.solver)
 
     def override_charge(self, cmd):
+        cmd = cmd * self.ev_max_rate # undo normalization 
         max_p_ch = (self.ev_cap_max - self.hems.e_ev_init.value) / self.ev_ch_eff.value
         max_p_dis = (self.hems.e_ev_init.value - self.ev_cap_min) * self.ev_disch_eff.value
         self.pc_cmd = np.clip(cmd, 0, max_p_ch)

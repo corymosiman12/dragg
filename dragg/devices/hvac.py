@@ -36,7 +36,7 @@ class HVAC:
         self.t_in_min = [self.occ_t_in_min if i else self.unocc_t_in_min for i in self.hems.occ_on] * 2 # 2 days worth to avoid not accounting for the horizon
         self.t_in_max = [self.occ_t_in_max if i else self.unocc_t_in_max for i in self.hems.occ_on] * 2
 
-        self.opt_keys = {"temp_in_ev_opt","hvac_cool_on_opt", "hvac_heat_on_opt","t_in_min", "t_in_max", "occupancy_status"}
+        self.opt_keys = {"temp_in_opt","hvac_cool_on_opt", "hvac_heat_on_opt","t_in_min", "t_in_max", "occupancy_status"}
 
         self.rand = np.random.uniform(0,1)
 
@@ -82,7 +82,6 @@ class HVAC:
             self.heat_on <= self.heat_max,
             self.heat_on >= self.heat_min
             ]
-
         if enforce_bounds:
             # Enforces comfort constraints, which are sometimes impossible to adhere to
             cons += [
@@ -106,7 +105,6 @@ class HVAC:
         obj = cp.Minimize(cp.sum(self.p_elec))
         prob = cp.Problem(obj, cons)
         prob.solve(solver=cp.GLPK_MI)
-
         if not prob.status == 'optimal':
             cons = self.add_constraints(enforce_bounds=False)
             if self.hems.season == 'heating':
