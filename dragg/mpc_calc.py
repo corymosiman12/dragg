@@ -46,32 +46,7 @@ class MPCCalc:
         self.plug_load = None
         self.p_grid = None
         self.spp = None
-        self.optimal_vals = {
-           "p_grid_opt": None,
-           "forecast_p_grid_opt": None,
-           "p_load_opt": None,
-           "temp_in_opt": None,
-           "temp_wh_ev_opt": None,
-           "hvac_cool_on_opt": None,
-           "hvac_heat_on_opt": None,
-           "wh_heat_on_opt": None,
-           "cost_opt": None,
-           "t_in_min": None,
-           "t_in_max": None
-        }
-        self.stored_optimal_vals = {
-           "p_grid_opt": None,
-           "forecast_p_grid_opt": None,
-           "p_load_opt": None,
-           "temp_in_opt": None,
-           "temp_wh_ev_opt": None,
-           "hvac_cool_on_opt": None,
-           "hvac_heat_on_opt": None,
-           "wh_heat_on_opt": None,
-           "cost_opt": None,
-           "t_in_min": None,
-           "t_in_max": None
-        }
+        
         self.counter = 0
         self.iteration = None
         self.assumed_wh_draw = None
@@ -90,14 +65,8 @@ class MPCCalc:
         # calls redis and gets all the environmental variables from beginning of simulation to end
         self.initialize_environmental_variables()
 
-        # setup the base variables of HVAC and water heater
         self.setup_base_problem()
-        if 'battery' in self.type:
-            # setup the battery variables
-            self.setup_battery_problem()
-        if 'pv' in self.type:
-            # setup the pv variables
-            self.setup_pv_problem()
+        self.optimal_vals = {k:0 for k in self.opt_keys}
 
         self.ev_override_profile = None
 
@@ -143,6 +112,7 @@ class MPCCalc:
 
         # cast all values to proper type
         self.start_hour_index = int(float(self.start_hour_index))
+        self.start_slice = self.start_hour_index
         self.all_ghi = [float(i) for i in self.all_ghi]
         self.all_oat = [float(i) for i in self.all_oat]
         self.all_spp = [float(i) for i in self.all_spp]
@@ -214,6 +184,11 @@ class MPCCalc:
         if 'ev' in self.devices:
             self._setup_ev_problem()
             self.max_load += self.ev.ev_max_rate
+        if 'battery' in self.devices:
+            self._setup_battery_problem()
+            self.max_load += self.battery.batt_max_rate
+        if 'pv' in self.devices:
+            self._setup_pv_problem()
 
         self.opt_keys.update({"p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "cost_opt", "occupancy_status"})
     
@@ -399,7 +374,6 @@ class MPCCalc:
             # self.log.error("Problem is not DCP")
             print("problem is not dcp")
         self.prob.solve(solver=self.solver, verbose=self.verbose_flag)
-        print("!!!!!!", self.prob.status)
         return
 
     def cleanup_and_finish(self):
