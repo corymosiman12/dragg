@@ -70,8 +70,6 @@ class WH:
                                     - (cp.multiply(self.remainder_frac[1:],self.temp_wh_ev[:-1]) 
                                     + self.draw_frac[1:]*self.tap_temp)) / self.r))
                                     + self.heat_on * self.p) / (self.c * self.hems.dt),
-            self.temp_wh_ev >= self.temp_wh_min,
-            self.temp_wh_ev <= self.temp_wh_max,
 
             self.temp_wh0 == self.hems.temp_wh_init
                             + 3600 * (((self.hems.hvac.temp_in - self.hems.temp_wh_init) / self.r)
@@ -85,7 +83,9 @@ class WH:
         if enforce_bounds:
             cons += [
                 self.temp_wh >= self.temp_wh_min,
-                self.temp_wh <= self.temp_wh_max
+                self.temp_wh <= self.temp_wh_max,
+                self.temp_wh_ev >= self.temp_wh_min,
+                self.temp_wh_ev <= self.temp_wh_max,
                 ]
 
         if self.override:
@@ -107,20 +107,16 @@ class WH:
         device-specific electricity consumption while satisfying comfort bounds, second attempt 
         minimizes the deviation of the new temperature and the desired setpoint.
         """
-        print('resolving try 1')
         cons = self.add_constraints()
         obj = cp.Minimize(cp.sum(self.p * self.heat_on))
         prob = cp.Problem(obj, cons)
         prob.solve(solver=cp.GLPK_MI)
 
         if not prob.status == 'optimal':
-            print('resolving try 2')
             cons = self.add_constraints(enforce_bounds=False)
             obj = cp.Minimize(cp.sum(self.temp_wh_max - self.temp_wh_ev))
             prob = cp.Problem(obj, cons)
             prob.solve(solver=self.hems.solver, verbose=True)
-            if not prob.status == 'optimal':
-                print('still not fixed')
 
     def override_p_wh(self, cmd):
         """
