@@ -76,7 +76,7 @@ class Aggregator:
         self.num_timesteps = None  # Set by _set_dt
         self.all_homes = None  # Set by create_homes
         self.redis_url = redis_url
-        self.redis_client = rc.connection(redis_url)#RedisClient(redis_url)
+        self.redis_client = rc.connection(redis_url)
         self.config = self._import_config()
         self.check_type = self.config['simulation']['check_type']  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
 
@@ -100,6 +100,7 @@ class Aggregator:
         self.start_time = datetime.now()
 
         self.overwrite_output = False
+        self.daily_peak = 0
 
     def _import_config(self):
         if not os.path.exists(self.config_file):
@@ -638,6 +639,8 @@ class Aggregator:
             i += 1
 
         self.all_homes = all_homes
+        self.contribution2peak = {home['name']:0 for home in self.all_homes}
+
         self.all_homes_obj = []
         self.max_poss_load = 0
         self.min_poss_load = 0
@@ -798,7 +801,7 @@ class Aggregator:
         pool = ProcessPool(nodes=self.config['simulation']['n_nodes']) # open a pool of nodes
         results = pool.map(manage_home, self.mpc_players)
 
-        self.timestep = (self.timestep + 1) % self.num_timesteps
+        # self.timestep = (self.timestep + 1) % self.num_timesteps
 
     def collect_data(self):
         """
@@ -807,8 +810,15 @@ class Aggregator:
         """
         agg_load = 0
         agg_cost = 0
-        self.house_load = []
+        
+        house_load = {}
         self.forecast_house_load = []
+        
+        if self.timestep % (24 * self.dt) == 0: # at the end of the day
+            self.daily_peak = 0 # remove if we want the max peak of the simulation
+            for k,v in self.contribution2peak.items():
+                self.redis_client.hset("peak_contribution", k, v)
+
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
                 vals = self.redis_client.hgetall(home["name"])
@@ -822,15 +832,21 @@ class Aggregator:
                         opt_keys += ['p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt']
                     if k in opt_keys:
                         self.collected_data[home["name"]][k].append(float(v))
-                self.house_load.append(float(vals["p_grid_opt"]))
+                house_load.update({home['name']:float(vals["p_grid_opt"])})
                 self.forecast_house_load.append(float(vals["forecast_p_grid_opt"]))
                 agg_cost += float(vals["cost_opt"])
-        self.agg_load = np.sum(self.house_load)
+        self.agg_load = sum(house_load.values())
+
+        if self.agg_load >= self.daily_peak:
+            self.daily_peak = self.agg_load
+            self.contribution2peak = {k:max(v,house_load[k]/self.daily_peak) for k,v in self.contribution2peak.items()}
+
         self.forecast_load = np.sum(self.forecast_house_load)
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
         self.agg_setpoint = self.gen_setpoint()
         self.log.logger.info(f"At time t={self.timestep} aggregate load is {round(self.agg_load,2)} kW.")
+        self.timestep = (self.timestep + 1) % self.num_timesteps
 
     def run_baseline(self):
         """
