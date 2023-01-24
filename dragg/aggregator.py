@@ -43,6 +43,7 @@ class Aggregator:
         self.config_file = os.path.join(self.data_dir, os.environ.get('CONFIG_FILE', 'config.toml'))
         self.ts_data_file = os.path.join(self.data_dir, os.environ.get('SOLAR_TEMPERATURE_DATA_FILE', 'nsrdb.csv'))
         self.spp_data_file = os.path.join(self.data_dir, os.environ.get('SPP_DATA_FILE', 'spp_data.xlsx'))
+
         self.required_keys = {
             "community":    {"total_number_homes"},
             "home": {
@@ -78,6 +79,8 @@ class Aggregator:
         self.redis_url = redis_url
         self.redis_client = rc.connection(redis_url)
         self.config = self._import_config()
+        self.waterdraws_file = os.path.join(self.data_dir, self.config['home']['wh']['waterdraw_file'])
+
         self.check_type = self.config['simulation']['check_type']  # One of: 'pv_only', 'base', 'battery_only', 'pv_battery', 'all'
 
         self.thermal_trend = None
@@ -182,6 +185,9 @@ class Aggregator:
 
         self.oat = df['OAT'].to_numpy()
         self.ghi = df['GHI'].to_numpy()
+
+        df["WEEKDAY"] = df.index.weekday
+        df["Hour"] = df.index.hour + (df.index.minute/60)
 
         self.start_index = df.index.get_loc(self.start_dt, method='nearest') # the index of the start datetime w/r/t the entire year
         self.end_index = df.index.get_loc(self.end_dt, method='nearest')
@@ -302,6 +308,120 @@ class Aggregator:
         self._check_home_configs()
         self.write_home_configs()
 
+    def get_home_names(self):
+        return [f"{names.get_first_name()}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=5))}" for _ in range(self.config['community']['total_number_homes'])]
+
+    def get_hvac_params(self):
+        hvac = {
+                "r": np.random.uniform(
+                    self.config['home']['hvac']['r_dist'][0],
+                    self.config['home']['hvac']['r_dist'][1]),
+                "c": np.random.uniform(
+                    self.config['home']['hvac']['c_dist'][0],
+                    self.config['home']['hvac']['c_dist'][1]),
+                "w": np.random.uniform(
+                    self.config['home']['hvac']['window_eq_dist'][0],
+                    self.config['home']['hvac']['window_eq_dist'][1]),
+                "hvac_seer": self.config["home"]["hvac"]["seer"],
+                "hvac_hspf": self.config["home"]["hvac"]["hspf"],
+                "p_c": np.random.uniform(
+                    self.config['home']['hvac']['p_cool_dist'][0],
+                    self.config['home']['hvac']['p_cool_dist'][1]),
+                "p_h": np.random.uniform(
+                    self.config['home']['hvac']['p_heat_dist'][0],
+                    self.config['home']['hvac']['p_heat_dist'][1]),
+                "temp_in_sp": np.random.uniform(
+                    self.config['home']['hvac']['temp_sp_dist'][0],
+                    self.config['home']['hvac']['temp_sp_dist'][1]),
+                "temp_in_db": np.random.uniform(
+                    self.config['home']['hvac']['temp_deadband_dist'][0],
+                    self.config['home']['hvac']['temp_deadband_dist'][1]),
+                "temp_setback_delta": np.random.uniform(
+                    self.config['home']['hvac']['temp_setback_delta'][0],
+                    self.config['home']['hvac']['temp_setback_delta'][1])
+            }
+
+        hvac.update({
+                "temp_in_min": hvac["temp_in_sp"] - 0.5 * hvac["temp_in_db"],
+                "temp_in_max": hvac["temp_in_sp"] + 0.5 * hvac["temp_in_db"],
+                "temp_in_init": hvac["temp_in_sp"] + np.random.uniform(-0.5,0.5) * hvac["temp_in_db"]
+            }) 
+        return hvac 
+
+    def get_wh_params(self):
+        wh = {
+                "r": np.random.uniform(
+                    self.config['home']['wh']['r_dist'][0],
+                    self.config['home']['wh']['r_dist'][1]),
+                "p": np.random.uniform(
+                    self.config['home']['wh']['p_dist'][0],
+                    self.config['home']['wh']['p_dist'][1]),
+                "temp_wh_sp": np.random.uniform(
+                    self.config['home']['wh']['sp_dist'][0],
+                    self.config['home']['wh']['sp_dist'][1]),
+                "temp_wh_db": np.random.uniform(
+                    self.config['home']['wh']['deadband_dist'][0],
+                    self.config['home']['wh']['deadband_dist'][1]),
+                "tank_size": np.random.uniform(
+                    self.config['home']['wh']['size_dist'][0],
+                    self.config['home']['wh']['size_dist'][1]),   
+            }
+
+        waterdraw_df = pd.read_csv(self.waterdraws_file, index_col=0)
+        waterdraw_df.index = pd.to_datetime(waterdraw_df.index, format='%Y-%m-%d %H:%M:%S')
+        sigma = 0.2
+        waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
+        waterdraw_df = waterdraw_df.resample('H').sum()
+        this_house_waterdraws = waterdraw_df[list(waterdraw_df.sample(axis='columns'))[0]].values.tolist()
+        this_house_waterdraws = np.clip(this_house_waterdraws, 0, wh["tank_size"]).tolist()
+
+        wh.update({
+                "temp_wh_min": wh["temp_wh_sp"] - 0.5 * wh["temp_wh_db"],
+                "temp_wh_max": wh["temp_wh_sp"] + 0.5 * wh["temp_wh_db"],
+                "temp_wh_init": wh["temp_wh_sp"] + np.random.uniform(-0.5,0.5) * wh["temp_wh_db"],
+                "draw_sizes": this_house_waterdraws
+            })
+        return wh
+
+    def get_battery_params(self):
+        battery = {
+            "max_rate": np.random.uniform(self.config['home']['battery']['max_rate'][0],
+                                            self.config['home']['battery']['max_rate'][1]),
+            "capacity": np.random.uniform(self.config['home']['battery']['capacity'][0],
+                                            self.config['home']['battery']['capacity'][1]),
+            "capacity_lower": np.random.uniform(self.config['home']['battery']['lower_bound'][0],
+                                            self.config['home']['battery']['lower_bound'][1]),
+            "capacity_upper": np.random.uniform(self.config['home']['battery']['upper_bound'][0],
+                                            self.config['home']['battery']['upper_bound'][1]),
+            "ch_eff": np.random.uniform(self.config['home']['battery']['charge_eff'][0],
+                                            self.config['home']['battery']['charge_eff'][1]),
+            "disch_eff": np.random.uniform(self.config['home']['battery']['discharge_eff'][0],
+                                            self.config['home']['battery']['discharge_eff'][1]),
+            "e_batt_init": np.random.uniform(self.config['home']['battery']['lower_bound'][1],
+                                            self.config['home']['battery']['upper_bound'][0])
+        }
+        return battery
+
+    def get_pv_params(self):
+        pv = {
+            "area": np.random.uniform(self.config['home']['pv']['area'][0],
+                                    self.config['home']['pv']['area'][1]),
+            "eff": np.random.uniform(self.config['home']['pv']['efficiency'][0],
+                                    self.config['home']['pv']['efficiency'][1])
+        }
+        return pv
+
+    def get_hems_params(self):
+        responsive_hems = {
+            "horizon": self.config['home']['hems']['prediction_horizon'],
+            "hourly_agg_steps": self.dt,
+            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
+            "solver": self.config['home']['hems']['solver'],
+            "discount_factor": self.config['home']['hems']['discount_factor'],
+            "weekday_occ_schedule": self.config['home']['hems']['weekday_occ_schedule']
+        }
+        return responsive_hems
+
     def create_homes(self):
         """
         Given parameter distributions and number of homes of each type, create a list
@@ -313,341 +433,73 @@ class Aggregator:
         np.random.seed(self.config['simulation']['random_seed'])
         random.seed(self.config['simulation']['random_seed'])
 
-        # Define home and HVAC parameters
-        home_r_dist = np.random.uniform(
-            self.config['home']['hvac']['r_dist'][0],
-            self.config['home']['hvac']['r_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_c_dist = np.random.uniform(
-            self.config['home']['hvac']['c_dist'][0],
-            self.config['home']['hvac']['c_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_w_dist = np.random.uniform(
-            self.config['home']['hvac']['window_eq_dist'][0],
-            self.config['home']['hvac']['window_eq_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_hvac_p_cool_dist = np.random.uniform(
-            self.config['home']['hvac']['p_cool_dist'][0],
-            self.config['home']['hvac']['p_cool_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_hvac_p_heat_dist = np.random.uniform(
-            self.config['home']['hvac']['p_heat_dist'][0],
-            self.config['home']['hvac']['p_heat_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_hvac_temp_in_sp_dist = np.random.uniform(
-            self.config['home']['hvac']['temp_sp_dist'][0],
-            self.config['home']['hvac']['temp_sp_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_hvac_temp_in_db_dist = np.random.uniform(
-            self.config['home']['hvac']['temp_deadband_dist'][0],
-            self.config['home']['hvac']['temp_deadband_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_hvac_temp_in_init_pos_dist = np.random.uniform(
-            0.25,
-            0.75,
-            self.config['community']['total_number_homes']
-        )
-        home_hvac_temp_in_min_dist = home_hvac_temp_in_sp_dist - 0.5 * home_hvac_temp_in_db_dist
-        home_hvac_temp_in_max_dist = home_hvac_temp_in_sp_dist + 0.5 * home_hvac_temp_in_db_dist
-        home_hvac_temp_init = np.add(home_hvac_temp_in_min_dist, np.multiply(home_hvac_temp_in_init_pos_dist, home_hvac_temp_in_db_dist))
-        home_hvac_temp_sb_delta = np.random.uniform(
-            self.config['home']['hvac']['temp_setback_delta'][0],
-            self.config['home']['hvac']['temp_setback_delta'][1],
-            self.config['community']['total_number_homes']
-        )
-
-        # Define water heater parameters
-        wh_r_dist = np.random.uniform(
-            self.config['home']['wh']['r_dist'][0],
-            self.config['home']['wh']['r_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        wh_p_dist = np.random.uniform(
-            self.config['home']['wh']['p_dist'][0],
-            self.config['home']['wh']['p_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_wh_temp_sp_dist = np.random.uniform(
-            self.config['home']['wh']['sp_dist'][0],
-            self.config['home']['wh']['sp_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_wh_temp_db_dist = np.random.uniform(
-            self.config['home']['wh']['deadband_dist'][0],
-            self.config['home']['wh']['deadband_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-        home_wh_temp_init_pos_dist = np.random.uniform(
-            0.25,
-            0.75,
-            self.config['community']['total_number_homes']
-        )
-        home_wh_temp_min_dist = home_wh_temp_sp_dist - 0.5 * home_wh_temp_db_dist
-        home_wh_temp_max_dist = home_wh_temp_sp_dist + 0.5 * home_wh_temp_db_dist
-        home_wh_temp_init = np.add(home_wh_temp_min_dist, np.multiply(home_wh_temp_init_pos_dist, home_wh_temp_db_dist))
-
-        # define water heater draw events
-        home_wh_size_dist = np.random.uniform(
-            self.config['home']['wh']['size_dist'][0],
-            self.config['home']['wh']['size_dist'][1],
-            self.config['community']['total_number_homes']
-        )
-
         daily_timesteps = int(24 * self.dt)
         ndays = self.num_timesteps // daily_timesteps + 1
-        
-        home_wh_all_draw_size_dist = []
-        self.waterdraws_file = os.path.join(self.data_dir, self.config['home']['wh']['waterdraw_file'])
 
-        waterdraw_df = pd.read_csv(self.waterdraws_file, index_col=0)
-        waterdraw_df.index = pd.to_datetime(waterdraw_df.index, format='%Y-%m-%d %H:%M:%S')
-        sigma = 0.2
-        waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
-        waterdraw_df = waterdraw_df.resample('H').sum()
-        for j in range(self.config['community']['total_number_homes']):
-            this_house = waterdraw_df[list(waterdraw_df.sample(axis='columns'))[0]].values.tolist()
+        self.all_homes = []
 
-            # this_house = np.reshape(this_house, (-1, 24))
-            # this_house = this_house[np.random.choice(this_house.shape[0], 7)].flatten()
-            # print(len(this_house))
-            this_house = np.clip(this_house, 0, home_wh_size_dist[j])
-            home_wh_all_draw_size_dist.append(this_house.tolist())
-
-        all_homes = []
-
-        responsive_hems = {
-            "horizon": self.config['home']['hems']['prediction_horizon'],
-            "hourly_agg_steps": self.dt,
-            "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
-            "solver": self.config['home']['hems']['solver'],
-            "discount_factor": self.config['home']['hems']['discount_factor'],
-            "weekday_occ_schedule": self.config['home']['hems']['weekday_occ_schedule']
-        }
 
         if not os.path.isdir(os.path.join('home_logs')):
             os.makedirs('home_logs')
 
+        all_names = self.get_home_names()
+
         i = 0
         # Define pv and battery homes
         num_pv_battery_homes = self.config['community']['homes_pv_battery']
-        for j in range(num_pv_battery_homes):
-            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-            name = names.get_first_name() + '-' + res
-
-            battery = {
-                "max_rate": np.random.uniform(self.config['home']['battery']['max_rate'][0],
-                                                self.config['home']['battery']['max_rate'][1]),
-                "capacity": np.random.uniform(self.config['home']['battery']['capacity'][0],
-                                                self.config['home']['battery']['capacity'][1]),
-                "capacity_lower": np.random.uniform(self.config['home']['battery']['lower_bound'][0],
-                                                self.config['home']['battery']['lower_bound'][1]),
-                "capacity_upper": np.random.uniform(self.config['home']['battery']['upper_bound'][0],
-                                                self.config['home']['battery']['upper_bound'][1]),
-                "ch_eff": np.random.uniform(self.config['home']['battery']['charge_eff'][0],
-                                                self.config['home']['battery']['charge_eff'][1]),
-                "disch_eff": np.random.uniform(self.config['home']['battery']['discharge_eff'][0],
-                                                self.config['home']['battery']['discharge_eff'][1]),
-                "e_batt_init": np.random.uniform(self.config['home']['battery']['lower_bound'][1],
-                                                self.config['home']['battery']['upper_bound'][0])
-            }
-
-            pv = {
-                "area": np.random.uniform(self.config['home']['pv']['area'][0],
-                                        self.config['home']['pv']['area'][1]),
-                "eff": np.random.uniform(self.config['home']['pv']['efficiency'][0],
-                                        self.config['home']['pv']['efficiency'][1])
-            }
-
-            all_homes.append({
-                "name": name,
-                "type": "pv_battery",
-                "hvac": {
-                    "r": home_r_dist[i],
-                    "c": home_c_dist[i],
-                    "w": home_w_dist[i],
-                    "hvac_seer": self.config["home"]["hvac"]["seer"],
-                    "hvac_hspf": self.config["home"]["hvac"]["hspf"],
-                    "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i],
-                    "temp_in_min": home_hvac_temp_in_min_dist[i],
-                    "temp_in_max": home_hvac_temp_in_max_dist[i],
-                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_init[i],
-                    "temp_setback_delta": home_hvac_temp_sb_delta[i]
-                },
-                "wh": {
-                    "r": wh_r_dist[i],
-                    "p": wh_p_dist[i],
-                    "temp_wh_min": home_wh_temp_min_dist[i],
-                    "temp_wh_max": home_wh_temp_max_dist[i],
-                    "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": home_wh_temp_init[i],
-                    "tank_size": home_wh_size_dist[i],
-                    "draw_sizes": home_wh_all_draw_size_dist[i],
-                },
-                "hems": responsive_hems,
-                "battery": battery,
-                "pv": pv
-            })
-            i += 1
-
-        # Define pv only homes
         num_pv_homes = self.config['community']['homes_pv']
-        for j in range(num_pv_homes):
-            hems = responsive_hems
-            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-            name = names.get_first_name() + '-' + res
-
-            pv = {
-                "area": np.random.uniform(self.config['home']['pv']['area'][0],
-                                        self.config['home']['pv']['area'][1]),
-                "eff": np.random.uniform(self.config['home']['pv']['efficiency'][0],
-                                        self.config['home']['pv']['efficiency'][1])
-            }
-
-            all_homes.append({
-                "name": name,
-                "type": "pv_only",
-                "hvac": {
-                    "r": home_r_dist[i],
-                    "c": home_c_dist[i],
-                    "w": home_w_dist[i],
-                    "hvac_seer": self.config["home"]["hvac"]["seer"],
-                    "hvac_hspf": self.config["home"]["hvac"]["hspf"],
-                    "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i],
-                    "temp_in_min": home_hvac_temp_in_min_dist[i],
-                    "temp_in_max": home_hvac_temp_in_max_dist[i],
-                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_init[i],
-                    "temp_setback_delta": home_hvac_temp_sb_delta[i]
-                },
-                "wh": {
-                    "r": wh_r_dist[i],
-                    "p": wh_p_dist[i],
-                    "temp_wh_min": home_wh_temp_min_dist[i],
-                    "temp_wh_max": home_wh_temp_max_dist[i],
-                    "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": home_wh_temp_init[i],
-                    "tank_size": home_wh_size_dist[i],
-                    "draw_sizes": home_wh_all_draw_size_dist[i],
-                },
-                "hems": responsive_hems,
-                "pv": pv
-            })
-            i += 1
-
-        # Define battery only homes
         num_battery_homes = self.config['community']['homes_battery']
-        for j in range(num_battery_homes):
-            hems = responsive_hems
-            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-            name = names.get_first_name() + '-' + res
-
-            battery = {
-                "max_rate": np.random.uniform(self.config['home']['battery']['max_rate'][0],
-                                            self.config['home']['battery']['max_rate'][1]),
-                "capacity": np.random.uniform(self.config['home']['battery']['capacity'][0],
-                                            self.config['home']['battery']['capacity'][1]),
-                "capacity_lower": np.random.uniform(self.config['home']['battery']['lower_bound'][0],
-                                            self.config['home']['battery']['lower_bound'][1]),
-                "capacity_upper": np.random.uniform(self.config['home']['battery']['upper_bound'][0],
-                                            self.config['home']['battery']['upper_bound'][1]),
-                "ch_eff": np.random.uniform(self.config['home']['battery']['charge_eff'][0],
-                                            self.config['home']['battery']['charge_eff'][1]),
-                "disch_eff": np.random.uniform(self.config['home']['battery']['discharge_eff'][0],
-                                            self.config['home']['battery']['discharge_eff'][1]),
-                "e_batt_init": np.random.uniform(self.config['home']['battery']['lower_bound'][1],
-                                            self.config['home']['battery']['upper_bound'][0])
-            }
-
-            all_homes.append({
-                "name": name,
-                "type": "battery_only",
-                "hvac": {
-                    "r": home_r_dist[i],
-                    "c": home_c_dist[i],
-                    "w": home_w_dist[i],
-                    "hvac_seer": self.config["home"]["hvac"]["seer"],
-                    "hvac_hspf": self.config["home"]["hvac"]["hspf"],
-                    "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i],
-                    "temp_in_min": home_hvac_temp_in_min_dist[i],
-                    "temp_in_max": home_hvac_temp_in_max_dist[i],
-                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_init[i],
-                    "temp_setback_delta": home_hvac_temp_sb_delta[i]
-                },
-                "wh": {
-                    "r": wh_r_dist[i],
-                    "p": wh_p_dist[i],
-                    "temp_wh_min": home_wh_temp_min_dist[i],
-                    "temp_wh_max": home_wh_temp_max_dist[i],
-                    "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": home_wh_temp_init[i],
-                    "tank_size": home_wh_size_dist[i],
-                    "draw_sizes": home_wh_all_draw_size_dist[i],
-                },
-                "hems": responsive_hems,
-                "battery": battery
-            })
-            i += 1
-
-        # Define base type homes
         num_base_homes = self.config['community']['total_number_homes'] - num_battery_homes - num_pv_homes - num_pv_battery_homes
-        for j in range(int(num_base_homes)):
-            res = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-            name = names.get_first_name() + '-' + res
-            hems = responsive_hems
 
-            all_homes.append({
-                "name": name,
-                "type": "base",
-                "hvac": {
-                    "r": home_r_dist[i],
-                    "c": home_c_dist[i],
-                    "w": home_w_dist[i],
-                    "hvac_seer": self.config["home"]["hvac"]["seer"],
-                    "hvac_hspf": self.config["home"]["hvac"]["hspf"],
-                    "p_c": home_hvac_p_cool_dist[i],
-                    "p_h": home_hvac_p_heat_dist[i],
-                    "temp_in_min": home_hvac_temp_in_min_dist[i],
-                    "temp_in_max": home_hvac_temp_in_max_dist[i],
-                    "temp_in_sp": home_hvac_temp_in_sp_dist[i],
-                    "temp_in_init": home_hvac_temp_init[i],
-                    "temp_setback_delta": home_hvac_temp_sb_delta[i]
-                },
-                "wh": {
-                    "r": wh_r_dist[i],
-                    "p": wh_p_dist[i],
-                    "temp_wh_min": home_wh_temp_min_dist[i],
-                    "temp_wh_max": home_wh_temp_max_dist[i],
-                    "temp_wh_sp": home_wh_temp_sp_dist[i],
-                    "temp_wh_init": home_wh_temp_init[i],
-                    "tank_size": home_wh_size_dist[i],
-                    "draw_sizes": home_wh_all_draw_size_dist[i],
-                },
-                "hems": responsive_hems
-            })
-            i += 1
+        for j in range(num_base_homes):
+            name = all_names.pop()
+            self.all_homes += [{
+                    "name": name,
+                    "type": "base",
+                    "hvac": self.get_hvac_params(),
+                    "wh": self.get_wh_params(),
+                    "hems": self.get_hems_params(),
+                }]
 
-        self.all_homes = all_homes
+        for j in range(num_pv_homes):
+            name = all_names.pop()
+            self.all_homes += [{
+                    "name": name,
+                    "type": "pv_only",
+                    "hvac": self.get_hvac_params(),
+                    "wh": self.get_wh_params(),
+                    "hems": self.get_hems_params(),
+                    "pv": self.get_pv_params()
+                }]
+
+        for j in range(num_battery_homes):
+            name = all_names.pop()
+            self.all_homes += [{
+                    "name": name,
+                    "type": "battery_only",
+                    "hvac": self.get_hvac_params(),
+                    "wh": self.get_wh_params(),
+                    "hems": self.get_hems_params(),
+                    "battery": self.get_battery_params()
+                }]
+
+        for j in range(num_pv_battery_homes):
+            name = all_names.pop()
+            self.all_homes += [{
+                    "name": name,
+                    "type": "pv_battery",
+                    "hvac": self.get_hvac_params(),
+                    "wh": self.get_wh_params(),
+                    "hems": self.get_hems_params(),
+                    "battery": self.get_battery_params(),
+                    "pv": self.get_pv_params()
+                }]
+            
         self.contribution2peak = {home['name']:0 for home in self.all_homes}
 
         self.all_homes_obj = []
         self.max_poss_load = 0
         self.min_poss_load = 0
-        # for home in all_homes:
-        #     home_obj = MPCCalc(home)
-        #     self.all_homes_obj += [home_obj]
-        #     self.max_poss_load += home_obj.max_load
 
     def create_mpc_home_obj(self):
         for home in self.all_homes:
@@ -685,7 +537,7 @@ class Aggregator:
                 self.collected_data[home["name"]]["p_batt_ch"] = []
                 self.collected_data[home["name"]]["p_batt_disch"] = []
             if True: # 'ev' in home["type"]:
-                self.collected_data[home["name"]]["e_ev_opt"] = ["16"]
+                self.collected_data[home["name"]]["e_ev_opt"] = [16.0]
                 self.collected_data[home["name"]]["p_ev_ch"] = []
                 self.collected_data[home["name"]]["p_ev_disch"] = []
                 self.collected_data[home["name"]]["p_v2g"] = []
@@ -710,6 +562,7 @@ class Aggregator:
         hour needs to be calculated.
         :return: None
         """
+
         start_hour_index = self.start_dt - self.all_data.index[0]
         self.start_hour_index = int(start_hour_index.total_seconds() / 3600)
 
@@ -815,7 +668,7 @@ class Aggregator:
         self.forecast_house_load = []
         
         if self.timestep % (24 * self.dt) == 0: # at the end of the day
-            self.daily_peak = 0 # remove if we want the max peak of the simulation
+            self.daily_peak = 0.01 # remove if we want the max peak of the simulation
             for k,v in self.contribution2peak.items():
                 self.redis_client.hset("peak_contribution", k, v)
 
@@ -839,7 +692,7 @@ class Aggregator:
 
         if self.agg_load >= self.daily_peak:
             self.daily_peak = self.agg_load
-            self.contribution2peak = {k:max(v,house_load[k]/self.daily_peak) for k,v in self.contribution2peak.items()}
+            self.contribution2peak = {k:house_load[k]/self.daily_peak for k,v in self.contribution2peak.items()}
 
         self.forecast_load = np.sum(self.forecast_house_load)
         self.agg_cost = agg_cost
@@ -950,7 +803,7 @@ class Aggregator:
         """
         ah = os.path.join(self.outputs_dir, f"all_homes-{self.config['community']['total_number_homes']}-config.json")
         with open(ah, 'w+') as f:
-            json.dump(self.all_homes, f, indent=4)
+            json.dump(self.all_homes + [{"start_dt":self.str_start_dt, "end_dt":self.str_end_dt, "num_timesteps":self.num_timesteps}], f, indent=4)
 
     def set_agg_mpc_initial_vals(self):
         """
