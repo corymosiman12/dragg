@@ -33,9 +33,7 @@ class HVAC:
         self.occ_t_in_max = float(self.hems.home["hvac"]["temp_in_max"])
         self.unocc_t_in_max = float(self.hems.home["hvac"]["temp_in_max"]) + 2#float(self.hems["hvac"]["temp_setback_delta"])
         self.t_deadband = self.occ_t_in_max - self.occ_t_in_min
-        self.t_in_min = [self.occ_t_in_min if i else self.unocc_t_in_min for i in self.hems.occ_on] * 2 # 2 days worth to avoid not accounting for the horizon
-        self.t_in_max = [self.occ_t_in_max if i else self.unocc_t_in_max for i in self.hems.occ_on] * 2
-
+        
         self.opt_keys = {"temp_in_opt","hvac_cool_on_opt", "hvac_heat_on_opt","t_in_min", "t_in_max", "occupancy_status"}
 
         self.rand = np.random.uniform(0,1)
@@ -50,14 +48,13 @@ class HVAC:
         and cooling when the electricity price is negative.
         """
 
+        self.t_in_min_current = cp.Constant([self.occ_t_in_min if True else self.unocc_t_in_min for i in self.hems.occ_current[:self.hems.h_plus]])
+        self.t_in_max_current = cp.Constant([self.occ_t_in_max if True else self.unocc_t_in_max for i in self.hems.occ_current[:self.hems.h_plus]])
+
         self.cool_min = 0 
         self.heat_min = 0
-        if self.hems.season == 'heating':
-            self.cool_max = 0 
-            self.heat_max = self.hems.sub_subhourly_steps
-        else:
-            self.heat_max = 0
-            self.cool_max = self.hems.sub_subhourly_steps
+        self.heat_max = self.hems.sub_subhourly_steps # self.hems.heating * self.hems.sub_subhourly_steps
+        self.cool_max = self.hems.sub_subhourly_steps # self.hems.cooling * self.hems.sub_subhourly_steps
 
         cons = [
             # Physical indoor air temperature constraints
@@ -68,7 +65,7 @@ class HVAC:
                                 + self.b[1] * self.hems.ghi_current[1:] 
                                 - self.b[2] * self.cool_on * self.p_c * 1000
                                 + self.b[2] * self.heat_on * self.p_h * 1000) * 3600 * self.hems.dt_frac,
-            self.p_elec == (self.p_c / self.cop_c + self.p_h / self.cop_h) * self.hems.dt_frac,
+            self.p_elec == (self.cool_on * self.p_c / self.cop_c + self.heat_on * self.p_h / self.cop_h) * self.hems.dt_frac,
             
 
             self.temp_in == self.hems.temp_in_init
@@ -80,15 +77,19 @@ class HVAC:
             self.cool_on <= self.cool_max,
             self.cool_on >= self.cool_min,
             self.heat_on <= self.heat_max,
-            self.heat_on >= self.heat_min
+            self.heat_on >= self.heat_min,
+
+            self.temp_in_ev >= self.unocc_t_in_min,
+            self.temp_in_ev <= self.unocc_t_in_max,
             ]
+
         if enforce_bounds:
             # Enforces comfort constraints, which are sometimes impossible to adhere to
             cons += [
-                self.temp_in <= self.t_in_max_current[0],
-                self.temp_in >= self.t_in_min_current[0],
-                self.temp_in_ev[1:] >= self.t_in_min_current[:self.hems.horizon],
-                self.temp_in_ev[1:] <= self.t_in_max_current[:self.hems.horizon],
+                    self.temp_in <= self.t_in_max_current[0],
+                    self.temp_in >= self.t_in_min_current[0],
+                    self.temp_in_ev[1:] >= self.t_in_min_current[:self.hems.horizon],
+                    self.temp_in_ev[1:] <= self.t_in_max_current[:self.hems.horizon],
                 ]
 
         return cons
@@ -104,10 +105,10 @@ class HVAC:
         cons = self.add_constraints()
         obj = cp.Minimize(cp.sum(self.p_elec))
         prob = cp.Problem(obj, cons)
-        prob.solve(solver=cp.GLPK_MI)
+        prob.solve(solver=self.hems.solver)
         if not prob.status == 'optimal':
             cons = self.add_constraints(enforce_bounds=False)
-            if self.hems.season == 'heating':
+            if self.hems.heating == 'heating':
                 obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - self.t_in_min_current[0])))
             else:
                 obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - self.t_in_max_current[0])))
@@ -125,8 +126,8 @@ class HVAC:
         temperatures) as dictated by the normalized command.
         """
         t_sp = np.clip(cmd, self.unocc_t_in_min, self.unocc_t_in_max)
-        self.t_in_max_current = cp.Constant([t_sp + 0.5*self.t_deadband]*self.hems.h_plus)
-        self.t_in_min_current = cp.Constant([t_sp - 0.5*self.t_deadband]*self.hems.h_plus)
-        return 
+        self.obj = cp.Variable(1)
+        cons = [self.obj == t_sp - self.temp_in]
+        return cons
 
 

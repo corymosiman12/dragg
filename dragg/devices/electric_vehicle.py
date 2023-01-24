@@ -9,16 +9,21 @@ class EV:
         # Define constants
         self.ev_max_rate = 5 # kWh
         self.ev_cap_total = 16 # kWh
-        self.ev_cap_min = 0.2*self.ev_cap_total
+        self.ev_cap_min = 0 #0.2*self.ev_cap_total
         self.ev_cap_max = self.ev_cap_total
         self.ev_ch_eff = cp.Constant(0.95)
         self.ev_disch_eff = cp.Constant(0.97)
 
         # Define battery optimization variables
-        self.p_ev_ch = cp.Variable(self.hems.horizon)
-        self.p_ev_disch = cp.Constant(self.hems.horizon)
-        self.p_v2g = cp.Variable(self.hems.horizon)
-        self.e_ev = cp.Variable(self.hems.h_plus)
+        self.min_horizon = int(12 * self.hems.dt)
+        self.horizon = max(self.hems.horizon, self.min_horizon)
+        self.h_plus = self.horizon + 1
+        self.p_ev_ch = cp.Variable(self.horizon)
+        self.p_ev_disch = cp.Constant(self.horizon)
+        self.p_v2g = cp.Variable(self.horizon)
+        self.p_elec = cp.Variable(self.horizon)
+        self.e_ev = cp.Variable(self.h_plus)
+        self.ev_preference = cp.Constant(np.random.uniform(0.5,0.7))
 
         self.e_ev_init = cp.Constant(16)
         self.ev_override_profile = None
@@ -27,7 +32,7 @@ class EV:
 
         self.override = False
 
-    def add_constraints(self):
+    def add_constraints(self, enforce_bounds=True):
         """
         Creates constraints that make the battery act as an EV with charge/discharge constraints
         based on occupancy and travel distance.
@@ -41,34 +46,14 @@ class EV:
         e_disch_trip = min_daily_soc * ev_batt_cap
         p_disch_trip = -1 * e_disch_trip * self.hems.dt 
 
-        start = (self.hems.timestep) 
-        end = (start + self.hems.h_plus) 
-        index = [i % (24 * self.hems.dt) for i in range(start, end)]
-        self.index_8am = [i for i, e in enumerate(index) if e in self.hems.leaving_times]
-        self.index_5pm = [i-1 for i, e in enumerate(index) if e in self.hems.returning_times]
-        after_5pm = [i for i, e in enumerate(index) if e in self.hems.returning_times]
-        self.occ_slice = [self.hems.occ_on[i] for i in index]
-
-        # self.leaving_horizon = 
-        # self.returning_horizon = 
-
-        self.e_ev_min = []
-        for i in range(1,self.hems.h_plus):
-            if i in self.index_8am:
-                self.e_ev_min += [(e_disch_trip + self.ev_cap_min)]
-                # self.constraints += [self.e_ev[i] >= (e_disch_trip + self.ev_cap_min)]
-            elif i in after_5pm:
-                self.e_ev_min += [0]
-                # self.constraints += [self.e_ev[i] >= 0]
-            else:
-                self.e_ev_min += [self.ev_cap_min]
-                # self.constraints += [self.e_ev[i] >= self.ev_cap_min]
-        
-        self.p_ev_disch = cp.Constant([p_disch_trip if i in self.index_5pm else 0 for i in range(self.hems.horizon)])
+        self.p_ev_disch = cp.Constant([p_disch_trip/2 if i in [self.hems.today_leaving, self.hems.today_returning, self.hems.tomorrow_leaving, self.hems.tomorrow_returning] else 0 for i in self.hems.subhour_of_day_current[:self.horizon]])
+        self.v2g_max = -1 * np.multiply(self.ev_max_rate, self.hems.occ_current[:self.horizon])
+        self.p_ch_max = np.multiply(self.ev_max_rate, self.hems.occ_current[:self.horizon])
 
         cons = [
             self.p_v2g <= 0,
-            self.p_v2g >= -1 * np.multiply(self.ev_max_rate, self.occ_slice)[:-1],
+            self.p_v2g >= self.v2g_max,
+            self.p_v2g == 0,
             self.e_ev[1:] == self.e_ev[:-1]
                                         + (self.ev_ch_eff * self.p_ev_ch
                                         + self.p_ev_disch / self.ev_disch_eff
@@ -77,39 +62,36 @@ class EV:
             self.p_ev_ch <= self.ev_max_rate,
             self.p_ev_ch >= 0,
             self.e_ev[1:] <= self.ev_cap_max,
-            self.e_ev[1:] >= self.e_ev_min
+            self.e_ev[1:] >= self.ev_cap_min,
+            self.p_elec == self.p_ev_ch - self.p_v2g
         ]
 
-        if self.override:
+        if enforce_bounds:
             cons += [
-                self.p_ev_ch[0] == self.pc_cmd,
-                self.p_ev_dis[0] == self.pd_cmd
+                self.p_ev_ch <= self.p_ch_max,
+                self.e_ev >= self.ev_preference * self.ev_cap_max
             ]
 
         return cons
 
     def resolve(self):
-        cons = [
-            self.e_ev[1:self.hems.h_plus] == self.e_ev[:-1]
-                                        + self.p_ev_disch / self.ev_disch_eff / self.hems.dt,
-            self.e_ev[0] == self.e_ev_init,
-            self.p_ev_ch >= 0,
-            self.e_ev[1:] <= self.ev_cap_max,
-            self.p_v2g >= -1 * np.multiply(self.ev_max_rate, self.occ_slice[:-1])
-        ]
-        for i in range(len(self.occ_slice[:-1])):
-            if self.occ_slice[i] == 0:
-                cons += [self.p_ev_ch[i] == 0]
-        if self.ev_override_profile:
-            ev_obj = cp.Minimize(cp.sum(self.e_ev - self.ev_override_profile))
-        else:
-            ev_obj = cp.Minimize(0)
-        ev_prob = cp.Problem(ev_obj, cons)
-        ev_prob.solve(solver=self.hems.solver)
+        cons = self.add_constraints()
+        obj = cp.Minimize(cp.sum(self.p_elec))
+        prob = cp.Problem(obj, cons)
+        prob.solve(solver=self.hems.solver)
+
+        if not prob.status == "optimal":
+            cons = self.add_constraints(enforce_bounds=False)
+            obj = cp.Minimize(1)
+            prob = cp.Problem(obj, cons)
+            prob.solve(solver=self.hems.solver)
+            print(prob.status)
 
     def override_charge(self, cmd):
-        cmd = cmd * self.ev_max_rate # undo normalization 
-        max_p_ch = (self.ev_cap_max - self.hems.e_ev_init.value) / self.ev_ch_eff.value
-        max_p_dis = (self.hems.e_ev_init.value - self.ev_cap_min) * self.ev_disch_eff.value
-        self.pc_cmd = np.clip(cmd, 0, max_p_ch)
-        self.pd_cmd = -1 * np.clip(cmd, 0, max_p_dis)
+        self.obj = cp.Variable(1)
+        if cmd >= 0:
+            cons = [self.obj == cmd * self.ev_max_rate - self.p_ev_ch]
+        else:
+            cons = [self.obj == cmd * self.ev_max_rate - self.p_v2g]
+        return cons
+

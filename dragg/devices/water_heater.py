@@ -27,10 +27,10 @@ class WH:
         self.c = cp.Constant(wh_capacitance)
 
         self.heat_on = cp.Variable(self.hems.horizon, integer=True)
+        self.p_elec = cp.Variable(self.hems.horizon)
+
         self._get_water_draws()
         self.opt_keys = {"waterdraws", "temp_wh_opt", "wh_heat_on_opt"}
-
-        self.override = False
 
     def _get_water_draws(self):
         """
@@ -78,22 +78,16 @@ class WH:
             self.temp_wh == ((self.temp_wh0 * (self.wh_size - self.draw_size[0])) + (self.tap_temp * self.draw_size[0])) / self.wh_size,
 
             self.heat_on <= self.wh_heat_max,
-            self.heat_on >= self.wh_heat_min]
+            self.heat_on >= self.wh_heat_min,
+            self.p_elec == self.heat_on * self.p]
 
         if enforce_bounds:
             cons += [
-                self.temp_wh >= self.temp_wh_min,
-                self.temp_wh <= self.temp_wh_max,
-                self.temp_wh_ev >= self.temp_wh_min,
-                self.temp_wh_ev <= self.temp_wh_max,
+                    self.temp_wh >= self.temp_wh_min,
+                    self.temp_wh <= self.temp_wh_max,
+                    self.temp_wh_ev >= self.temp_wh_min,
+                    self.temp_wh_ev <= self.temp_wh_max,
                 ]
-
-        if self.override:
-            cons += [
-                self.heat_on[0] <= self.cmd_heat_max,
-                self.heat_on[0] >= self.cmd_heat_min
-            ]
-            self.override=False
 
         return cons 
 
@@ -108,15 +102,16 @@ class WH:
         minimizes the deviation of the new temperature and the desired setpoint.
         """
         cons = self.add_constraints()
-        obj = cp.Minimize(cp.sum(self.p * self.heat_on))
+        obj = cp.Minimize(cp.abs(self.temp_wh - self.temp_wh_min))
         prob = cp.Problem(obj, cons)
-        prob.solve(solver=cp.GLPK_MI)
+        prob.solve(solver=self.hems.solver)
 
         if not prob.status == 'optimal':
             cons = self.add_constraints(enforce_bounds=False)
-            obj = cp.Minimize(cp.sum(self.temp_wh_max - self.temp_wh_ev))
+            obj = cp.Minimize(cp.abs(self.temp_wh - self.temp_wh_min))
             prob = cp.Problem(obj, cons)
-            prob.solve(solver=self.hems.solver, verbose=True)
+            prob.solve(solver=self.hems.solver, verbose=False)
+            print(prob.status)
 
     def override_p_wh(self, cmd):
         """
@@ -127,20 +122,6 @@ class WH:
         the power consumed with a conservative check that the resulting water temperature will not
         exceed bounds in either direction.
         """
-        # project the normalized value [-1,1] to [0, self.hems.sub_subhourly_steps]
-        self.override = True
-        cmd_p = (cmd + 1) * 0.5
-
-        max_heating_deg = self.temp_wh_max.value - self.hems.temp_wh_init.value
-        min_heating_deg = self.hems.temp_wh_init.value - self.temp_wh_min.value
-        
-        approx_max_deg = 3600 * (((self.hems.hvac.t_in_min[0] - self.hems.temp_wh_init.value) / self.r.value)
-                            + self.hems.sub_subhourly_steps * self.p.value) / (self.c.value * self.hems.dt)
-
-        max_cmd = max_heating_deg / approx_max_deg
-        min_cmd = min_heating_deg / approx_max_deg
-        cmd_p = np.clip(cmd_p, min_cmd, max_cmd)
-        cmd_p = cmd_p * self.hems.sub_subhourly_steps
-
-        self.cmd_heat_max = cmd_p + 0.5
-        self.cmd_heat_min = cmd_p - 0.5
+        self.obj = cp.Variable(1)
+        cons = [self.obj == (2 * cmd + 1) - (self.heat_on / self.wh_heat_max)]
+        return cons 
