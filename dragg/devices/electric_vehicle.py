@@ -21,7 +21,7 @@ class EV:
         self.ev_ch_eff = cp.Constant(0.95)
         self.ev_disch_eff = cp.Constant(0.97)
         self.e_ev_init = cp.Constant(16)
-        self.p_ev_disch = cp.Constant(self.horizon) # uncontrolled discharge while driving
+        self.p_ev_disch = cp.Constant(np.zeros(self.horizon)) # uncontrolled discharge while driving
 
         # Define battery optimization variables
         self.p_ev_ch = cp.Variable(self.horizon) # charge
@@ -29,6 +29,8 @@ class EV:
         self.p_elec = cp.Variable(self.horizon)
         self.e_ev = cp.Variable(self.h_plus)
         self.ev_preference = cp.Constant(np.random.uniform(0.5,0.7))
+        self.p_preference = cp.Constant(self.ev_max_rate * 0.3)
+        # self.charge_penalty = cp.Variable(1)
 
         # track these values 
         self.opt_keys = {'p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt', 'returning_horizon', 'leaving_horizon'}
@@ -60,16 +62,16 @@ class EV:
                                         + self.p_ev_disch / self.ev_disch_eff
                                         + self.p_v2g / self.ev_disch_eff) / self.hems.dt,
             self.e_ev[0] == self.hems.e_ev_init,
-            self.p_ev_ch <= self.ev_max_rate,
+            self.p_ev_ch <= self.p_preference,
             self.p_ev_ch >= 0,
             self.e_ev >= 0,
             self.e_ev <= self.ev_cap_total,
-            self.p_elec == self.p_ev_ch - self.p_v2g
+            self.p_elec == self.p_ev_ch - self.p_v2g,
+            # self.charge_penalty == 10 * cp.max(self.p_ev_ch)
         ]
 
         if enforce_bounds:
             cons += [
-                self.p_ev_ch <= self.p_ch_max,
                 self.e_ev[1:] <= self.ev_cap_max,
                 self.e_ev[1:] >= self.ev_cap_min,
             ]

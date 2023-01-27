@@ -21,7 +21,7 @@ import dragg
 
 class Plotter():
 	def __init__(self):
-		self.res_file = 'outputs/2003-06-01T00_2003-07-01T00/all-homes_5-horizon_4-interval_60-10-solver_GLPK_MI/version-final/baseline/results.json'
+		self.res_file = 'outputs/2003-01-01T00_2003-01-04T00/all-homes_5-horizon_4-interval_30-15-solver_GLPK_MI/version-final/baseline/results.json'
 		self.conf_file = 'outputs/all_homes-5-config.json'
 		with open(self.res_file) as f:
 			self.data = json.load(f)
@@ -52,14 +52,14 @@ class Plotter():
     				line_color='lightskyblue',
 					name="Room Temp"),
 					row=1, col=1)
-		fig.add_trace(go.Scatter(x=self.xlims, y=self.data["Summary"]["OAT"][::2],
+		fig.add_trace(go.Scatter(x=self.xlims, y=self.data["Summary"]["OAT"],
 					mode='lines',
     				line_color='slateblue',
     				line_dash='dash',
 					name="Outdoor Temp"),
 					row=1, col=1, 
 					secondary_y=False)
-		fig.add_trace(go.Scatter(x=self.xlims, y=np.multiply(self.data["Summary"]["GHI"][::2],0.001),
+		fig.add_trace(go.Scatter(x=self.xlims, y=np.multiply(self.data["Summary"]["GHI"],0.001),
 					mode='lines',
     				line_color='darkorange',
     				line_dash="dot",
@@ -70,6 +70,8 @@ class Plotter():
 		fig.update_yaxes(title_text="<b>Temperature</b> [deg C]", row=1, col=1, secondary_y=False)
 		fig.add_trace(go.Bar(x=self.xlims, y= np.multiply(-1,self.data[name]["hvac_cool_on_opt"]),  name="Cooling on/off", marker_color="dodgerblue"), row=1, col=1, secondary_y=True)
 		fig.add_trace(go.Bar(x=self.xlims, y= self.data[name]["hvac_heat_on_opt"], name="Heat on/off", marker_color="firebrick"), row=1, col=1, secondary_y=True)
+		fig.add_trace(go.Scatter(x=self.xlims, y=np.divide(np.cumsum(np.subtract(self.data[name]["hvac_heat_on_opt"], self.data[name]["hvac_cool_on_opt"])), 1+np.arange(self.conf_data[-1]["num_timesteps"]))), row=1, col=1, secondary_y=True)
+
 
 		# plot water heater temperature
 		x = False
@@ -98,6 +100,7 @@ class Plotter():
 					row=1, col=2)
 		fig.update_yaxes(title_text="<b>Temperature</b> [deg C]", row=1, col=2, secondary_y=False)
 		fig.add_trace(go.Bar(x=self.xlims, y=self.data[name]["wh_heat_on_opt"], name="WH on/off", marker_color="firebrick"),row=1, col=2, secondary_y=True)
+		fig.add_trace(go.Scatter(x=self.xlims, y=np.divide(np.cumsum(self.data[name]["wh_heat_on_opt"]), 1+np.arange(self.conf_data[-1]["num_timesteps"]))), row=1, col=2, secondary_y=True)
 
 		# plot EV state of charge
 		fig.add_trace(go.Scatter(x=self.xlims, y=self.data[name]["e_ev_opt"],
@@ -124,15 +127,17 @@ class Plotter():
 		return fig 
 
 	def plot_community_peak(self):
+		total = np.zeros(self.conf_data[-1]["num_timesteps"])
 		fig = go.Figure()
 		for k,v in self.data.items():
 			color = 'coral' if k == "PLAYER" else 'cadetblue'
 			try:
-				
 				fig.add_trace(go.Scatter(x=self.xlims, y=v["p_grid_opt"], stackgroup='one', name=k, line_color=color))
+				total = np.add(total, v["p_grid_opt"])
 			except:
 				pass
 
+		fig.add_trace(go.Scatter(x = self.xlims, y=np.cumsum(total)/(1+np.arange(self.conf_data[-1]["num_timesteps"]))))
 		fig.update_layout(title_text="Community Demand")
 		return fig 
 

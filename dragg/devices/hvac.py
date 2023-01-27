@@ -116,7 +116,7 @@ class HVAC:
             cons += [self.cool_on == 0]
         if self.hems.temp_in_init.value >= self.t_in_min_current[0].value:
             cons += [self.heat_on == 0]
-        
+
         obj = cp.Minimize(self.p_elec[0])
         prob = cp.Problem(obj, cons)
         prob.solve(solver=self.hems.solver)
@@ -134,7 +134,6 @@ class HVAC:
             obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - (self.t_in_min_current + 0.5 * self.t_deadband))))
             prob = cp.Problem(obj, cons)
             prob.solve(solver=self.hems.solver)
-
 
     def override_t_in(self, cmd):
         """
