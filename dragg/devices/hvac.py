@@ -10,33 +10,34 @@ class HVAC:
     Source of linear model: https://hal.archives-ouvertes.fr/hal-01739625/document 
     """
     def __init__(self, hems):
-
+        # set the centralized hems
         self.hems = hems
 
+        # set hvac cooling and heating parameters, random dist from aggregator
         self.p_c = cp.Constant(float(self.hems.home["hvac"]["p_c"])) # thermal power (kW)
         self.p_h = cp.Constant((float(self.hems.home["hvac"]["p_h"])))
-        self.cop_c = 0.293 * cp.Constant(float(self.hems.home["hvac"]["hvac_seer"])) # seer = thermal power / electrical power (kW/kW)
+        self.cop_c = 0.293 * cp.Constant(float(self.hems.home["hvac"]["hvac_seer"])) # seer = thermal power / electrical power (kBtu/kW)
         self.cop_h = 0.293 * cp.Constant(float(self.hems.home["hvac"]["hvac_hspf"]))
 
+        # coefficient matrix
         self.b = [1/(self.hems.r.value*self.hems.c.value), self.hems.window_eq.value/self.hems.c.value, 1/self.hems.c.value]
 
+        # optimization variables
         self.p_elec = cp.Variable(self.hems.horizon)
         self.temp_in_ev = cp.Variable(self.hems.h_plus)
         self.temp_in = cp.Variable(1)
-        self.cool_on = cp.Variable(self.hems.horizon, integer=True)
+        self.cool_on = cp.Variable(self.hems.horizon, integer=True) # integer represents duty cycle
         self.heat_on = cp.Variable(self.hems.horizon, integer=True)
 
         # Home temperature constraints
         # create temp bounds based on occ schedule, array should be one week long
         self.occ_t_in_min = float(self.hems.home["hvac"]["temp_in_min"])
-        self.unocc_t_in_min = float(self.hems.home["hvac"]["temp_in_min"]) - 2#float(self.hems["hvac"]["temp_setback_delta"])
+        self.unocc_t_in_min = float(self.hems.home["hvac"]["temp_in_min"]) - float(self.hems.home["hvac"]["temp_setback_delta"])
         self.occ_t_in_max = float(self.hems.home["hvac"]["temp_in_max"])
-        self.unocc_t_in_max = float(self.hems.home["hvac"]["temp_in_max"]) + 2#float(self.hems["hvac"]["temp_setback_delta"])
+        self.unocc_t_in_max = float(self.hems.home["hvac"]["temp_in_max"]) + float(self.hems.home["hvac"]["temp_setback_delta"])
         self.t_deadband = self.occ_t_in_max - self.occ_t_in_min
         
         self.opt_keys = {"temp_in_opt","hvac_cool_on_opt", "hvac_heat_on_opt","t_in_min", "t_in_max", "occupancy_status"}
-
-        self.rand = np.random.uniform(0,1)
 
     def add_constraints(self, enforce_bounds=True):
         """
@@ -48,13 +49,13 @@ class HVAC:
         and cooling when the electricity price is negative.
         """
 
-        self.t_in_min_current = cp.Constant([self.occ_t_in_min if True else self.unocc_t_in_min for i in self.hems.occ_current[:self.hems.h_plus]])
-        self.t_in_max_current = cp.Constant([self.occ_t_in_max if True else self.unocc_t_in_max for i in self.hems.occ_current[:self.hems.h_plus]])
+        self.t_in_min_current = cp.Constant([self.occ_t_in_min if i else self.unocc_t_in_min for i in self.hems.occ_current[:self.hems.h_plus]])
+        self.t_in_max_current = cp.Constant([self.occ_t_in_max if i else self.unocc_t_in_max for i in self.hems.occ_current[:self.hems.h_plus]])
 
         self.cool_min = 0 
         self.heat_min = 0
-        self.heat_max = self.hems.sub_subhourly_steps # self.hems.heating * self.hems.sub_subhourly_steps
-        self.cool_max = self.hems.sub_subhourly_steps # self.hems.cooling * self.hems.sub_subhourly_steps
+        self.heat_max = self.hems.sub_subhourly_steps 
+        self.cool_max = self.hems.sub_subhourly_steps 
 
         cons = [
             # Physical indoor air temperature constraints
@@ -65,20 +66,25 @@ class HVAC:
                                 + self.b[1] * self.hems.ghi_current[1:] 
                                 - self.b[2] * self.cool_on * self.p_c * 1000
                                 + self.b[2] * self.heat_on * self.p_h * 1000) * 3600 * self.hems.dt_frac,
-            self.p_elec == (self.cool_on * self.p_c / self.cop_c + self.heat_on * self.p_h / self.cop_h) * self.hems.dt_frac,
             
-
+            # electric power as a function of thermal power
+            # note: hems.dt_frac = fraction of an hour that corresponds to minimum duty cycle runtime 
+            self.p_elec == ((self.cool_on * self.p_c / self.cop_c) + (self.heat_on * self.p_h / self.cop_h)) * self.hems.dt_frac,
+            
+            # temperature at the next timestep (actual value)
             self.temp_in == self.hems.temp_in_init
                             + (self.b[0] * (self.hems.oat_current[1] - self.hems.temp_in_init) 
                             + self.b[1] * self.hems.ghi_current[1]
                             - self.b[2] * self.cool_on[0] * self.p_c * 1000
                             + self.b[2] * self.heat_on[0] * self.p_h * 1000) * 3600 * self.hems.dt_frac,
 
+            # constrain cooling on/off to be integer (duty cycle)
             self.cool_on <= self.cool_max,
             self.cool_on >= self.cool_min,
             self.heat_on <= self.heat_max,
             self.heat_on >= self.heat_min,
 
+            # safety bounds for temperature -- always obeyed
             self.temp_in_ev >= self.unocc_t_in_min,
             self.temp_in_ev <= self.unocc_t_in_max,
             ]
@@ -102,16 +108,30 @@ class HVAC:
         constraints are impossible to adhere to the comfort bounds are not enforced but the difference
         in the observed temp and the desired temp is minimized.
         """
+        # add physical constraints, attempt to obey thermal preference
         cons = self.add_constraints()
-        obj = cp.Minimize(cp.sum(self.p_elec))
+
+        # not the ideal solution to resolve heat and cooling at the same time
+        if self.hems.temp_in_init.value <= self.t_in_max_current[0].value:
+            cons += [self.cool_on == 0]
+        if self.hems.temp_in_init.value >= self.t_in_min_current[0].value:
+            cons += [self.heat_on == 0]
+        
+        obj = cp.Minimize(self.p_elec[0])
         prob = cp.Problem(obj, cons)
         prob.solve(solver=self.hems.solver)
+
         if not prob.status == 'optimal':
+            # if thermal preferences are infeasible resolve within safety bounds
             cons = self.add_constraints(enforce_bounds=False)
-            if self.hems.heating == 'heating':
-                obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - self.t_in_min_current[0])))
-            else:
-                obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - self.t_in_max_current[0])))
+            
+            # not the ideal solution to resolve heat and cooling at the same time
+            if self.hems.temp_in_init.value <= self.t_in_max_current[0].value:
+                cons += [self.cool_on == 0]
+            if self.hems.temp_in_init.value >= self.t_in_min_current[0].value:
+                cons += [self.heat_on == 0]
+
+            obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - (self.t_in_min_current + 0.5 * self.t_deadband))))
             prob = cp.Problem(obj, cons)
             prob.solve(solver=self.hems.solver)
 

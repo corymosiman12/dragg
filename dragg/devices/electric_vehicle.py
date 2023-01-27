@@ -4,33 +4,34 @@ import cvxpy as cp
 
 class EV:
     def __init__(self, hems):
+        # set centralized hems for sensor values and occ schedule
         self.hems = hems 
+
+        # create minimum MPC horizon for EV due to long "away" periods
+        # (EV should be able to forsee the entirety of its trip away and back + duration)
+        self.min_horizon = int(24 * self.hems.dt)
+        self.horizon = max(self.hems.horizon, self.min_horizon)
+        self.h_plus = self.horizon + 1
 
         # Define constants
         self.ev_max_rate = 5 # kWh
         self.ev_cap_total = 16 # kWh
-        self.ev_cap_min = 0 #0.2*self.ev_cap_total
+        self.ev_cap_min = 0.4*self.ev_cap_total
         self.ev_cap_max = self.ev_cap_total
         self.ev_ch_eff = cp.Constant(0.95)
         self.ev_disch_eff = cp.Constant(0.97)
+        self.e_ev_init = cp.Constant(16)
+        self.p_ev_disch = cp.Constant(self.horizon) # uncontrolled discharge while driving
 
         # Define battery optimization variables
-        self.min_horizon = int(12 * self.hems.dt)
-        self.horizon = max(self.hems.horizon, self.min_horizon)
-        self.h_plus = self.horizon + 1
-        self.p_ev_ch = cp.Variable(self.horizon)
-        self.p_ev_disch = cp.Constant(self.horizon)
-        self.p_v2g = cp.Variable(self.horizon)
+        self.p_ev_ch = cp.Variable(self.horizon) # charge
+        self.p_v2g = cp.Variable(self.horizon) # v2g discharge
         self.p_elec = cp.Variable(self.horizon)
         self.e_ev = cp.Variable(self.h_plus)
         self.ev_preference = cp.Constant(np.random.uniform(0.5,0.7))
 
-        self.e_ev_init = cp.Constant(16)
-        self.ev_override_profile = None
-
+        # track these values 
         self.opt_keys = {'p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt', 'returning_horizon', 'leaving_horizon'}
-
-        self.override = False
 
     def add_constraints(self, enforce_bounds=True):
         """
@@ -61,15 +62,16 @@ class EV:
             self.e_ev[0] == self.hems.e_ev_init,
             self.p_ev_ch <= self.ev_max_rate,
             self.p_ev_ch >= 0,
-            self.e_ev[1:] <= self.ev_cap_max,
-            self.e_ev[1:] >= self.ev_cap_min,
+            self.e_ev >= 0,
+            self.e_ev <= self.ev_cap_total,
             self.p_elec == self.p_ev_ch - self.p_v2g
         ]
 
         if enforce_bounds:
             cons += [
                 self.p_ev_ch <= self.p_ch_max,
-                self.e_ev >= self.ev_preference * self.ev_cap_max
+                self.e_ev[1:] <= self.ev_cap_max,
+                self.e_ev[1:] >= self.ev_cap_min,
             ]
 
         return cons
@@ -85,7 +87,6 @@ class EV:
             obj = cp.Minimize(1)
             prob = cp.Problem(obj, cons)
             prob.solve(solver=self.hems.solver)
-            print(prob.status)
 
     def override_charge(self, cmd):
         self.obj = cp.Variable(1)

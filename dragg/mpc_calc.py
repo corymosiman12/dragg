@@ -72,12 +72,19 @@ class MPCCalc:
 
         self.ev_override_profile = None
 
-        self.typ_leave = np.random.randint(5,10)
-        self.typ_return = np.random.randint(14,21)
-        self.tomorrow_leaving = self.typ_leave
-        self.tomorrow_returning = self.typ_return
+        offset = -3 if self.home['hems']['schedule_group'] == 'early_birds' else 3 if self.home['hems']['schedule_group'] == 'night_owls' else 0
+        self.typ_leave = np.random.randint(8,10) + offset
+        self.typ_return = np.random.randint(18,20) + offset
+
+        self.tomorrow_leaving = self.typ_leave + (24*self.dt)
+        self.tomorrow_returning = self.typ_return + (24*self.dt)
         self.today_leaving = self.typ_leave
         self.today_returning = self.typ_return
+
+        self.redis_client.hset(self.name, "today_leaving", self.today_leaving)
+        self.redis_client.hset(self.name, "today_returning", self.today_returning)
+        self.redis_client.hset(self.name, "tomorrow_leaving", self.tomorrow_leaving)
+        self.redis_client.hset(self.name, "tomorrow_returning", self.tomorrow_returning)
 
         self.late_night_return = 0
         self.leaving_index = -1
@@ -97,10 +104,7 @@ class MPCCalc:
             try:
                 self.redis_client.hset(key, field, value)
             except:
-                if not "ev" in field:
-                    print("ERROR:", key, field, value)
-                else:
-                    print("DEBUG:", key, field, value)
+                print("failed to post", key, field, value)
 
         self.log.removeHandler(fh)
 
@@ -192,15 +196,34 @@ class MPCCalc:
         self.opt_keys.update({"p_grid_opt", "forecast_p_grid_opt", "p_load_opt", "cost_opt", "occupancy_status"})
     
     def get_daily_occ(self):
-        self.today_leaving = self.tomorrow_leaving % 24
-        self.today_returning = self.tomorrow_leaving % 24
+        """
+        Get the daily occupancy schedule of the day and tomorrow.
+        """
+        if self.subhour_of_day_current[0] == 0:
 
-        if self.weekday_current[0] in [6,0,1,2,3]: # if the next day is a weekday
-            self.tomorrow_leaving = int(self.typ_leave + np.random.normal())
-            self.tomorrow_leaving = int(self.today_leaving + np.random.randint(6,9))
+            self.today_leaving = self.tomorrow_leaving % 24
+            self.today_returning = self.tomorrow_returning % 24
+            if self.weekday_current[0] in [6,0,1,2,3]: # if the next day is a weekday
+                self.tomorrow_leaving = int(self.typ_leave + np.random.normal() + 24)
+                self.tomorrow_returning = int(self.tomorrow_leaving + np.random.randint(6,9))
+            else:
+                self.tomorrow_leaving = int(np.random.randint(24,49))
+                self.tomorrow_returning = int(self.tomorrow_leaving + np.random.randint(0,6))
+            self.redis_client.hset(self.name, "today_leaving", self.today_leaving)
+            self.redis_client.hset(self.name, "today_returning", self.today_returning)
+            self.redis_client.hset(self.name, "tomorrow_leaving", self.tomorrow_leaving)
+            self.redis_client.hset(self.name, "tomorrow_returning", self.tomorrow_returning)
+
         else:
-            self.tomorrow_leaving = int(np.random.randint(0,24))
-            self.tomorrow_returning = int(self.today_leaving + np.random.randint(0,6))
+            self.today_leaving = float(self.redis_client.hget(self.name, "today_leaving"))
+            self.today_returning = float(self.redis_client.hget(self.name, "today_returning"))
+            self.tomorrow_leaving = float(self.redis_client.hget(self.name, "tomorrow_leaving"))
+            self.tomorrow_returning = float(self.redis_client.hget(self.name, "tomorrow_returning"))
+        
+        self.occ_current = [0 if (self.today_leaving <= x <= self.today_returning) or (self.tomorrow_returning <= x <= self.tomorrow_leaving) else 1 for x in self.subhour_of_day_current]
+        self.leaving_index = [np.argmin(np.abs(np.subtract(self.subhour_of_day_current, time))) for time in [self.today_leaving, self.tomorrow_leaving]]
+        self.returning_index = [np.argmin(np.abs(np.subtract(self.subhour_of_day_current, time))) for time in [self.today_returning, self.tomorrow_returning]]
+        return 
 
     def set_environmental_variables(self):
         """
@@ -209,19 +232,14 @@ class MPCCalc:
         :return: None
         """
         self.start_slice = self.timestep
-        # print("####", self.start_slice, self.start_hour_index, self.timestep)
         end_slice = self.start_slice + self.h_plus # Need to extend 1 timestep past horizon for OAT slice
 
         # Get current occupancy schedule
         self.weekday_current = self.all_weekday[self.start_slice:end_slice]
-        self.subhour_of_day_current = self.all_hours[self.start_slice:self.start_slice + 24*self.dt + 1]
-        # if self.subhour_of_day_current[0] == 0:
-        #     self.get_daily_occ()
-            # or self.tomorrow_leaving <= x <= self.tomorrow_returning
-        self.occ_current = [0 if (self.today_leaving <= x <= self.today_returning ) else 1 for x in self.subhour_of_day_current]
-        self.leaving_index = [self.subhour_of_day_current.index(time) if time in self.subhour_of_day_current else -1 for time in [self.today_leaving, self.tomorrow_leaving]]
-        self.returning_index = [self.subhour_of_day_current.index(time) if time in self.subhour_of_day_current else -1 for time in [self.today_returning, self.tomorrow_returning]]
-        
+        # self.subhour_of_day_current = self.all_hours[self.start_slice:self.start_slice + (24*self.dt) + 1]
+        self.subhour_of_day_current = np.linspace(self.all_hours[self.start_slice], self.all_hours[self.start_slice] + 24, (24*self.dt) +1).tolist()
+        self.get_daily_occ()
+
         # Get the current values from a list of all values
         self.ghi_current = cp.Constant(self.all_ghi[self.start_slice:end_slice])
         self.ghi_current_ev = deepcopy(self.ghi_current.value)
@@ -241,18 +259,19 @@ class MPCCalc:
     def _setup_battery_problem(self):
         """
         Adds CVX variables for battery subsystem in battery and battery_pv homes.
+
         :return: None
         """
         self.battery = Battery(self)
         self.opt_keys.update(self.battery.opt_keys)
 
     def _setup_ev_problem(self):
-        self.ev = EV(self)
-        # self.leaving_times = [int(i) if not isinstance(i, int) else i for i in self.leaving_times]
-        # self.returning_times = [int(i) if not isinstance(i, int) else i for i in self.returning_times]
+        """
+        Adds CVX variables for EV subsystem in base homes.
         
-        # self.leaving_times = self.ev.leaving_times
-        # self.returning_times = self.ev.returning_times
+        :return: None
+        """
+        self.ev = EV(self)
         self.opt_keys.update(self.ev.opt_keys)
 
     def _setup_pv_problem(self):
@@ -265,7 +284,6 @@ class MPCCalc:
         self.opt_keys.update(self.pv.opt_keys)
 
     def get_initial_conditions(self):
-        # self.water_draws()
         if int(self.current_values["timestep"])== 0:
             self.initialize_environmental_variables()
 
@@ -291,8 +309,6 @@ class MPCCalc:
             self.counter = int(self.prev_optimal_vals["solve_counter"])
 
         self.set_environmental_variables()
-        self.heating = 1 if self.all_months[self.start_slice] in [1,2,3,4,5,9,10,11] else 0 
-        self.cooling = 1 if self.all_months[self.start_slice] in [5,6,7,8] else 0
 
     def add_base_constraints(self):
         """
@@ -388,6 +404,12 @@ class MPCCalc:
         return
 
     def solve_local_control(self):
+        """
+        Solves the MPC as if each home has its own objective to meet a setpoint (not cost minimizing).
+        Can be used in place of .solve_mpc()
+
+        :return: None
+        """
         self.obj = cp.Minimize(self.ev.obj + self.hvac.obj + self.wh.obj)
         self.prob = cp.Problem(self.obj, self.constraints)
         self.prob.solve(solver=self.solver)
@@ -399,13 +421,12 @@ class MPCCalc:
         
         :return: None
         """
-        end_slice = max(1, self.sub_subhourly_steps)
+        # end_slice = max(1, self.sub_subhourly_steps)
         
         i = 0
         while i < 1:
             if self.prob.status == 'optimal': # if the problem has been solved
                 self.counter = 0
-                # self.timestep += 1
                 self.stored_optimal_vals = defaultdict()
 
                 # general base values
@@ -434,8 +455,8 @@ class MPCCalc:
                     self.stored_optimal_vals['p_ev_ch'] = (self.ev.p_ev_ch.value).tolist()
                     self.stored_optimal_vals['p_ev_disch'] = (self.ev.p_ev_disch.value).tolist()
                     self.stored_optimal_vals['p_v2g'] = (self.ev.p_v2g.value).tolist()
-                    self.stored_optimal_vals['leaving_horizon'] = self.leaving_index
-                    self.stored_optimal_vals['returning_horizon'] = self.returning_index
+                    self.stored_optimal_vals['leaving_horizon'] = [int(x) for x in self.leaving_index]
+                    self.stored_optimal_vals['returning_horizon'] = [int(x) for x in self.returning_index]
 
                 if 'pv' in self.type:
                     self.stored_optimal_vals['p_pv_opt'] = (self.pv.p_pv.value).tolist()
@@ -453,7 +474,7 @@ class MPCCalc:
                             try:
                                 self.optimal_vals[f"{k}_{j} "] = self.stored_optimal_vals[k][j]
                             except:
-                                pass #print(k)
+                                pass
 
                 if 'hvac' in self.devices:
                     self.optimal_vals["temp_in_opt"] = self.stored_optimal_vals["temp_in_opt"][0]
@@ -466,7 +487,7 @@ class MPCCalc:
                 # self.log.debug(f"MPC solved with status {self.prob.status} for {self.name}")
                 return
             
-            else:
+            else: # clean up solutions if the preference constraints are infeasible
                 self.counter += 1
                 # self.log.warning(f"Unable to solve for house {self.name}. Reverting to optimal solution from last feasible timestep, t-{self.counter}.")
                 self.optimal_vals["correct_solve"] = 0
@@ -495,8 +516,8 @@ class MPCCalc:
                     self.optimal_vals["p_ev_v2g"] = self.ev.p_v2g.value.tolist()[0]
                     self.optimal_vals["e_ev_opt"] = self.ev.e_ev.value.tolist()[1]
                     self.optimal_vals["p_load_opt"] += self.optimal_vals["p_ev_ch"] + self.optimal_vals["p_ev_v2g"]
-                    self.optimal_vals['leaving_horizon'] = self.leaving_index[0]
-                    self.optimal_vals['returning_horizon'] = self.returning_index[0]
+                    self.optimal_vals['leaving_horizon'] = int(self.leaving_index[0])
+                    self.optimal_vals['returning_horizon'] = int(self.returning_index[0])
 
                 if 'pv' in self.devices:
                     self.pv.resolve()
@@ -512,6 +533,12 @@ class MPCCalc:
                 i+=1
 
     def set_p_grid(self):
+        """
+        Sets the constraint for the total grid power (load + any auxiliary subsystems)
+
+        :return: None
+        """
+
         if self.type == "base":
             self.set_base_p_grid()
         elif self.type == "pv_only":
@@ -520,6 +547,7 @@ class MPCCalc:
             self.set_battery_only_p_grid()
         else:
             self.set_pv_battery_p_grid()
+        return 
 
     def redis_get_initial_values(self):
         """
@@ -571,9 +599,10 @@ class MPCCalc:
 
         # self.log = pathos.logger(level=logging.INFO, handler=fh, name=self.name)
 
-        self.redis_client = rc.connection(self.redis_url)#RedisClient(self.redis_url)
+        self.redis_client = rc.connection(self.redis_url)
         self.redis_get_initial_values()
         self.cast_redis_timestep()
+
 
         if self.timestep > 0:
             self.redis_get_prev_optimal_vals()

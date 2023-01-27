@@ -371,7 +371,7 @@ class Aggregator:
         waterdraw_df.index = pd.to_datetime(waterdraw_df.index, format='%Y-%m-%d %H:%M:%S')
         sigma = 0.2
         waterdraw_df = waterdraw_df.applymap(lambda x: x * (1 + sigma * np.random.randn()))
-        waterdraw_df = waterdraw_df.resample('H').sum()
+        waterdraw_df = waterdraw_df.resample(f'{self.dt_interval}T').sum()
         this_house_waterdraws = waterdraw_df[list(waterdraw_df.sample(axis='columns'))[0]].values.tolist()
         this_house_waterdraws = np.clip(this_house_waterdraws, 0, wh["tank_size"]).tolist()
 
@@ -418,7 +418,9 @@ class Aggregator:
             "sub_subhourly_steps": self.config['home']['hems']['sub_subhourly_steps'],
             "solver": self.config['home']['hems']['solver'],
             "discount_factor": self.config['home']['hems']['discount_factor'],
-            "weekday_occ_schedule": self.config['home']['hems']['weekday_occ_schedule']
+            "weekday_occ_schedule": self.config['home']['hems']['weekday_occ_schedule'], # depricated
+            "schedule_group": random.choices(list(self.config['community']['schedules'].keys()), 
+                weights=list(self.config['community']['schedules'].values()))[0]
         }
         return responsive_hems
 
@@ -437,7 +439,6 @@ class Aggregator:
         ndays = self.num_timesteps // daily_timesteps + 1
 
         self.all_homes = []
-
 
         if not os.path.isdir(os.path.join('home_logs')):
             os.makedirs('home_logs')
@@ -527,7 +528,7 @@ class Aggregator:
                 "waterdraws": [],
                 "correct_solve": [],
                 "t_in_min":[],
-                "t_in_max":[]
+                "t_in_max":[],
             }
             if 'pv' in home["type"]:
                 self.collected_data[home["name"]]["p_pv_opt"] = []
