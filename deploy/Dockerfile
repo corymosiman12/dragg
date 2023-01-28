@@ -9,5 +9,5 @@ RUN pip install cvxopt
 ADD . /dragg
 
 # Run simulation
-WORKDIR  /dragg-comp-submission/sandbox/simulation
-CMD python main.py
+WORKDIR  dragg/dragg
+CMD python main.py -r "redis://redis"
