@@ -19,7 +19,7 @@ class PV:
         self.p_pv = cp.Variable(self.hems.horizon)
         self.u_pv_curt = cp.Variable(self.hems.horizon)
 
-        self.opt_keys = {'pv_p_opt', 'u_pv_curt_opt'}
+        self.opt_keys = {'p_pv_opt', 'u_pv_curt_opt'}
 
     def add_constraints(self):
         cons = [
@@ -31,7 +31,7 @@ class PV:
         return cons
 
     def resolve(self):
-        cons = self.add_constraints
+        cons = self.add_constraints()
         obj = cp.Maximize(cp.sum(self.p_pv))
         prob = cp.Problem(obj, cons)
         prob.solve()

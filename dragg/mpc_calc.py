@@ -73,8 +73,8 @@ class MPCCalc:
         self.ev_override_profile = None
 
         offset = -3 if self.home['hems']['schedule_group'] == 'early_birds' else 3 if self.home['hems']['schedule_group'] == 'night_owls' else 0
-        self.typ_leave = np.random.randint(8,10) + offset
-        self.typ_return = np.random.randint(18,20) + offset
+        # self.typ_leave = np.random.randint(8,10) + offset
+        # self.typ_return = np.random.randint(18,20) + offset
 
         self.tomorrow_leaving = self.typ_leave + (24*self.dt)
         self.tomorrow_returning = self.typ_return + (24*self.dt)
@@ -165,6 +165,9 @@ class MPCCalc:
         self.h_plus = self.horizon + 1
         self.discount = float(self.home['hems']['discount_factor'])
         self.dt_frac = 1 / self.dt / self.sub_subhourly_steps
+
+        self.typ_leave = float(self.home['hems']['typ_leave'])
+        self.typ_return = float(self.home['hems']['typ_return'])
         
         # Initialize RP structure so that non-forecasted RPs have an expected value of 0.
         self.reward_price = np.zeros(self.horizon)
@@ -199,8 +202,7 @@ class MPCCalc:
         """
         Get the daily occupancy schedule of the day and tomorrow.
         """
-        if self.subhour_of_day_current[0] == 0:
-
+        if False: # self.subhour_of_day_current[0] == 0 and not self.name=="PLAYER":
             self.today_leaving = self.tomorrow_leaving % 24
             self.today_returning = self.tomorrow_returning % 24
             if self.weekday_current[0] in [6,0,1,2,3]: # if the next day is a weekday

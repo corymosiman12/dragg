@@ -422,6 +422,11 @@ class Aggregator:
             "schedule_group": random.choices(list(self.config['community']['schedules'].keys()), 
                 weights=list(self.config['community']['schedules'].values()))[0]
         }
+        offset = -3 if responsive_hems['schedule_group'] == 'early_birds' else 3 if responsive_hems['schedule_group'] == 'night_owls' else 0
+        responsive_hems.update({
+            "typ_leave": np.random.randint(8,10) + offset,
+            "typ_return": np.random.randint(18,20) + offset 
+            })
         return responsive_hems
 
     def create_homes(self):
@@ -452,15 +457,7 @@ class Aggregator:
         num_battery_homes = self.config['community']['homes_battery']
         num_base_homes = self.config['community']['total_number_homes'] - num_battery_homes - num_pv_homes - num_pv_battery_homes
 
-        for j in range(num_base_homes):
-            name = all_names.pop()
-            self.all_homes += [{
-                    "name": name,
-                    "type": "base",
-                    "hvac": self.get_hvac_params(),
-                    "wh": self.get_wh_params(),
-                    "hems": self.get_hems_params(),
-                }]
+        
 
         for j in range(num_pv_homes):
             name = all_names.pop()
@@ -494,6 +491,16 @@ class Aggregator:
                     "hems": self.get_hems_params(),
                     "battery": self.get_battery_params(),
                     "pv": self.get_pv_params()
+                }]
+
+        for j in range(num_base_homes):
+            name = all_names.pop()
+            self.all_homes += [{
+                    "name": name,
+                    "type": "base",
+                    "hvac": self.get_hvac_params(),
+                    "wh": self.get_wh_params(),
+                    "hems": self.get_hems_params(),
                 }]
             
         self.contribution2peak = {home['name']:0 for home in self.all_homes}
