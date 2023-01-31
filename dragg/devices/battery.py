@@ -22,6 +22,7 @@ class Battery:
         # Define battery optimization variables
         self.p_batt_ch = cp.Variable(self.horizon)
         self.p_batt_disch = cp.Variable(self.horizon)
+        self.p_elec = cp.Variable(self.horizon)
         self.e_batt = cp.Variable(self.h_plus)
 
         self.opt_keys = {'p_batt_ch', 'p_batt_disch', 'e_batt_opt'}
@@ -37,6 +38,7 @@ class Battery:
             -self.p_batt_disch <= self.batt_max_rate,
             self.p_batt_ch >= 0,
             self.p_batt_disch <= 0,
+            self.p_elec == self.p_batt_ch - self.p_batt_disch,
             self.e_batt[1:] <= self.batt_cap_max,
             self.e_batt[1:] >= self.batt_cap_min]
         return cons

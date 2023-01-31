@@ -20,7 +20,7 @@ class WH:
 
         # Water heater temperature constants
         self.r = cp.Constant(float(self.hems.home["wh"]["r"]) * 1000)
-        self.p = cp.Constant(float(self.hems.home["wh"]["p"]) / self.hems.sub_subhourly_steps)
+        self.p = cp.Constant(float(self.hems.home["wh"]["p"]))
         self.temp_wh_min = cp.Constant(float(self.hems.home["wh"]["temp_wh_min"]))
         self.temp_wh_max = cp.Constant(float(self.hems.home["wh"]["temp_wh_max"]))
         self.temp_wh_sp = cp.Constant(float(self.hems.home["wh"]["temp_wh_sp"]))
@@ -86,7 +86,8 @@ class WH:
             # electrical power as a function of thermal power
             self.heat_on <= self.wh_heat_max,
             self.heat_on >= self.wh_heat_min,
-            self.p_elec == self.heat_on * self.p]
+            self.p_elec == (self.heat_on * self.p) / self.hems.sub_subhourly_steps # kW
+            ]
 
         if enforce_bounds:
             # optional comfort constraints

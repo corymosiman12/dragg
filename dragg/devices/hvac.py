@@ -39,7 +39,7 @@ class HVAC:
         
         self.opt_keys = {"temp_in_opt","hvac_cool_on_opt", "hvac_heat_on_opt","t_in_min", "t_in_max", "occupancy_status"}
 
-    def add_constraints(self, enforce_bounds=True):
+    def add_constraints(self, enforce_bounds=[True, True]):
         """
         :parameter enforce_bounds: boolean determines whether comfort bounds are strictly enforced
         :return: cons, a list of CVXPY constraints
@@ -69,8 +69,8 @@ class HVAC:
             
             # electric power as a function of thermal power
             # note: hems.dt_frac = fraction of an hour that corresponds to minimum duty cycle runtime 
-            self.p_elec == ((self.cool_on * self.p_c / self.cop_c) + (self.heat_on * self.p_h / self.cop_h)) * self.hems.dt_frac,
-            
+            self.p_elec == ((self.cool_on * self.p_c / self.cop_c) + (self.heat_on * self.p_h / self.cop_h)) / self.hems.sub_subhourly_steps,
+
             # temperature at the next timestep (actual value)
             self.temp_in == self.hems.temp_in_init
                             + (self.b[0] * (self.hems.oat_current[1] - self.hems.temp_in_init) 
@@ -83,13 +83,9 @@ class HVAC:
             self.cool_on >= self.cool_min,
             self.heat_on <= self.heat_max,
             self.heat_on >= self.heat_min,
-
-            # safety bounds for temperature -- always obeyed
-            self.temp_in_ev >= self.unocc_t_in_min,
-            self.temp_in_ev <= self.unocc_t_in_max,
             ]
 
-        if enforce_bounds:
+        if enforce_bounds[0]:
             # Enforces comfort constraints, which are sometimes impossible to adhere to
             cons += [
                     self.temp_in <= self.t_in_max_current[0],
@@ -97,6 +93,11 @@ class HVAC:
                     self.temp_in_ev[1:] >= self.t_in_min_current[:self.hems.horizon],
                     self.temp_in_ev[1:] <= self.t_in_max_current[:self.hems.horizon],
                 ]
+
+        if enforce_bounds[1]:
+            # safety bounds for temperature -- always obeyed
+            self.temp_in_ev >= self.unocc_t_in_min,
+            self.temp_in_ev <= self.unocc_t_in_max,
 
         return cons
 
@@ -123,7 +124,7 @@ class HVAC:
 
         if not prob.status == 'optimal':
             # if thermal preferences are infeasible resolve within safety bounds
-            cons = self.add_constraints(enforce_bounds=False)
+            cons = self.add_constraints(enforce_bounds=[False, True])
             
             # not the ideal solution to resolve heat and cooling at the same time
             if self.hems.temp_in_init.value <= self.t_in_max_current[0].value:
@@ -134,7 +135,22 @@ class HVAC:
             obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - (self.t_in_min_current + 0.5 * self.t_deadband))))
             prob = cp.Problem(obj, cons)
             prob.solve(solver=self.hems.solver)
-            print(prob.status)
+            # print(prob.status)
+
+            if not prob.status == 'optimal':
+                # if thermal preferences are infeasible resolve within safety bounds
+                cons = self.add_constraints(enforce_bounds=[False, False])
+                
+                # not the ideal solution to resolve heat and cooling at the same time
+                if self.hems.temp_in_init.value <= self.t_in_max_current[0].value:
+                    cons += [self.cool_on == 0]
+                if self.hems.temp_in_init.value >= self.t_in_min_current[0].value:
+                    cons += [self.heat_on == 0]
+
+                obj = cp.Minimize(cp.sum(cp.abs(self.temp_in_ev - (self.t_in_min_current + 0.5 * self.t_deadband))))
+                prob = cp.Problem(obj, cons)
+                prob.solve(solver=self.hems.solver)
+                # print(prob.status)
 
     def override_t_in(self, cmd):
         """
@@ -145,9 +161,18 @@ class HVAC:
         The result will set the thermal setpoint between the min and max safety bounds (unoccupied 
         temperatures) as dictated by the normalized command.
         """
-        t_sp = np.clip(cmd, self.unocc_t_in_min, self.unocc_t_in_max)
+        t_sp = cmd * self.t_deadband + self.occ_t_in_min
         self.obj = cp.Variable(1)
-        cons = [self.obj == t_sp - self.temp_in]
+        if self.hems.temp_in_init.value > t_sp:
+            cons = [
+                self.obj == t_sp - self.temp_in,
+                self.cool_on == 0
+            ]
+        else:
+            cons = [
+                self.obj == self.temp_in - t_sp,
+                self.heat_on == 0
+            ]
         return cons
 
 

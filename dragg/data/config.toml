@@ -1,11 +1,11 @@
 [community]
-total_number_homes = 5
+total_number_homes = 1
 homes_battery = 0
 homes_pv = 0
 homes_pv_battery = 0
 overwrite_existing = true
 house_p_avg = 1.2
-n_players = 1
+n_players = 0
 
 [community.schedules]
 early_birds = 0.25
@@ -14,7 +14,7 @@ normal = 0.5
 
 [simulation]
 start_datetime = "2003-01-01 00"
-end_datetime = "2003-01-04 00"
+end_datetime = "2003-01-02 00"
 random_seed = 12
 n_nodes = 1
 load_zone = "LZ_HOUSTON"
@@ -70,7 +70,7 @@ efficiency = [0.15, 0.2]
 [home.hems]
 weekday_occ_schedule = [19,8,17,18]
 prediction_horizon = 4
-sub_subhourly_steps = 2
+sub_subhourly_steps = 4
 discount_factor = 0.92
 solver = "GLPK_MI"
 

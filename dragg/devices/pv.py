@@ -12,26 +12,26 @@ class PV:
     def __init__(self, hems):
         self.hems = hems
         # Define constants
-        self.pv_area = cp.Constant(float(self.hems.home["pv"]["area"]))
-        self.pv_eff = cp.Constant(float(self.hems.home["pv"]["eff"]))
+        self.area = cp.Constant(float(self.hems.home["pv"]["area"]))
+        self.eff = cp.Constant(float(self.hems.home["pv"]["eff"]))
 
         # Define PV Optimization variables
-        self.p_pv = cp.Variable(self.hems.horizon)
-        self.u_pv_curt = cp.Variable(self.hems.horizon)
+        self.p_elec = cp.Variable(self.hems.horizon)
+        self.u = cp.Variable(self.hems.horizon)
 
         self.opt_keys = {'p_pv_opt', 'u_pv_curt_opt'}
 
     def add_constraints(self):
         cons = [
             # PV constraints.  GHI provided in W/m2 - convert to kWh
-            self.p_pv == self.pv_area * self.pv_eff * cp.multiply(self.hems.ghi_current[1:], (1 - self.u_pv_curt)) / 1000,
-            self.u_pv_curt >= 0,
-            self.u_pv_curt <= 1
+            self.p_elec == self.area * self.eff * cp.multiply(self.hems.ghi_current[1:], (1 - self.u)) / 1000,
+            self.u >= 0,
+            self.u <= 1
         ]
         return cons
 
     def resolve(self):
         cons = self.add_constraints()
-        obj = cp.Maximize(cp.sum(self.p_pv))
+        obj = cp.Maximize(cp.sum(self.p_elec))
         prob = cp.Problem(obj, cons)
         prob.solve()

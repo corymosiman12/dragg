@@ -88,7 +88,7 @@ class Aggregator:
         self.max_daily_ghi = None
         self.min_daily_temp = None
         self.prev_load = None
-        self.dt = int(self.config['agg']['subhourly_steps'])
+        self.dt = min(2, int(self.config['agg']['subhourly_steps'])) # temporary reporting issue with dt == 1
         self._set_dt()
         self.ts_data = self._import_ts_data() # Temp: degC, RH: %, Pressure: mbar, GHI: W/m2
         
@@ -182,6 +182,12 @@ class Aggregator:
         # filter to only interpolated data (exclude non-control datetimes)
         df.filter(df_interp.index, axis=0)
         df.bfill(inplace=True)
+
+        if self.dt == 1:
+            print(type(df["Minute"].iloc[2]), df["Minute"].iloc[2])
+            df["Minute"] = 0.0
+            df["ts"] = pd.to_datetime(df[['Year','Month','Day','Hour','Minute']])
+            df.set_index('ts', inplace=True)
 
         self.oat = df['OAT'].to_numpy()
         self.ghi = df['GHI'].to_numpy()
@@ -751,6 +757,7 @@ class Aggregator:
             "case": self.case,
             "start_datetime": self.start_dt.strftime('%Y-%m-%d %H'),
             "end_datetime": self.end_dt.strftime('%Y-%m-%d %H'),
+            "num_timesteps": self.num_timesteps,
             "solve_time": self.t_diff.total_seconds(),
             "horizon": self.config['home']['hems']['prediction_horizon'],
             "num_homes": self.config['community']['total_number_homes'],

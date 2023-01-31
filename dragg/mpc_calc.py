@@ -320,7 +320,7 @@ class MPCCalc:
         :return: None
         """
         self.constraints = [
-            self.p_load == (self.hvac.p_elec + self.wh.p_elec + self.ev.p_elec[:self.horizon]) #* self.sub_subhourly_steps
+            self.p_load == (self.hvac.p_elec + self.wh.p_elec + self.ev.p_elec[:self.horizon]) #/ self.sub_subhourly_steps
         ]
         if 'hvac' in self.devices:
             self.constraints += self.hvac.add_constraints()
@@ -357,7 +357,7 @@ class MPCCalc:
         """
         self.constraints += [
             # Set grid load
-            self.p_grid == self.p_load + self.sub_subhourly_steps * (self.battery.p_batt_ch + self.battery.p_batt_disch)
+            self.p_grid == self.p_load + (self.battery.p_elec)
         ]
 
     def set_pv_only_p_grid(self):
@@ -370,7 +370,7 @@ class MPCCalc:
         """
         self.constraints += [
             # Set grid load
-            self.p_grid == self.p_load - self.sub_subhourly_steps * self.pv.p_pv
+            self.p_grid == self.p_load - self.pv.p_elec 
         ]
 
     def set_pv_battery_p_grid(self):
@@ -383,7 +383,7 @@ class MPCCalc:
         """
         self.constraints += [
             # Set grid load
-            self.p_grid == self.p_load + self.sub_subhourly_steps * (self.battery.p_batt_ch + self.battery.p_batt_disch - self.pv.p_pv)
+            self.p_grid == self.p_load + (self.battery.p_elec - self.pv.p_elec)
         ]
 
     def solve_mpc(self, debug=False):
@@ -395,7 +395,7 @@ class MPCCalc:
         :return: None
         """
         self.cost = cp.Variable(self.horizon)
-        self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid)] # think this should work
+        self.constraints += [self.cost == cp.multiply(self.total_price, self.p_grid / self.dt)] # think this should work
         self.weights = cp.Constant(np.power(self.discount*np.ones(self.horizon), np.arange(self.horizon)))
         self.obj = cp.Minimize(cp.sum(cp.multiply(self.cost, self.weights))) 
         self.prob = cp.Problem(self.obj, self.constraints)
@@ -433,9 +433,9 @@ class MPCCalc:
 
                 # general base values
                 self.stored_optimal_vals["cost_opt"] = (self.cost.value).tolist()
-                self.stored_optimal_vals["p_grid_opt"] = (self.p_grid.value / self.sub_subhourly_steps).tolist()
-                self.stored_optimal_vals["forecast_p_grid_opt"] = (self.p_grid.value[1:] / self.sub_subhourly_steps).tolist() + [0]
-                self.stored_optimal_vals["p_load_opt"] = (self.p_load.value / self.sub_subhourly_steps).tolist()
+                self.stored_optimal_vals["p_grid_opt"] = (self.p_grid.value / 1).tolist()
+                self.stored_optimal_vals["forecast_p_grid_opt"] = (self.p_grid.value[1:] / 1).tolist() + [0]
+                self.stored_optimal_vals["p_load_opt"] = (self.p_load.value / 1).tolist()
                 self.stored_optimal_vals["occupancy_status"] = [int(x) for x in self.occ_current]
                 
                 if 'hvac' in self.devices:
@@ -461,8 +461,8 @@ class MPCCalc:
                     self.stored_optimal_vals['returning_horizon'] = [int(x) for x in self.returning_index]
 
                 if 'pv' in self.type:
-                    self.stored_optimal_vals['p_pv_opt'] = (self.pv.p_pv.value).tolist()
-                    self.stored_optimal_vals['u_pv_curt_opt'] = (self.pv.u_pv_curt.value).tolist()
+                    self.stored_optimal_vals['p_pv_opt'] = (self.pv.p_elec.value).tolist()
+                    self.stored_optimal_vals['u_pv_curt_opt'] = (self.pv.u.value).tolist()
 
                 if 'battery' in self.type:
                     self.stored_optimal_vals['e_batt_opt'] = (self.battery.e_batt.value).tolist()[1:]

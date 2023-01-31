@@ -51,7 +51,7 @@ class EV:
 
         self.p_ev_disch = cp.Constant([p_disch_trip/2 if i in [self.hems.today_leaving, self.hems.today_returning, self.hems.tomorrow_leaving, self.hems.tomorrow_returning] else 0 for i in self.hems.subhour_of_day_current[:self.horizon]])
         self.v2g_max = -1 * np.multiply(self.ev_max_rate, self.hems.occ_current[:self.horizon])
-        self.p_ch_max = np.multiply(self.ev_max_rate, self.hems.occ_current[:self.horizon])
+        self.p_ch_max = np.minimum(self.p_preference.value * np.ones(self.horizon), np.multiply(self.ev_max_rate, self.hems.occ_current[:self.horizon]))
 
         cons = [
             self.p_v2g <= 0,
@@ -62,17 +62,17 @@ class EV:
                                         + self.p_ev_disch / self.ev_disch_eff
                                         + self.p_v2g / self.ev_disch_eff) / self.hems.dt,
             self.e_ev[0] == self.hems.e_ev_init,
-            self.p_ev_ch <= self.p_preference,
+            self.p_ev_ch <= self.p_ch_max,
             self.p_ev_ch >= 0,
             self.e_ev >= 0,
             self.e_ev <= self.ev_cap_total,
             self.p_elec == self.p_ev_ch - self.p_v2g,
-            # self.charge_penalty == 10 * cp.max(self.p_ev_ch)
         ]
 
         if enforce_bounds:
             cons += [
-                self.e_ev[1:] <= self.ev_cap_max,
+                self.p_ev_ch <= self.p_preference, # preferred max charge rate
+                self.e_ev[1:] <= self.ev_cap_max, # preferred min SOC
                 self.e_ev[1:] >= self.ev_cap_min,
             ]
 
