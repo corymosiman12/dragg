@@ -20,10 +20,10 @@ from dragg.logger import Logger
 import dragg
 
 class Plotter():
-	def __init__(self):
-		self.res_file = 'outputs/2003-01-01T00_2003-01-04T00/all-homes_5-horizon_4-interval_30-15-solver_GLPK_MI/version-final/baseline/results.json'
-		self.conf_file = 'outputs/all_homes-5-config.json'
-		with open(self.res_file) as f:
+	def __init__(self, res_file=None, conf_file=None):
+		self.res_file = res_file if res_file else self.get_res_file()
+		self.conf_file = conf_file if conf_file else self.get_conf_file()
+		with open(self.res_file + 'results.json') as f:
 			self.data = json.load(f)
 
 		with open(self.conf_file) as f:
@@ -31,8 +31,28 @@ class Plotter():
 
 		self.xlims = pd.date_range(start=self.conf_data[-1]["start_dt"], end=self.conf_data[-1]["end_dt"], periods=self.conf_data[-1]["num_timesteps"]+1)
 
+	def get_res_file(self):
+		config_file = 'data/config.toml'
+		with open(config_file) as f:
+			config = toml.load(f)
 
-	def plot_soc(self, name="PLAYER"):
+		dt = 60 // config["agg"]["subhourly_steps"]
+		sub_dt = dt // config["home"]["hems"]["sub_subhourly_steps"]
+		start_dt = config["simulation"]["start_datetime"][:-3] + "T" + config["simulation"]["start_datetime"][-2:]
+		end_dt = config["simulation"]["end_datetime"][:-3] + "T" + config["simulation"]["end_datetime"][-2:]
+		return f'outputs/{start_dt}_{end_dt}/{config["simulation"]["check_type"]}-homes_{config["community"]["total_number_homes"]}-horizon_{config["home"]["hems"]["prediction_horizon"]}-interval_{dt}-{sub_dt}-solver_{config["home"]["hems"]["solver"]}/version-{config["simulation"]["named_version"]}/baseline/'
+
+	def get_conf_file(self):
+		config_file = 'data/config.toml'
+		with open(config_file) as f:
+			config = toml.load(f)
+
+		return f'outputs/{config["simulation"]["check_type"]}_homes-{config["community"]["total_number_homes"]}-config.json'
+
+	def plot_soc(self, name="PLAYER", debug=False):
+		print(len(self.data[name]["t_in_min"]),len(self.data["Summary"]["OAT"]))
+		skip = 2 if (2 * len(self.data[name]["t_in_min"]) == len(self.data["Summary"]["OAT"])) else 1
+
 		fig = make_subplots(rows=1, cols=3, specs=[[{"secondary_y": True},{"secondary_y": True},{"secondary_y": True}]], subplot_titles=("Room Temp", "WH Temp", "EV SOC"))
 
 		# plot indoor temperature
@@ -52,14 +72,14 @@ class Plotter():
     				line_color='lightskyblue',
 					name="Room Temp"),
 					row=1, col=1)
-		fig.add_trace(go.Scatter(x=self.xlims, y=self.data["Summary"]["OAT"],
+		fig.add_trace(go.Scatter(x=self.xlims, y=self.data["Summary"]["OAT"][::skip],
 					mode='lines',
     				line_color='slateblue',
     				line_dash='dash',
 					name="Outdoor Temp"),
 					row=1, col=1, 
 					secondary_y=False)
-		fig.add_trace(go.Scatter(x=self.xlims, y=np.multiply(self.data["Summary"]["GHI"],0.001),
+		fig.add_trace(go.Scatter(x=self.xlims, y=np.multiply(self.data["Summary"]["GHI"][::skip],0.001),
 					mode='lines',
     				line_color='darkorange',
     				line_dash="dot",
@@ -70,7 +90,8 @@ class Plotter():
 		fig.update_yaxes(title_text="<b>Temperature</b> [deg C]", row=1, col=1, secondary_y=False)
 		fig.add_trace(go.Bar(x=self.xlims, y= np.multiply(-1,self.data[name]["hvac_cool_on_opt"]),  name="Cooling on/off", marker_color="dodgerblue"), row=1, col=1, secondary_y=True)
 		fig.add_trace(go.Bar(x=self.xlims, y= self.data[name]["hvac_heat_on_opt"], name="Heat on/off", marker_color="firebrick"), row=1, col=1, secondary_y=True)
-		fig.add_trace(go.Scatter(x=self.xlims, y=np.divide(np.cumsum(np.subtract(self.data[name]["hvac_heat_on_opt"], self.data[name]["hvac_cool_on_opt"])), 1+np.arange(self.conf_data[-1]["num_timesteps"]))), row=1, col=1, secondary_y=True)
+		if debug:
+			fig.add_trace(go.Scatter(x=self.xlims, y=np.divide(np.cumsum(np.subtract(self.data[name]["hvac_heat_on_opt"], self.data[name]["hvac_cool_on_opt"])), 1+np.arange(self.conf_data[-1]["num_timesteps"]))), row=1, col=1, secondary_y=True)
 
 
 		# plot water heater temperature
@@ -100,7 +121,8 @@ class Plotter():
 					row=1, col=2)
 		fig.update_yaxes(title_text="<b>Temperature</b> [deg C]", row=1, col=2, secondary_y=False)
 		fig.add_trace(go.Bar(x=self.xlims, y=self.data[name]["wh_heat_on_opt"], name="WH on/off", marker_color="firebrick"),row=1, col=2, secondary_y=True)
-		fig.add_trace(go.Scatter(x=self.xlims, y=np.divide(np.cumsum(self.data[name]["wh_heat_on_opt"]), 1+np.arange(self.conf_data[-1]["num_timesteps"]))), row=1, col=2, secondary_y=True)
+		if debug:
+			fig.add_trace(go.Scatter(x=self.xlims, y=np.divide(np.cumsum(self.data[name]["wh_heat_on_opt"]), 1+np.arange(self.conf_data[-1]["num_timesteps"]))), row=1, col=2, secondary_y=True)
 
 		# plot EV state of charge
 		fig.add_trace(go.Scatter(x=self.xlims, y=self.data[name]["e_ev_opt"],
@@ -121,8 +143,9 @@ class Plotter():
 
 		fig.update_layout(height=600, width=1500, title_text=name)
 
-		for i in range(1,4):
-			fig.add_trace(go.Bar(x=self.xlims, y=self.data[name]["correct_solve"], name="correct_solve"), row=1, col=i, secondary_y=True)
+		if debug:
+			for i in range(1,4):
+				fig.add_trace(go.Bar(x=self.xlims, y=self.data[name]["correct_solve"], name="correct_solve"), row=1, col=i, secondary_y=True)
 
 		return fig 
 
@@ -142,11 +165,10 @@ class Plotter():
 		return fig 
 
 	def main(self):
-		# self.plot_soc().show()
-		# self.plot_soc(name='Glenda-VUXFP').show()
-		# self.plot_soc(name='Edward-HUHS3').show()
-		self.plot_soc(name='Nadine-D73XI').show()
-		self.plot_soc(name="Marquerite-EPELW").show()
+		for name in self.data.keys():
+			if not name == "Summary":
+				self.plot_soc(name=name).show()
+
 		self.plot_community_peak().show()
 
 if __name__=='__main__':
