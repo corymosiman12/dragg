@@ -681,10 +681,10 @@ class Aggregator:
         house_load = {}
         self.forecast_house_load = []
         
-        if self.timestep % (24 * self.dt) == 0: # at the end of the day
-            self.daily_peak = 0.01 # remove if we want the max peak of the simulation
-            for k,v in self.contribution2peak.items():
-                self.redis_client.hset("peak_contribution", k, v)
+        # if self.timestep % (24 * self.dt) == 0: # at the end of the day
+        #     self.daily_peak = 0.01 # remove if we want the max peak of the simulation
+        #     for k,v in self.contribution2peak.items():
+        #         self.redis_client.hset("peak_contribution", k, v)
 
         for home in self.all_homes:
             if self.check_type == 'all' or home["type"] == self.check_type:
@@ -707,7 +707,9 @@ class Aggregator:
         if self.agg_load >= self.daily_peak:
             self.daily_peak = self.agg_load
             self.contribution2peak = {k:house_load[k]/self.daily_peak for k,v in self.contribution2peak.items()}
-
+            for k,v in self.contribution2peak.items():
+                self.redis_client.hset("peak_contribution", k, v)
+                
         self.forecast_load = np.sum(self.forecast_house_load)
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)
