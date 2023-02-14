@@ -50,7 +50,6 @@ class Plotter():
 		return f'outputs/{config["simulation"]["check_type"]}_homes-{config["community"]["total_number_homes"]}-config.json'
 
 	def plot_soc(self, name="PLAYER", debug=False):
-		print(len(self.data[name]["t_in_min"]),len(self.data["Summary"]["OAT"]))
 		skip = 2 if (2 * len(self.data[name]["t_in_min"]) == len(self.data["Summary"]["OAT"])) else 1
 
 		fig = make_subplots(rows=1, cols=3, specs=[[{"secondary_y": True},{"secondary_y": True},{"secondary_y": True}]], subplot_titles=("Room Temp", "WH Temp", "EV SOC"))
@@ -160,7 +159,7 @@ class Plotter():
 			except:
 				pass
 
-		fig.add_trace(go.Scatter(x = self.xlims, y=np.cumsum(total)/(1+np.arange(self.conf_data[-1]["num_timesteps"]))))
+		# fig.add_trace(go.Scatter(x = self.xlims, y=np.cumsum(total)/(1+np.arange(self.conf_data[-1]["num_timesteps"]))))
 		fig.update_layout(title_text="Community Demand")
 		return fig 
 

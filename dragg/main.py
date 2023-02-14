@@ -1,5 +1,4 @@
 from dragg.aggregator import Aggregator
-from dragg.reformat import Reformat
 import argparse
 
 REDIS_URL = 'redis://localhost'

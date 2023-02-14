@@ -704,12 +704,12 @@ class Aggregator:
                 agg_cost += float(vals["cost_opt"])
         self.agg_load = sum(house_load.values())
 
-        if self.agg_load >= self.daily_peak:
+        if self.agg_load >= self.daily_peak and self.agg_load >= 0.1:
             self.daily_peak = self.agg_load
             self.contribution2peak = {k:house_load[k]/self.daily_peak for k,v in self.contribution2peak.items()}
             for k,v in self.contribution2peak.items():
                 self.redis_client.hset("peak_contribution", k, v)
-                
+
         self.forecast_load = np.sum(self.forecast_house_load)
         self.agg_cost = agg_cost
         self.baseline_agg_load_list.append(self.agg_load)

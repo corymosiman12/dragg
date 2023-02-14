@@ -96,5 +96,11 @@ class EV:
             cons = [self.obj == cmd * self.ev_max_rate - self.p_ev_ch]
         else:
             cons = [self.obj == cmd * self.ev_max_rate - self.p_v2g]
+
+        prob = cp.Problem(cp.Minimize(self.obj), cons + self.add_constraints())
+        prob.solve(solver=self.hems.solver)
+
+        if not prob.status == 'optimal':
+            self.resolve()
         return cons
 

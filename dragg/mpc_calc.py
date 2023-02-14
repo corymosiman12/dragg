@@ -412,8 +412,15 @@ class MPCCalc:
 
         :return: None
         """
-        self.obj = cp.Minimize(self.ev.obj + self.hvac.obj + self.wh.obj)
-        self.prob = cp.Problem(self.obj, self.constraints)
+        # self.obj = cp.Minimize(self.ev.obj + self.hvac.obj + self.wh.obj)
+
+        cons = [
+            self.p_load == (self.hvac.p_elec.value + self.wh.p_elec.value + self.ev.p_elec[:self.horizon].value), #/ self.sub_subhourly_steps
+            self.p_grid == self.p_load,
+            self.cost == cp.multiply(self.total_price, self.p_grid / self.dt)
+        ]
+
+        self.prob = cp.Problem(cp.Minimize(1), cons)
         self.prob.solve(solver=self.solver)
         return 
 
@@ -451,7 +458,7 @@ class MPCCalc:
                     self.stored_optimal_vals["temp_wh_opt"] = self.wh.temp_wh.value.tolist()
                     self.stored_optimal_vals["wh_heat_on_opt"] = (self.wh.heat_on.value / self.sub_subhourly_steps).tolist()
                     self.stored_optimal_vals["waterdraws"] = self.wh.draw_size
-                
+
                 if 'ev' in self.devices:
                     self.stored_optimal_vals['e_ev_opt'] = (self.ev.e_ev.value).tolist()[1:]
                     self.stored_optimal_vals['p_ev_ch'] = (self.ev.p_ev_ch.value).tolist()

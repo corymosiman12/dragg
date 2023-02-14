@@ -173,6 +173,10 @@ class HVAC:
                 self.obj == self.temp_in - t_sp,
                 self.heat_on == 0
             ]
+        prob = cp.Problem(cp.Minimize(self.obj), cons + self.add_constraints())
+        prob.solve(solver=self.hems.solver)
+        if not prob.status == 'optimal':
+            self.resolve()
         return cons
 
 
