@@ -112,19 +112,19 @@ class WH:
         device-specific electricity consumption while satisfying comfort bounds, second attempt 
         minimizes the deviation of the new temperature and the desired setpoint.
         """
-        cons = self.add_constraints()
+        self.copy_hvac = self.hems.hvac.temp_in_ev[1:].value
+        cons = self.add_override_cons()
         obj = cp.Minimize(cp.abs(self.temp_wh - self.temp_wh_min))
         # obj = cp.Maximize(self.temp_wh)
         prob = cp.Problem(obj, cons)
         prob.solve(solver=self.hems.solver)
         if not prob.status == 'optimal':
-            cons = self.add_constraints(enforce_bounds=False)
+            cons = self.add_override_cons(enforce_bounds=False)
             obj = cp.Minimize(self.temp_wh_min - self.temp_wh)
             prob = cp.Problem(obj, cons)
             prob.solve(solver=self.hems.solver, verbose=False)
-            print(prob.status)
 
-    def add_override_cons(self):
+    def add_override_cons(self, enforce_bounds=True):
         """
         :parameter enforce_bounds: boolean determines whether comfort bounds are strictly enforced
         :return: cons, a list of CVXPY constraints
@@ -156,12 +156,15 @@ class WH:
             # electrical power as a function of thermal power
             self.heat_on <= self.wh_heat_max,
             self.heat_on >= self.wh_heat_min,
-            self.p_elec == (self.heat_on * self.p) / self.hems.sub_subhourly_steps, # kW
+            self.p_elec == (self.heat_on * self.p) / self.hems.sub_subhourly_steps,
+        ] # kW
 
-            self.temp_wh >= self.temp_wh_min,
-            self.temp_wh <= self.temp_wh_max,
-            self.temp_wh_ev >= self.temp_wh_min,
-            self.temp_wh_ev <= self.temp_wh_max,
+        if enforce_bounds:
+            cons += [
+                self.temp_wh >= self.temp_wh_min,
+                self.temp_wh <= self.temp_wh_max,
+                self.temp_wh_ev >= self.temp_wh_min,
+                self.temp_wh_ev <= self.temp_wh_max,
             ]
 
         return cons 
@@ -184,14 +187,13 @@ class WH:
         obj = cp.Minimize(self.obj)
         prob = cp.Problem(obj, cons + obj_cons)
         prob.solve(solver=self.hems.solver)
-        
+
         if not prob.status == 'optimal':
             obj_cons = [self.obj == (self.heat_on[0] / self.wh_heat_max) - (0.5 * cmd + 0.5)]
             prob = cp.Problem(obj, cons + obj_cons)
             prob.solve(solver=self.hems.solver)
 
             if not prob.status == 'optimal':
-                print('resolve')
                 self.resolve()
 
         return obj_cons 

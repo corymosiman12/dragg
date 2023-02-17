@@ -177,6 +177,7 @@ class HVAC:
         prob.solve(solver=self.hems.solver)
         if not prob.status == 'optimal':
             self.resolve()
+
         return cons
 
 

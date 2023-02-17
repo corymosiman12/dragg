@@ -800,6 +800,7 @@ class Aggregator:
         called at the end of the simulation run period and optionally at a checkpoint period.
         :return: None
         """
+
         self.summarize_baseline()
 
         if not self.overwrite_output:
@@ -809,6 +810,8 @@ class Aggregator:
             file = os.path.join(case_dir, "results.json")
         else:
             file = os.path.join(self.outputs_dir, "results.json")
+            
+        print(f'Writing outputs to file {file}')
         with open(file, 'w+') as f:
             json.dump(self.collected_data, f, indent=4)
 

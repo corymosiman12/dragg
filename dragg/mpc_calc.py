@@ -413,6 +413,7 @@ class MPCCalc:
         :return: None
         """
         # self.obj = cp.Minimize(self.ev.obj + self.hvac.obj + self.wh.obj)
+        self.cost = cp.Variable(self.horizon)
 
         cons = [
             self.p_load == (self.hvac.p_elec.value + self.wh.p_elec.value + self.ev.p_elec[:self.horizon].value), #/ self.sub_subhourly_steps
