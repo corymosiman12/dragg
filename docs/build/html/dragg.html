@@ -1,0 +1,1593 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>dragg package &#8212; DRAGG 3.0 documentation</title>
+  <script>
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=1e1de1a1873e13ef5536" rel="stylesheet">
+<link href="_static/styles/pydata-sphinx-theme.css?digest=1e1de1a1873e13ef5536" rel="stylesheet">
+
+  
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/6.1.2/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=1e1de1a1873e13ef5536">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'dragg';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="dragg.devices package" href="dragg.devices.html" />
+    <link rel="prev" title="Getting Started" href="getting_started.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="docsearch:language" content="en">
+  </head>
+  
+  
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="180" data-default-mode="">
+
+  
+  <input type="checkbox" class="sidebar-toggle" name="__primary" id="__primary">
+  <label class="overlay overlay-primary" for="__primary"></label>
+
+  
+  <input type="checkbox" class="sidebar-toggle" name="__secondary" id="__secondary">
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+      
+<form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+    </div>
+  </div>
+
+  
+  <nav class="bd-header navbar navbar-expand-lg bd-navbar" id="navbar-main"><div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+      <span class="fa-solid fa-bars"></span>
+  </label>
+  <div id="navbar-start">
+    
+    
+  
+
+
+<a class="navbar-brand logo" href="index.html">
+
+  
+  
+  
+  
+  
+  
+  
+
+  
+  
+    <p class="title logo__title">DRAGG 3.0 documentation</p>
+  
+</a>
+    
+  </div>
+
+  
+  <div class="col-lg-9 navbar-header-items">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                <li class="nav-item">
+                    <a class="nav-link" href="getting_started.html">
+                        Getting Started
+                    </a>
+                </li>
+                
+
+                <li class="nav-item current active">
+                    <a class="nav-link" href="#">
+                        dragg package
+                    </a>
+                </li>
+                
+
+                <li class="nav-item">
+                    <a class="nav-link" href="dragg.devices.html">
+                        dragg.devices package
+                    </a>
+                </li>
+                
+    </ul>
+</nav>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      <div class="navbar-end-item navbar-end__search-button-container">
+        
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+      </div>
+      
+      <div class="navbar-end-item">
+        <span class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" data-toggle="tooltip">
+    <a class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></a>
+    <a class="theme-switch" data-mode="dark"><i class="fa-regular fa-moon"></i></a>
+    <a class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></a>
+</span>
+      </div>
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+
+
+  
+  <div class="search-button-container--mobile">
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+  </div>
+
+  
+  <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+  </label>
+  
+
+</div>
+  </nav>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+      
+      <div class="navbar-center-item">
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                <li class="nav-item">
+                    <a class="nav-link" href="getting_started.html">
+                        Getting Started
+                    </a>
+                </li>
+                
+
+                <li class="nav-item current active">
+                    <a class="nav-link" href="#">
+                        dragg package
+                    </a>
+                </li>
+                
+
+                <li class="nav-item">
+                    <a class="nav-link" href="dragg.devices.html">
+                        dragg.devices package
+                    </a>
+                </li>
+                
+    </ul>
+</nav>
+      </div>
+      
+      </div>
+    
+
+    
+    
+    <div class="sidebar-header-items__end">
+      
+      <div class="navbar-end-item">
+        <span class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" data-toggle="tooltip">
+    <a class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></a>
+    <a class="theme-switch" data-mode="dark"><i class="fa-regular fa-moon"></i></a>
+    <a class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></a>
+</span>
+      </div>
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+    
+  </div>
+
+  
+
+  
+  <div class="sidebar-end-items sidebar-primary__section">
+    <div class="sidebar-end-items__item">
+    </div>
+  </div>
+
+      </div>
+      <main class="bd-main">
+        
+        
+        <div class="bd-content">
+          <div class="bd-article-container">
+            
+            <div class="bd-header-article">
+                
+            </div>
+            
+            
+            <article class="bd-article" role="main">
+              
+  <section id="module-dragg.aggregator">
+<span id="dragg-package"></span><h1>dragg package<a class="headerlink" href="#module-dragg.aggregator" title="Permalink to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dragg.aggregator.</span></span><span class="sig-name descname"><span class="pre">Aggregator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redis_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'redis://localhost'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The aggregator combines the power consumption from all homes in the simulation, and manages
+the simulation of each home (MPCCalc) object in parallel.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.calc_start_hour_index">
+<span class="sig-name descname"><span class="pre">calc_start_hour_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.calc_start_hour_index" title="Permalink to this definition">#</a></dt>
+<dd><p>Since all_data is posted as a list, where 0 corresponds to the first hour in
+the dataframe, the number of hours between the start_dt and the above mentioned
+hour needs to be calculated.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.check_all_data_indices">
+<span class="sig-name descname"><span class="pre">check_all_data_indices</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.check_all_data_indices" title="Permalink to this definition">#</a></dt>
+<dd><p>Ensure enough data exists in all_data such that MPC calcs can be made throughout
+the requested start and end period.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.check_baseline_vals">
+<span class="sig-name descname"><span class="pre">check_baseline_vals</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.check_baseline_vals" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.collect_data">
+<span class="sig-name descname"><span class="pre">collect_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.collect_data" title="Permalink to this definition">#</a></dt>
+<dd><p>Collects the data passed by the community redis connection.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.create_homes">
+<span class="sig-name descname"><span class="pre">create_homes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.create_homes" title="Permalink to this definition">#</a></dt>
+<dd><p>Given parameter distributions and number of homes of each type, create a list
+of dictionaries of homes with the parameters set for each home.
+:return:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.create_mpc_home_obj">
+<span class="sig-name descname"><span class="pre">create_mpc_home_obj</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.create_mpc_home_obj" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.flush_redis">
+<span class="sig-name descname"><span class="pre">flush_redis</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.flush_redis" title="Permalink to this definition">#</a></dt>
+<dd><p>Cleans all information stored in the Redis server. (Including environmental
+and home data.)
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.gen_setpoint">
+<span class="sig-name descname"><span class="pre">gen_setpoint</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.gen_setpoint" title="Permalink to this definition">#</a></dt>
+<dd><p>Generates the setpoint of the RL utility. Dynamically sized for the
+number of houses in the community.
+:return: float</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.get_homes">
+<span class="sig-name descname"><span class="pre">get_homes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.get_homes" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.join_data">
+<span class="sig-name descname"><span class="pre">join_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.join_data" title="Permalink to this definition">#</a></dt>
+<dd><p>Join the TOU, GHI, temp data into a single dataframe
+:return: pandas.DataFrame</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.my_summary">
+<span class="sig-name descname"><span class="pre">my_summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.my_summary" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.redis_add_all_data">
+<span class="sig-name descname"><span class="pre">redis_add_all_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.redis_add_all_data" title="Permalink to this definition">#</a></dt>
+<dd><p>Values for the timeseries data are written to Redis as a list, where the
+column names: [GHI, OAT, SPP] are the redis keys.  Each list is as long
+as the data in self.all_data, which is 8760 for default config file.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.redis_set_current_values">
+<span class="sig-name descname"><span class="pre">redis_set_current_values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.redis_set_current_values" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets the current values of the utility agent (reward price).
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.redis_set_initial_values">
+<span class="sig-name descname"><span class="pre">redis_set_initial_values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.redis_set_initial_values" title="Permalink to this definition">#</a></dt>
+<dd><p>Set the initial timestep, iteration, reward price, and horizon to redis
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.reset_collected_data">
+<span class="sig-name descname"><span class="pre">reset_collected_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.reset_collected_data" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.reset_seed">
+<span class="sig-name descname"><span class="pre">reset_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_seed</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.reset_seed" title="Permalink to this definition">#</a></dt>
+<dd><p>Reset value for seed.
+:param new_seed: int
+:return:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.run" title="Permalink to this definition">#</a></dt>
+<dd><p>Runs simulation(s) specified in the config file with all combinations of
+parameters specified in the config file.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.run_baseline">
+<span class="sig-name descname"><span class="pre">run_baseline</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.run_baseline" title="Permalink to this definition">#</a></dt>
+<dd><p>Runs the baseline simulation comprised of community of HEMS controlled homes.
+Utilizes MPC parameters specified in config file.
+(For no MPC in HEMS specify the MPC prediction horizon as 0.)
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.run_iteration">
+<span class="sig-name descname"><span class="pre">run_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.run_iteration" title="Permalink to this definition">#</a></dt>
+<dd><p>Calls the MPCCalc class to calculate the control sequence and power demand
+from all homes in the community. Threaded, using pathos
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.set_agg_mpc_initial_vals">
+<span class="sig-name descname"><span class="pre">set_agg_mpc_initial_vals</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.set_agg_mpc_initial_vals" title="Permalink to this definition">#</a></dt>
+<dd><p>Creates a dictionary to store values at each timestep for non-RL runs.
+:return: Dictionary</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.set_dummy_rl_parameters">
+<span class="sig-name descname"><span class="pre">set_dummy_rl_parameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.set_dummy_rl_parameters" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.set_run_dir">
+<span class="sig-name descname"><span class="pre">set_run_dir</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.set_run_dir" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets the run directoy based on the start/end datetime, community and home configs,
+and the named version.
+:return: none</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.setup_rl_agg_run">
+<span class="sig-name descname"><span class="pre">setup_rl_agg_run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.setup_rl_agg_run" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.summarize_baseline">
+<span class="sig-name descname"><span class="pre">summarize_baseline</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.summarize_baseline" title="Permalink to this definition">#</a></dt>
+<dd><p>Get the maximum of the aggregate demand for each simulation.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.write_home_configs">
+<span class="sig-name descname"><span class="pre">write_home_configs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.write_home_configs" title="Permalink to this definition">#</a></dt>
+<dd><p>Writes all home configurations to file at the initialization of the
+simulation for later reference.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.aggregator.Aggregator.write_outputs">
+<span class="sig-name descname"><span class="pre">write_outputs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.aggregator.Aggregator.write_outputs" title="Permalink to this definition">#</a></dt>
+<dd><p>Writes values for simulation run to a json file for later reference. Is
+called at the end of the simulation run period and optionally at a checkpoint period.
+:return: None</p>
+</dd></dl>
+
+</dd></dl>
+
+<span class="target" id="module-dragg.logger"></span><dl class="py class">
+<dt class="sig sig-object py" id="dragg.logger.Logger">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dragg.logger.</span></span><span class="sig-name descname"><span class="pre">Logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.logger.Logger" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A logger for simulation outputs</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dragg.logger.progress">
+<span class="sig-prename descclassname"><span class="pre">dragg.logger.</span></span><span class="sig-name descname"><span class="pre">progress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kws</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.logger.progress" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<span class="target" id="module-dragg.mpc_calc"></span><dl class="py class">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dragg.mpc_calc.</span></span><span class="sig-name descname"><span class="pre">MPCCalc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">home</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">redis_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'redis://localhost'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.add_base_constraints">
+<span class="sig-name descname"><span class="pre">add_base_constraints</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.add_base_constraints" title="Permalink to this definition">#</a></dt>
+<dd><p>Creates the system dynamics for thermal energy storage systems: HVAC and
+water heater.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.add_current_bounds">
+<span class="sig-name descname"><span class="pre">add_current_bounds</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.add_current_bounds" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.cast_redis_curr_rps">
+<span class="sig-name descname"><span class="pre">cast_redis_curr_rps</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.cast_redis_curr_rps" title="Permalink to this definition">#</a></dt>
+<dd><p>Casts the reward price signal values for the current timestep.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.cast_redis_timestep">
+<span class="sig-name descname"><span class="pre">cast_redis_timestep</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.cast_redis_timestep" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets the timestep of the current time with respect to total simulation time.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.cleanup_and_finish">
+<span class="sig-name descname"><span class="pre">cleanup_and_finish</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.cleanup_and_finish" title="Permalink to this definition">#</a></dt>
+<dd><p>Resolves .solve_mpc() with error handling and collects all data on solver.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.get_initial_conditions">
+<span class="sig-name descname"><span class="pre">get_initial_conditions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.get_initial_conditions" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.initialize_environmental_variables">
+<span class="sig-name descname"><span class="pre">initialize_environmental_variables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.initialize_environmental_variables" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.redis_get_initial_values">
+<span class="sig-name descname"><span class="pre">redis_get_initial_values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.redis_get_initial_values" title="Permalink to this definition">#</a></dt>
+<dd><p>Collects the values from the outside environment including GHI, OAT, and
+the base price set by the utility.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.redis_get_prev_optimal_vals">
+<span class="sig-name descname"><span class="pre">redis_get_prev_optimal_vals</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.redis_get_prev_optimal_vals" title="Permalink to this definition">#</a></dt>
+<dd><p>Collects starting point environmental values for all homes (such as current temperature).
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.redis_write_optimal_vals">
+<span class="sig-name descname"><span class="pre">redis_write_optimal_vals</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.redis_write_optimal_vals" title="Permalink to this definition">#</a></dt>
+<dd><p>Sends the optimal values for each home to the redis server.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.run_home">
+<span class="sig-name descname"><span class="pre">run_home</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.run_home" title="Permalink to this definition">#</a></dt>
+<dd><p>Intended for parallelization in parent class (e.g. aggregator); runs a
+single MPCCalc home.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.set_base_p_grid">
+<span class="sig-name descname"><span class="pre">set_base_p_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.set_base_p_grid" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets p_grid of home to equal the load of the HVAC and water heater. To
+be used if and only if home type is base.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.set_battery_only_p_grid">
+<span class="sig-name descname"><span class="pre">set_battery_only_p_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.set_battery_only_p_grid" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets p_grid of home to equal the load of the HVAC and water heater, plus
+or minus the charge/discharge of the battery. To be used if and only if
+home is of type battery_only.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.set_environmental_variables">
+<span class="sig-name descname"><span class="pre">set_environmental_variables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.set_environmental_variables" title="Permalink to this definition">#</a></dt>
+<dd><p>Slices cast values of the environmental values for the current timestep.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.set_p_grid">
+<span class="sig-name descname"><span class="pre">set_p_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.set_p_grid" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.set_pv_battery_p_grid">
+<span class="sig-name descname"><span class="pre">set_pv_battery_p_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.set_pv_battery_p_grid" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets p_grid of home equal to the load of the HVAC and water heater, plus
+or minus the charge/discharge of the battery, minus potential generation
+from the PV subsystem. To be used if and only if the home is of type pv_battery.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.set_pv_only_p_grid">
+<span class="sig-name descname"><span class="pre">set_pv_only_p_grid</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.set_pv_only_p_grid" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets p_grid of home equal to the load of the HVAC and water heater minus
+potential generation from the PV subsystem. To be used if and only if the
+home is of type pv_only.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.setup_base_problem">
+<span class="sig-name descname"><span class="pre">setup_base_problem</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.setup_base_problem" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets variable objects for CVX optimization problem. Includes “base home”
+systems of HVAC and water heater.
+:return: None</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.solve_mpc">
+<span class="sig-name descname"><span class="pre">solve_mpc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">debug</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.solve_mpc" title="Permalink to this definition">#</a></dt>
+<dd><p>Sets the objective function of the Home Energy Management System to be the
+minimization of cost over the MPC time horizon and solves via CVXPY.
+Used for all home types.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.mpc_calc.MPCCalc.solve_type_problem">
+<span class="sig-name descname"><span class="pre">solve_type_problem</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.MPCCalc.solve_type_problem" title="Permalink to this definition">#</a></dt>
+<dd><p>Selects routine for MPC optimization problem setup and solve using home type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="dragg.mpc_calc.manage_home">
+<span class="sig-prename descclassname"><span class="pre">dragg.mpc_calc.</span></span><span class="sig-name descname"><span class="pre">manage_home</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">home</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.mpc_calc.manage_home" title="Permalink to this definition">#</a></dt>
+<dd><p>Calls class method as a top level function (picklizable by pathos)
+:return: None</p>
+</dd></dl>
+
+<span class="target" id="module-dragg.reformat"></span><dl class="py class">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">dragg.reformat.</span></span><span class="sig-name descname"><span class="pre">Reformat</span></span><a class="headerlink" href="#dragg.reformat.Reformat" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.add_date_ranges">
+<span class="sig-name descname"><span class="pre">add_date_ranges</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.add_date_ranges" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.add_mpc_params">
+<span class="sig-name descname"><span class="pre">add_mpc_params</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.add_mpc_params" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.all_rps">
+<span class="sig-name descname"><span class="pre">all_rps</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.all_rps" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.get_type_list">
+<span class="sig-name descname"><span class="pre">get_type_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.get_type_list" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.main">
+<span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.main" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_all">
+<span class="sig-name descname"><span class="pre">plot_all</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">save_images</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_all" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_all_homes">
+<span class="sig-name descname"><span class="pre">plot_all_homes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_all_homes" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_base_home">
+<span class="sig-name descname"><span class="pre">plot_base_home</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">summary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_price</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_base_home" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_baseline">
+<span class="sig-name descname"><span class="pre">plot_baseline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_baseline" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_battery">
+<span class="sig-name descname"><span class="pre">plot_battery</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_battery" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_environmental_values">
+<span class="sig-name descname"><span class="pre">plot_environmental_values</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">summary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_environmental_values" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_ev">
+<span class="sig-name descname"><span class="pre">plot_ev</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_ev" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_max_and_12hravg">
+<span class="sig-name descname"><span class="pre">plot_max_and_12hravg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_max_and_12hravg" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_parametric">
+<span class="sig-name descname"><span class="pre">plot_parametric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_parametric" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_pv">
+<span class="sig-name descname"><span class="pre">plot_pv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_pv" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_single_home">
+<span class="sig-name descname"><span class="pre">plot_single_home</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_single_home" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_thermal_bounds">
+<span class="sig-name descname"><span class="pre">plot_thermal_bounds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_lims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fname</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_thermal_bounds" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.plot_typ_day">
+<span class="sig-name descname"><span class="pre">plot_typ_day</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.plot_typ_day" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.rl2baseline">
+<span class="sig-name descname"><span class="pre">rl2baseline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fig</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.rl2baseline" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.save_images">
+<span class="sig-name descname"><span class="pre">save_images</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.save_images" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.set_date_folders">
+<span class="sig-name descname"><span class="pre">set_date_folders</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.set_date_folders" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.set_files">
+<span class="sig-name descname"><span class="pre">set_files</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.set_files" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="dragg.reformat.Reformat.set_mpc_folders">
+<span class="sig-name descname"><span class="pre">set_mpc_folders</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#dragg.reformat.Reformat.set_mpc_folders" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+            </article>
+            
+            
+            
+            <footer class="bd-footer-article">
+                <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+  <a class='left-prev' id="prev-link" href="getting_started.html" title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+          <p class="prev-next-subtitle">previous</p>
+          <p class="prev-next-title">Getting Started</p>
+      </div>
+  </a>
+  <a class='right-next' id="next-link" href="dragg.devices.html" title="next page">
+  <div class="prev-next-info">
+      <p class="prev-next-subtitle">next</p>
+      <p class="prev-next-title">dragg.devices package</p>
+  </div>
+  <i class="fa-solid fa-angle-right"></i>
+  </a>
+</div>
+            </footer>
+            
+          </div>
+          
+          
+          
+            <div class="bd-sidebar-secondary bd-toc">
+              
+<div class="toc-item">
+  
+<div class="tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+</div>
+<nav id="bd-toc-nav" class="page-toc">
+    <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator">
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     Aggregator
+    </span>
+   </code>
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.calc_start_hour_index">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.calc_start_hour_index()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.check_all_data_indices">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.check_all_data_indices()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.check_baseline_vals">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.check_baseline_vals()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.collect_data">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.collect_data()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.create_homes">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.create_homes()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.create_mpc_home_obj">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.create_mpc_home_obj()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.flush_redis">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.flush_redis()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.gen_setpoint">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.gen_setpoint()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.get_homes">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.get_homes()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.join_data">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.join_data()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.my_summary">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.my_summary()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.redis_add_all_data">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.redis_add_all_data()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.redis_set_current_values">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.redis_set_current_values()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.redis_set_initial_values">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.redis_set_initial_values()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.reset_collected_data">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.reset_collected_data()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.reset_seed">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.reset_seed()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.run">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.run()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.run_baseline">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.run_baseline()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.run_iteration">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.run_iteration()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.set_agg_mpc_initial_vals">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.set_agg_mpc_initial_vals()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.set_dummy_rl_parameters">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.set_dummy_rl_parameters()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.set_run_dir">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.set_run_dir()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.setup_rl_agg_run">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.setup_rl_agg_run()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.summarize_baseline">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.summarize_baseline()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.write_home_configs">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.write_home_configs()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.aggregator.Aggregator.write_outputs">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Aggregator.write_outputs()
+      </span>
+     </code>
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#dragg.logger.Logger">
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     Logger
+    </span>
+   </code>
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#dragg.logger.progress">
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     progress()
+    </span>
+   </code>
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc">
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     MPCCalc
+    </span>
+   </code>
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.add_base_constraints">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.add_base_constraints()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.add_current_bounds">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.add_current_bounds()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.cast_redis_curr_rps">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.cast_redis_curr_rps()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.cast_redis_timestep">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.cast_redis_timestep()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.cleanup_and_finish">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.cleanup_and_finish()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.get_initial_conditions">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.get_initial_conditions()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.initialize_environmental_variables">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.initialize_environmental_variables()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.redis_get_initial_values">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.redis_get_initial_values()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.redis_get_prev_optimal_vals">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.redis_get_prev_optimal_vals()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.redis_write_optimal_vals">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.redis_write_optimal_vals()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.run_home">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.run_home()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.set_base_p_grid">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.set_base_p_grid()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.set_battery_only_p_grid">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.set_battery_only_p_grid()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.set_environmental_variables">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.set_environmental_variables()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.set_p_grid">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.set_p_grid()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.set_pv_battery_p_grid">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.set_pv_battery_p_grid()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.set_pv_only_p_grid">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.set_pv_only_p_grid()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.setup_base_problem">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.setup_base_problem()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.solve_mpc">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.solve_mpc()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.mpc_calc.MPCCalc.solve_type_problem">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       MPCCalc.solve_type_problem()
+      </span>
+     </code>
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#dragg.mpc_calc.manage_home">
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     manage_home()
+    </span>
+   </code>
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#dragg.reformat.Reformat">
+   <code class="docutils literal notranslate">
+    <span class="pre">
+     Reformat
+    </span>
+   </code>
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.add_date_ranges">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.add_date_ranges()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.add_mpc_params">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.add_mpc_params()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.all_rps">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.all_rps()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.get_type_list">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.get_type_list()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.main">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.main()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_all">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_all()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_all_homes">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_all_homes()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_base_home">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_base_home()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_baseline">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_baseline()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_battery">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_battery()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_environmental_values">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_environmental_values()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_ev">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_ev()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_max_and_12hravg">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_max_and_12hravg()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_parametric">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_parametric()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_pv">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_pv()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_single_home">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_single_home()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_thermal_bounds">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_thermal_bounds()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.plot_typ_day">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.plot_typ_day()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.rl2baseline">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.rl2baseline()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.save_images">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.save_images()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.set_date_folders">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.set_date_folders()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.set_files">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.set_files()
+      </span>
+     </code>
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#dragg.reformat.Reformat.set_mpc_folders">
+     <code class="docutils literal notranslate">
+      <span class="pre">
+       Reformat.set_mpc_folders()
+      </span>
+     </code>
+    </a>
+   </li>
+  </ul>
+ </li>
+</ul>
+
+</nav>
+</div>
+
+<div class="toc-item">
+  
+<div id="searchbox"></div>
+</div>
+
+<div class="toc-item">
+  
+</div>
+
+<div class="toc-item">
+  
+<div class="tocsection sourcelink">
+    <a href="_sources/dragg.rst.txt">
+        <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+</div>
+
+</div>
+
+            </div>
+          
+          
+        </div>
+        <footer class="bd-footer-content">
+          <div class="bd-footer-content__inner">
+            
+          </div>
+        </footer>
+        
+      </main>
+    </div>
+  </div>
+
+  
+    
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/pydata-sphinx-theme.js?digest=1e1de1a1873e13ef5536"></script>
+
+  <footer class="bd-footer"><div class="bd-footer__inner container">
+  
+  <div class="footer-item">
+    
+<p class="copyright">
+
+    &copy; Copyright 2022, Aisling Pigott.<br>
+
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+<p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.2.2.<br>
+</p>
+
+  </div>
+  
+</div>
+  </footer>
+  </body>
+</html>

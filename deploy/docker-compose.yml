@@ -1,0 +1,15 @@
+version: '3'
+services:
+  dragg:
+    build:
+      context: ../
+      dockerfile: ./deploy/Dockerfile
+    environment:
+    - REDIS_HOST=redis
+    - localhost=6397
+    depends_on:
+      - redis
+    volumes:
+      - ./outputs:/dragg/outputs
+  redis:
+    image: redis

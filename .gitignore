@@ -6,6 +6,7 @@ archive
 *.log
 ~$*.xlsx
 dragg/dump.rdb
+*home_logs
 dragg/outputs
 dragg.egg-info
 *.log
