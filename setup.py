@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(name='dragg',
       license='MIT',
-      version='2.3.3',
+      version='2.4.0',
       author='Aisling Pigott and Cory Mosiman',
       author_email='aisling.pigott@colorado.edu',
       packages=find_packages(),

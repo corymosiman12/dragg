@@ -165,16 +165,23 @@ class HVAC:
         self.obj = cp.Variable(1)
         if self.hems.temp_in_init.value > t_sp:
             cons = [
-                self.obj == t_sp - self.temp_in,
-                self.cool_on == 0
-            ]
+                self.obj == self.temp_in - t_sp,
+                self.obj >= -1            ]
         else:
             cons = [
-                self.obj == self.temp_in - t_sp,
-                self.heat_on == 0
+                self.obj == t_sp - self.temp_in,
+                self.obj >= -1
             ]
+
+        if self.hems.oat_current.value[0] <= self.t_in_min_current.value[0]:
+            cons += [self.cool_on == 0]
+
+        elif self.hems.oat_current.value[0] >= self.t_in_max_current.value[0]:
+            cons += [self.heat_on == 0]
+
         prob = cp.Problem(cp.Minimize(self.obj), cons + self.add_constraints())
         prob.solve(solver=self.hems.solver)
+        print(prob.status, self.obj.value)
         if not prob.status == 'optimal':
             self.resolve()
 

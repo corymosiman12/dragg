@@ -35,7 +35,7 @@ class EV:
         # track these values 
         self.opt_keys = {'p_ev_ch', 'p_ev_disch', 'p_v2g', 'e_ev_opt', 'returning_horizon', 'leaving_horizon'}
 
-    def add_constraints(self, enforce_bounds=True):
+    def add_constraints(self, enforce_bounds=True, zero_v2g=True):
         """
         Creates constraints that make the battery act as an EV with charge/discharge constraints
         based on occupancy and travel distance.
@@ -56,7 +56,6 @@ class EV:
         cons = [
             self.p_v2g <= 0,
             self.p_v2g >= self.v2g_max,
-            self.p_v2g == 0,
             self.e_ev[1:] == self.e_ev[:-1]
                                         + (self.ev_ch_eff * self.p_ev_ch
                                         + self.p_ev_disch / self.ev_disch_eff
@@ -68,6 +67,9 @@ class EV:
             self.e_ev <= self.ev_cap_total,
             self.p_elec == self.p_ev_ch - self.p_v2g,
         ]
+
+        if zero_v2g:
+            cons += [self.p_v2g==0]
 
         if enforce_bounds:
             cons += [
@@ -93,14 +95,24 @@ class EV:
     def override_charge(self, cmd):
         self.obj = cp.Variable(1)
         if cmd >= 0:
-            cons = [self.obj == cmd * self.ev_max_rate - self.p_ev_ch]
+            cons = [
+                    self.obj == cmd * self.ev_max_rate - self.p_ev_ch[0], 
+                    self.obj >= 0, 
+                    self.p_v2g[0] == 0
+                ]
+            obj_m = cp.Minimize(self.obj)
         else:
-            cons = [self.obj == cmd * self.ev_max_rate - self.p_v2g]
+            cons = [
+                    self.obj == cmd * self.ev_max_rate - self.p_v2g[0], 
+                    self.p_v2g[0] >= cmd * self.ev_max_rate,
+                    self.p_ev_ch[0] == 0]
+            obj_m = cp.Maximize(self.obj)
 
-        prob = cp.Problem(cp.Minimize(self.obj), cons + self.add_constraints())
+        prob = cp.Problem(obj_m, cons + self.add_constraints(enforce_bounds=False, zero_v2g=False))
         prob.solve(solver=self.hems.solver)
 
         if not prob.status == 'optimal':
             self.resolve()
+
         return cons
 
